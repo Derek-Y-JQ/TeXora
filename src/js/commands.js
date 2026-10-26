@@ -130,7 +130,7 @@ export function createCommands() {
   register({ id: 'ai.assistant', title: '打开 AI 助手', group: 'AI', icon: 'sparkles', keys: 'Ctrl+Shift+A', run: () => ctx.ai.openAssistant() });
   register({ id: 'ai.blockAction', title: '对当前块执行 AI 操作', group: 'AI', icon: 'sparkles', hidden: true, run: (opts) => ctx.ai.runBlockAction(opts) });
   register({ id: 'ai.selectionAction', title: '对选中内容执行 AI 操作', group: 'AI', icon: 'sparkles', hidden: true, run: (opts) => ctx.ai.runSelectionAction(opts) });
-  register({ id: 'ai.custom', title: '自定义 AI 指令（块）', group: 'AI', icon: 'sparkles', hidden: true, run: () => ctx.ai.runCustom({ target: 'block' }) });
+  register({ id: 'ai.custom', title: '自定义 AI 指令（块）', group: 'AI', icon: 'sparkles', hidden: true, run: (opts) => ctx.ai.runCustom({ target: 'block', block: opts?.block }) });
   register({ id: 'ai.customSelection', title: '自定义 AI 指令（选区）', group: 'AI', icon: 'sparkles', hidden: true, run: () => ctx.ai.runCustom({ target: 'selection' }) });
   register({ id: 'ai.explain', title: 'AI 解释选中内容', group: 'AI', icon: 'message', run: () => ctx.ai.explainSelection() });
   register({ id: 'ai.polish', title: 'AI 润色当前段落', group: 'AI', icon: 'wand', run: () => ctx.ai.polishParagraph() });
