@@ -1122,6 +1122,7 @@ export class EditorController {
     const monacoHost = host.querySelector('#monaco');
 
     this.editor = monaco.editor.create(monacoHost, this.editorOptions());
+    this.syncWrapClass();
     try { window.__monaco = monaco; } catch {}
     monaco.editor.setTheme(this.themeName());
     this.decorations = this.editor.createDecorationsCollection([]);
@@ -1221,7 +1222,7 @@ export class EditorController {
       lineNumbersMinChars: 3,
       minimap: { enabled: !!ed.minimap, renderCharacters: false, maxColumn: 70 },
       wordWrap: ed.wordWrap ? 'on' : 'off',
-      wordWrapBreakAfterCharacters: ' \\t})]?|/&.,;¢°′″‰℃、。｡､￠，．：；？！％・･ゝゞヽヾーァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿ々〻ｧｨｩｪｫｬｭｮｯｰ”〉》」』】〕）］｝｣\\$',
+      wordWrapBreakAfterCharacters: ' \\t})]?|/&.,;¢°′″‰℃、。｡､￠，．：；？！％・･ゝゞヽヾーァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿ々〻ｧｨｩｪｫｬｭｮｯｰ”〉》」』】〕）］｝｣\\$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
       scrollBeyondLastColumn: ed.wordWrap ? 0 : 5,
       renderWhitespace: 'selection',
       renderControlCharacters: false,
@@ -1302,10 +1303,16 @@ export class EditorController {
   applySettings() {
     if (!this.editor) return;
     this.editor.updateOptions(this.editorOptions());
+    this.syncWrapClass();
     this.applyTheme();
     this.setProblems(ctx.state.problems || []);
     this.refreshMathZones();
     this.updateBlocks();
+  }
+
+  syncWrapClass() {
+    const host = document.getElementById('monaco');
+    if (host) host.classList.toggle('wrap-on', !!ctx.state.settings?.editor?.wordWrap);
   }
 
   /* ------------------------------------------------------------- documents */
@@ -1333,7 +1340,8 @@ export class EditorController {
     this.editor.setModel(doc.model);
     this.lastCursor = { line: 1, col: 1 };
     if (viewState) this.editor.restoreViewState(viewState);
-    this.editor.updateOptions({ readOnly: false });
+    this.editor.updateOptions(this.editorOptions());
+    this.syncWrapClass();
     this.refreshMathZones();
   }
 
@@ -1782,7 +1790,15 @@ export class EditorController {
       btn.onclick = (e) => {
         e.stopPropagation();
         const actionId = btn.dataset.action;
-        ctx.cmd(actionId === 'custom' ? 'ai.custom' : 'ai.blockAction', { actionId, block: targetBlock });
+        let text = targetBlock.text || '';
+        try {
+          const last = this.model.getLineMaxColumn(targetBlock.endLine);
+          text = this.model.getValueInRange(new monaco.Range(targetBlock.startLine, 1, targetBlock.endLine, last));
+        } catch {}
+        ctx.cmd(actionId === 'custom' ? 'ai.custom' : 'ai.blockAction', {
+          actionId,
+          block: { ...targetBlock, text }
+        });
       };
     }
     this.positionAiBar(block);
