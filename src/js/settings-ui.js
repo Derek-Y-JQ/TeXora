@@ -631,6 +631,7 @@ export function createSettingsUI() {
         scrollBeyondLastColumn: value ? 0 : 5,
         scrollbar: { horizontal: value ? 'hidden' : 'auto' }
       });
+      ctx.editor?.syncWrapClass();
     } else if (path.startsWith('editor.')) {
       ctx.editor?.applySettings();
     }
