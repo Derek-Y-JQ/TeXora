@@ -258,6 +258,7 @@ class Compiler {
     const rootFile = this.resolveRootFile(options.file);
     if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, error: '未找到主文档（含 \\documentclass 的 .tex 文件）' };
     const engine = options.engine || this.store.get('build.engine', 'xelatex');
+    this._preCache = null;
     const cache = await this.resolveCacheDir();
     await fsp.mkdir(cache, { recursive: true });
     const previewDir = path.join(cache, 'preview');
@@ -765,14 +766,16 @@ class Compiler {
   /** Extract a portable preamble from the root document for snippet builds. */
   async extractPreamble() {
     const rootFile = this.project.rootFile;
-    if (!rootFile) return { preamble: '', engine: this.store.get('build.engine', 'xelatex'), packages: [] };
+    if (!rootFile) return { preamble: '', safePreamble: '', engine: this.store.get('build.engine', 'xelatex'), packages: [], usesCJK: false };
+    const now = Date.now();
+    if (this._preCache && this._preCache.root === rootFile && now - this._preCache.at < 4000) return this._preCache.value;
     const text = await fsp.readFile(rootFile, 'utf8').catch(() => '');
     const beginIdx = text.indexOf('\\begin{document}');
-    let pre = beginIdx > 0 ? text.slice(0, beginIdx) : text.slice(0, 4000);
+    let pre = beginIdx > 0 ? text.slice(0, beginIdx) : text.slice(0, 6000);
     const rootDir = path.dirname(rootFile);
     const seenInputs = new Set();
     const expandInputs = async (source, depth = 0) => {
-      if (depth > 3) return source;
+      if (depth > 4) return source;
       const re = /\\(?:input|include)\{([^}]+)\}/g;
       let out = '';
       let last = 0;
@@ -782,10 +785,7 @@ class Compiler {
         let rel = m[1].trim();
         if (!/\.tex$/i.test(rel)) rel += '.tex';
         const full = path.resolve(rootDir, rel);
-        if (seenInputs.has(full)) {
-          last = re.lastIndex;
-          continue;
-        }
+        if (seenInputs.has(full)) { last = re.lastIndex; continue; }
         seenInputs.add(full);
         const body = await fsp.readFile(full, 'utf8').catch(() => '');
         out += body ? await expandInputs(body, depth + 1) : m[0];
@@ -795,24 +795,79 @@ class Compiler {
       return out;
     };
     pre = await expandInputs(pre);
-    const keep = /^\s*\\(usepackage|RequirePackage|usetikzlibrary|newcommand|renewcommand|providecommand|DeclareMathOperator|def|definecolor|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand|linespread|graphicspath|newtheorem|tikzset|pgfplotsset|newcolumntype|colorlet)\b/;
-    const lines = pre
-      .split(/\r?\n/)
-      .filter((l) => keep.test(l))
-      .filter((l) => !/\\(usepackage\s*(\[[^\]]*\])?\{\s*(geometry|hyperref|ctex|xeCJK|fontspec|CJKutf8|luatexja)\s*\}|geometry\s*\{|hypersetup\s*\{)/.test(l))
-      .filter((l) => !/^\s*\\(setCJKmainfont|setCJKsansfont|setCJKmonofont|setCJKfamilyfont|setmainfont|setsansfont|setmonofont|setmathfont|newfontfamily|fontsize|selectfont|defaultfontfeatures|setmathrm|setmathsf|setmathtt)\b/.test(l))
-      // Skip incomplete multi-line definitions and internal (\makeatletter) macros.
-      .filter((l) => (l.match(/{/g) || []).length === (l.match(/}/g) || []).length)
-      .filter((l) => !/^\s*\\def\\.*@/.test(l));
-    const safeLines = lines.filter((l) => !/^\s*\\(?:def|newtheorem)\b/.test(l) && !/^\s*\\renewcommand\s*\{\\the/.test(l));
+
+    const braceBalance = (line) => {
+      const plain = String(line).replace(/\\[{}]/g, '');
+      return (plain.match(/{/g) || []).length - (plain.match(/}/g) || []).length;
+    };
+    const collect = (source, test) => {
+      const src = String(source).split(/\r?\n/);
+      const out = [];
+      for (let i = 0; i < src.length; i++) {
+        if (!test.test(src[i])) continue;
+        const block = [src[i]];
+        let balance = braceBalance(src[i]);
+        while (balance > 0 && i + 1 < src.length && block.length < 60) {
+          i++;
+          block.push(src[i]);
+          balance += braceBalance(src[i]);
+        }
+        if (balance === 0) out.push(...block);
+      }
+      return out;
+    };
+
+    const defRe = /^\s*\\(newcommand|renewcommand|providecommand|DeclareMathOperator|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand|definecolor|colorlet|tikzset|pgfplotsset|newcolumntype|newenvironment|newtheorem)\b/;
+    const pkgRe = /^\s*\\(usepackage|RequirePackage|usetikzlibrary|usepgfplotslibrary|graphicspath|linespread|setlength|setcounter|captionsetup|sisetup|lstset)\b/;
+    const mainDefs = collect(pre, defRe);
+    let pkgs = collect(pre, pkgRe);
+    pkgs = pkgs.filter((l) => !/^\s*\\(usepackage\s*(\[[^\]]*\])?\{\s*(geometry|hyperref|ctex|xeCJK|fontspec|CJKutf8|luatexja)\s*\}|geometry\s*\{|hypersetup\s*\{)/.test(l));
+    pkgs = pkgs.filter((l) => !/^\s*\\(setCJKmainfont|setCJKsansfont|setCJKmonofont|setCJKfamilyfont|setmainfont|setsansfont|setmonofont|setmathfont|newfontfamily|fontsize|selectfont|defaultfontfeatures|setmathrm|setmathsf|setmathtt)\b/.test(l));
+    const rawDefs = collect(pre, /^\s*\\def\b/).filter((l) => !/@/.test(l));
+
+    const styleDefs = [];
+    const localNames = new Set();
+    const seenStyles = new Set();
+    const walkStyles = async (dir, depth) => {
+      if (depth > 2) return;
+      let entries = [];
+      try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (['node_modules', '.git', '.latex_cache', '.texpadtmp', 'dist', 'release', '.capture', '.tmp'].includes(entry.name)) continue;
+          await walkStyles(full, depth + 1);
+          continue;
+        }
+        if (!/\.(sty|cls)$/i.test(entry.name) || seenStyles.has(full)) continue;
+        seenStyles.add(full);
+        localNames.add(entry.name.replace(/\.(sty|cls)$/i, '').toLowerCase());
+        const body = await fsp.readFile(full, 'utf8').catch(() => '');
+        styleDefs.push(...collect(body, defRe));
+      }
+    };
+    await walkStyles(this.root, 0);
+
+    const safeMainDefs = mainDefs.filter((l) => !/^\s*\\newtheorem\b/.test(l) && !/^\s*\\renewcommand\s*\{\\the/.test(l));
+    const safePkgs = pkgs.filter((l) => {
+      const m = l.match(/\\usepackage\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
+      if (!m) return true;
+      return !m[1].split(',').some((name) => localNames.has(name.trim().toLowerCase()));
+    });
+
+    const fullLines = [...pkgs, ...mainDefs, ...rawDefs].filter(Boolean);
+    const safeLines = [...safePkgs, ...safeMainDefs, ...rawDefs, ...styleDefs].filter(Boolean);
+    const preamble = fullLines.join('\n').trim();
     const safePreamble = safeLines.join('\n').trim();
     const packages = [];
-    for (const l of lines) {
+    for (const l of pkgs) {
       const m = l.match(/\\usepackage\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
-      if (m) m[1].split(',').forEach((p) => packages.push(p.trim()));
+      if (m) m[1].split(',').forEach((p) => { if (p.trim() && !packages.includes(p.trim())) packages.push(p.trim()); });
     }
     const usesCJK = /ctexart|ctex|xeCJK|CJKutf8|luatexja/.test(pre);
-    return { preamble: lines.join('\n'), safePreamble, engine: usesCJK ? 'xelatex' : this.store.get('build.engine', 'xelatex'), packages, usesCJK };
+    const value = { preamble, safePreamble, engine: usesCJK ? 'xelatex' : this.store.get('build.engine', 'xelatex'), packages, usesCJK, rootDir };
+    this._preCache = { root: rootFile, at: Date.now(), value };
+    return value;
   }
 
   /** Compile an isolated snippet and rasterize it (math / tikz / table previews). */
@@ -835,9 +890,12 @@ class Compiler {
     const hasCJK = /[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff]/.test(body);
     const docClass = hasCJK ? '\\documentclass[border=2pt]{standalone}\n\\usepackage{ctex}\n' : '\\documentclass[border=2pt]{standalone}\n';
     const tikzPkg = kind === 'tikz' || /\\usetikzlibrary/.test(preamble) ? '\\usepackage{tikz}\n' : '';
-    const base = '\\usepackage{amsmath,amssymb,mathtools}\n\\usepackage{xcolor}\n' + tikzPkg;
+    const base = '\\usepackage{amsmath,amssymb,mathtools}\n\\usepackage{xcolor}\n\\usepackage{graphicx}\n\\usepackage{array}\n' + tikzPkg;
     const build = (pre) => {
-      const head = docClass + base + (kind === 'table' ? '\\usepackage{booktabs}\n\\usepackage{array}\n' : '');
+      const docDir = path.dirname(this.project.rootFile || '').replace(/\\/g, '/');
+      const projectDir = String(this.root || '').replace(/\\/g, '/');
+      const graphics = '\\graphicspath{{' + docDir + '/}{' + projectDir + '/}}\n';
+      const head = docClass + base + graphics + (kind === 'table' ? '\\usepackage{booktabs}\n\\usepackage{array}\n' : '');
       let bodyBlock;
       if (kind === 'math') bodyBlock = `\\ensuremath{${displayMode ? '\\displaystyle ' : ''}${body}}`;
       else if (kind === 'displayblock') bodyBlock = `\\[\n${body}\n\\]`;
@@ -853,8 +911,11 @@ class Compiler {
     const compileSnippet = async (source, first = false) => {
       await fsp.writeFile(texFile, source, 'utf8');
       try { await fsp.rm(pdf, { force: true }); } catch {}
+      const snippetEnv = { ...this.tex.env };
+      const inherited = snippetEnv.TEXINPUTS ? String(snippetEnv.TEXINPUTS).split(path.delimiter) : [];
+      snippetEnv.TEXINPUTS = [path.dirname(this.project.rootFile || ''), this.root, ...inherited, ''].filter((v, i, a) => v !== undefined && a.indexOf(v) === i).join(path.delimiter);
       const res = await run(exe, ['-interaction=nonstopmode', '-halt-on-error', '-output-directory=' + workDir, 'snippet.tex'], {
-        cwd: workDir, env: this.tex.env, timeout: 60000
+        cwd: workDir, env: snippetEnv, timeout: kind === 'tikz' ? 120000 : 60000
       });
       const ok = fs.existsSync(pdf);
       if (!ok && first) {
