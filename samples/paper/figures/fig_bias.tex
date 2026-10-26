@@ -1,0 +1,35 @@
+% Joint vs stop-gradient: y0 bias against the learning step h and against
+% the training budget (Bermudan put, K = 4, strike 100).  data/a2_*.dat
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.9cm},
+                  paper, width=6.9cm, height=5.1cm]
+\nextgroupplot[
+  title={(a) Bias against the learning step},
+  xmode=log, ymode=log, log basis x=2,
+  xlabel={learning step $h=T/N$}, ylabel={$(y_0-V_0)/V_0$ \ [\%]},
+  xmin=0.008, xmax=0.11, ymin=0.002, ymax=20,
+  xtick={0.0104167,0.0208333,0.0416667,0.0833333},
+  xticklabels={$\tfrac1{96}$,$\tfrac1{48}$,$\tfrac1{24}$,$\tfrac1{12}$},
+  ytick={0.01,0.1,1,10}, yticklabels={$0.01$,$0.1$,$1$,$10$},
+  legend pos=south east]
+\addplot[sGuide, domain=0.0095:0.1] {78.69*x};
+\addplot[sJoint] table[x=h, y=joint_bias] {data/a2_nscan.dat};
+\addplot[sStop]  table[x=h, y=stopgrad_bias] {data/a2_nscan.dat};
+\node[font=\scriptsize, text=cInk!70, rotate=33] at (axis cs:0.017,2.2) {slope $1$};
+\legend{,joint, stop-gradient}
+
+\nextgroupplot[
+  title={(b) Bias against the training budget},
+  xmode=log, log basis x=2,
+  xlabel={parameter updates}, ylabel={$(y_0-V_0)/V_0$ \ [\%]},
+  xmin=800, xmax=10000, ymin=-0.6, ymax=4.4,
+  xtick={1000,2000,4000,8000}, xticklabels={$1000$,$2000$,$4000$,$8000$},
+  ytick={0,1,2,3,4},
+  legend style={at={(0.97,0.58)}, anchor=east}]
+\addplot[draw=none, fill=cBand, forget plot] coordinates {(800,-0.15) (10000,-0.15) (10000,0.15) (800,0.15)} \closedcycle;
+\addplot[sJoint] table[x=steps, y=joint_bias] {data/a2_steps.dat};
+\addplot[sStop]  table[x=steps, y=stopgrad_bias] {data/a2_steps.dat};
+\draw[cInk!40, line width=0.5pt] (axis cs:800,0) -- (axis cs:10000,0);
+\legend{joint, stop-gradient}
+\end{groupplot}
+\end{tikzpicture}

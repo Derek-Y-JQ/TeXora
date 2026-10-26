@@ -1,0 +1,22 @@
+\section{数值格式}
+\label{sec:method}
+
+设 $\{\phi_k\}_{k=0}^{N}$ 为 Legendre 基函数，将解展开为
+\[
+  u_N(x,t) = \sum_{k=0}^{N} \hat{u}_k(t)\,\phi_k(x).
+\]
+代入问题 \eqref{eq:model} 并取 Galerkin 投影，得到半离散系统
+\begin{align}
+  \mathbf{M}\frac{\mathrm{d}\hat{\mathbf{u}}}{\mathrm{d}t} + \varepsilon \mathbf{K}\hat{\mathbf{u}} + \mathbf{C}\hat{\mathbf{u}} &= \mathbf{f}(t), \label{eq:semidiscrete}\\
+  \hat{\mathbf{u}}(0) &= \hat{\mathbf{u}}_0, \label{eq:ic}
+\end{align}
+其中 $\mathbf{M}$、$\mathbf{K}$、$\mathbf{C}$ 分别为质量矩阵、刚度矩阵与对流矩阵。
+
+\begin{proposition}
+\label{prop:stable}
+半离散系统 \eqref{eq:semidiscrete} 在能量范数下是稳定的。
+\end{proposition}
+
+\begin{proof}
+由 $\mathbf{M}$ 的对称正定性与 $\mathbf{K}$ 的强制性，取测试函数 $v=\hat{\mathbf{u}}$ 可得能量估计。
+\end{proof}

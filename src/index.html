@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' app: asset:; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' asset: data:; connect-src 'self' asset:; worker-src 'self' blob:;"
+    />
+    <title>TeXora</title>
+    <link rel="stylesheet" href="./styles/theme.css" />
+    <link rel="stylesheet" href="./styles/layout.css" />
+    <link rel="stylesheet" href="./styles/widgets.css" />
+  </head>
+  <body>
+    <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <symbol id="i-files" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h3l2 2h6A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+        <symbol id="i-outline" viewBox="0 0 24 24"><path d="M4 6h10M4 12h13M4 18h8"/><path d="M18 15v6M15 18h6" opacity=".55"/></symbol>
+        <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 5.5V4H6.5L12.5 12 6.5 20H18v-1.5"/></symbol>
+        <symbol id="i-tags" viewBox="0 0 24 24"><path d="M20.6 13.2 12.8 21a2 2 0 0 1-2.8 0l-7-7a2 2 0 0 1-.6-1.5l.4-6.3A2 2 0 0 1 4.8 4.4L11 4l6.9 6.9a2 2 0 0 1 0 2.8Z" transform="translate(1.5 0) scale(.92)"/><circle cx="8.6" cy="8.6" r="1.4"/></symbol>
+        <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V9H8"/><path d="M12 8v4.5l3 1.8"/></symbol>
+        <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="9" r="2.2"/><path d="M6 8.2v7.6M8.2 6h5.3A2 2 0 0 1 15.5 8v.8"/></symbol>
+        <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.5 3.5 13 8l4.5 1.5L13 11l-1.5 4.5L10 11 5.5 9.5 10 8Z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9Z"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a7 7 0 0 0 10.7 10.7Z"/></symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h6M14 7h6M4 12h10M18 12h2M4 17h3M11 17h9"/><circle cx="12" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+        <symbol id="i-minimize" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+        <symbol id="i-maximize" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5"/></symbol>
+        <symbol id="i-restore" viewBox="0 0 24 24"><rect x="4.5" y="7.5" width="10" height="10" rx="1.5"/><path d="M7.5 7.5v-1a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1"/></symbol>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></symbol>
+        <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+        <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-broom" viewBox="0 0 24 24"><path d="M14.5 3.5 9 9M7 12l3 3M4.5 20.5c1.2-4 3-6.5 5.5-8l4 4c-2 2-4.5 3.2-9.5 4Z"/><path d="m10 9 5 5 4-4-5-5z"/></symbol>
+        <symbol id="i-bold" viewBox="0 0 24 24"><path d="M7 4.5h6a3.75 3.75 0 0 1 0 7.5H7zM7 12h6.6a3.75 3.75 0 0 1 0 7.5H7z"/></symbol>
+        <symbol id="i-italic" viewBox="0 0 24 24"><path d="M15.5 4.5h4M4.5 19.5h4M14 4.5 10 19.5"/></symbol>
+        <symbol id="i-underline" viewBox="0 0 24 24"><path d="M7 4.5v6a5 5 0 0 0 10 0v-6M5 20h14"/></symbol>
+        <symbol id="i-strike" viewBox="0 0 24 24"><path d="M4.5 12h15"/><path d="M7.5 8.2V8a3.4 3.4 0 0 1 3.4-3.5h2.4A3.4 3.4 0 0 1 16.5 8v.4M7.5 15.8v.2a3.4 3.4 0 0 0 3.4 3.5h2.4a3.4 3.4 0 0 0 3.4-3.5v-.4"/></symbol>
+        <symbol id="i-emph" viewBox="0 0 24 24"><path d="M17 4.5c-3 0-4 2-4 4.5v11"/><path d="M8 9.5h7"/><circle cx="17.5" cy="5" r="1.4" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-tt" viewBox="0 0 24 24"><path d="m9 8-4.5 4L9 16M15 8l4.5 4L15 16"/></symbol>
+        <symbol id="i-type" viewBox="0 0 24 24"><path d="M5 6.5V5h14v1.5M12 5v14M9 19h6"/></symbol>
+        <symbol id="i-list-ul" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.8" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.8" cy="17.5" r="1.2" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-list-ol" viewBox="0 0 24 24"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><path d="M4 4.8h1v4.4M3.6 15.4c0-1.6 2.4-1.6 2.4 0 0 1.1-2.4 2-2.4 3.3H6"/></symbol>
+        <symbol id="i-list-desc" viewBox="0 0 24 24"><path d="M10 6.5h10M10 17.5h10"/><path d="M4 5.5h4M4 18.5h4" stroke-width="1.6"/><path d="M10 12h10" opacity=".4"/></symbol>
+        <symbol id="i-align-left" viewBox="0 0 24 24"><path d="M4 6h16M4 10.5h10M4 15h14M4 19.5h8"/></symbol>
+        <symbol id="i-align-center" viewBox="0 0 24 24"><path d="M4 6h16M7 10.5h10M5 15h14M8 19.5h8"/></symbol>
+        <symbol id="i-align-right" viewBox="0 0 24 24"><path d="M4 6h16M10 10.5h10M6 15h14M12 19.5h8"/></symbol>
+        <symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2.2"/><circle cx="9" cy="10" r="1.6"/><path d="m4.8 17 4.6-4.3a2 2 0 0 1 2.7 0l3 2.8M14 15.4l1.8-1.7a2 2 0 0 1 2.7 0l1.7 1.6"/></symbol>
+        <symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15M15 4.5v15"/></symbol>
+        <symbol id="i-book" viewBox="0 0 24 24"><path d="M4.5 5.2A2.2 2.2 0 0 1 6.7 3H19v15.5H6.7a2.2 2.2 0 0 0-2.2 2.2z"/><path d="M4.5 18.2V5.2M19 18.5v2.5H6.7a2.2 2.2 0 0 1-2.2-2.2"/></symbol>
+        <symbol id="i-wand" viewBox="0 0 24 24"><path d="M4 20 15 9M13.5 4.5 15 7l2.5 1.5L15 10l-1.5 2.5L12 10l-2.5-1.5L12 7Z"/><path d="M19.5 13.5V17M18 15.2h3"/></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 6.5"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 20h18.4z"/><path d="M12 9v5M12 17.2v.1"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></symbol>
+        <symbol id="i-error" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m9 9 6 6M15 9l-6 6"/></symbol>
+        <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5M4 12.5a8 8 0 0 0 13.7 5.2L20 15.5"/><path d="M4 4.5v4h4M20 19.5v-4h-4"/></symbol>
+        <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10M19 5l-7.5 7.5"/><path d="M18 14.5v3a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3"/></symbol>
+        <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5M8.5 11h5M11 8.5v5"/></symbol>
+        <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5M8.5 11h5"/></symbol>
+        <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/><path d="M8.5 12h7"/></symbol>
+        <symbol id="i-panel-left" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M10 4.5v15"/></symbol>
+        <symbol id="i-panel-right" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14 4.5v15"/></symbol>
+        <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l.9 12.1a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9L17.5 7"/><path d="M10.5 11v5.5M13.5 11v5.5"/></symbol>
+        <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L20 8l-4-4L4 16z"/><path d="m14.5 5.5 4 4"/></symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7A2.5 2.5 0 0 1 6 4.5h3.4l2 2H18A2.5 2.5 0 0 1 20.5 9v8.5A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M13.5 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13.5 3.5V9H19"/></symbol>
+        <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 6.5A2.5 2.5 0 1 0 6.5 9H9zM15 6.5A2.5 2.5 0 1 1 17.5 9H15zM9 17.5A2.5 2.5 0 1 1 6.5 15H9zM15 17.5A2.5 2.5 0 1 0 17.5 15H15z"/><rect x="9" y="9" width="6" height="6" rx="1"/></symbol>
+        <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5 3.8 10.2l6.2 2.4 2.4 6.2z"/><path d="m20.5 3.5-10.5 9"/></symbol>
+        <symbol id="i-message" viewBox="0 0 24 24"><path d="M20.5 12.2a7.7 7.7 0 0 1-8 7.6 8.8 8.8 0 0 1-2.6-.4L4.5 20.5l1.2-4.2a7.5 7.5 0 0 1-1.2-4.1 7.7 7.7 0 0 1 8-7.6 7.7 7.7 0 0 1 8 7.6Z"/></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+        <symbol id="i-code" viewBox="0 0 24 24"><path d="m8.5 8-4.5 4 4.5 4M15.5 8l4.5 4-4.5 4M13.5 5l-3 14"/></symbol>
+        <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3.5 8.5 4.6L12 12.7 3.5 8.1z"/><path d="m3.5 12.4 8.5 4.6 8.5-4.6M3.5 16.6 12 21.2l8.5-4.6"/></symbol>
+        <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="7" cy="5.5" r="2"/><circle cx="7" cy="18.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M7 7.5v9M17 10v1.5a3 3 0 0 1-3 3H7"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 11 12 15.5 16.5 11M4.5 19.5h15"/></symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.5v-11M7.5 8.5 12 4l4.5 4.5M4.5 19.5h15"/></symbol>
+        <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-paper" viewBox="0 0 24 24"><path d="M6 3.5h8l4.5 4.5v12.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4.5M9 12.5h6M9 16h4"/></symbol>
+        <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-.8 2-1.8s-1-1.4-1-2.4 1-1.8 2.2-1.8h1.6A3.7 3.7 0 0 0 20.5 11C20.5 6.8 16.7 3.5 12 3.5Z"/><circle cx="8" cy="9" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="7.5" cy="13.5" r="1.1" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6.5 9.5h.1M9.5 9.5h.1M12.5 9.5h.1M15.5 9.5h.1M6.5 12.5h.1M9.5 12.5h.1M12.5 12.5h.1M15.5 12.5h.1M8 15.5h8"/></symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.4 7 9 4.1-1.6 7-4.8 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+        <symbol id="i-wrap" viewBox="0 0 24 24"><path d="M4 6h16M4 12h11a3 3 0 0 1 0 6h-3"/><path d="m14 15-2.5 3 2.5 3"/></symbol>
+        <symbol id="i-punct-half" viewBox="0 0 24 24"><text x="0" y="15" font-size="13" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">，</text><path d="M9 10.5h7m-2.2-2.2L16 10.5l-2.2 2.2"/><text x="17" y="18" font-size="11" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">.</text></symbol>
+        <symbol id="i-punct-full" viewBox="0 0 24 24"><text x="1" y="18" font-size="11" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">.</text><path d="M6 10.5h7m-2.2-2.2L13 10.5l-2.2 2.2"/><text x="14" y="15" font-size="13" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">，</text></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+      </defs>
+    </svg>
+
+    <div class="app" id="app">
+      <header class="titlebar">
+        <div class="titlebar-left">
+          <div class="brand" id="brand">
+            <span class="brand-mark"><img src="./assets/icon.png" alt="TeXora" /></span>
+            <span class="brand-name">TeXora</span>
+            <span class="brand-beta">BETA</span>
+          </div>
+          <span class="tb-sep"></span>
+          <button class="project-pill" id="projectPill" title="打开项目文件夹">
+            <svg class="ico"><use href="#i-folder" /></svg>
+            <span class="project-pill-name" id="projectName">未打开项目</span>
+            <svg class="ico ico-caret"><use href="#i-chevron-down" /></svg>
+          </button>
+        </div>
+        <div class="titlebar-center">
+          <button class="cmdk" id="commandBar">
+            <svg class="ico"><use href="#i-search" /></svg>
+            <span class="cmdk-hint">搜索命令、文件或符号…</span>
+            <span class="cmdk-keys"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+          </button>
+        </div>
+        <div class="titlebar-right">
+          <button class="icon-btn theme-btn" id="themeToggle" title="切换昼夜主题 (Ctrl+Shift+L)">
+            <svg class="ico only-dark"><use href="#i-moon" /></svg>
+            <svg class="ico only-light"><use href="#i-sun" /></svg>
+          </button>
+          <button class="icon-btn" id="settingsBtn" title="设置 (Ctrl+,)">
+            <svg class="ico"><use href="#i-sliders" /></svg>
+          </button>
+          <span class="tb-sep"></span>
+          <div class="window-controls">
+            <button class="win-btn" id="winMin" title="最小化"><svg class="ico"><use href="#i-minimize" /></svg></button>
+            <button class="win-btn" id="winMax" title="最大化"><svg class="ico"><use href="#i-maximize" /></svg></button>
+            <button class="win-btn win-close" id="winClose" title="关闭"><svg class="ico"><use href="#i-close" /></svg></button>
+          </div>
+        </div>
+      </header>
+
+      <div class="ribbon" id="ribbon">
+        <div class="ribbon-scroll">
+          <div class="ribbon-group">
+            <div class="ribbon-row">
+              <div class="split-btn" id="buildBtnGroup">
+                <button class="btn btn-primary" data-cmd="build.run" title="编译 (Ctrl+Alt+B)">
+                  <svg class="ico"><use href="#i-play" /></svg><span>编译</span>
+                </button>
+              </div>
+              <button class="btn btn-icon" data-cmd="build.stop" title="停止编译">
+                <svg class="ico"><use href="#i-stop" /></svg>
+              </button>
+              <button class="btn btn-icon" data-cmd="build.clean" title="清理过程文件">
+                <svg class="ico"><use href="#i-broom" /></svg>
+              </button>
+              <button class="btn btn-ghost engine-btn" data-menu="engine" id="engineBtn" title="编译引擎">
+                <span class="engine-dot"></span><span id="engineLabel">XeLaTeX</span>
+                <svg class="ico ico-caret"><use href="#i-chevron-down" /></svg>
+              </button>
+            </div>
+            <div class="ribbon-label">编译</div>
+          </div>
+
+          <div class="ribbon-group">
+            <div class="ribbon-row">
+              <button class="btn btn-icon" data-format="bold" title="加粗 \textbf (Ctrl+B)"><svg class="ico"><use href="#i-bold" /></svg></button>
+              <button class="btn btn-icon" data-format="italic" title="斜体 \textit (Ctrl+I)"><svg class="ico"><use href="#i-italic" /></svg></button>
+              <button class="btn btn-icon" data-format="underline" title="下划线 \underline (Ctrl+U)"><svg class="ico"><use href="#i-underline" /></svg></button>
+              <button class="btn btn-icon" data-format="strike" title="删除线 \sout"><svg class="ico"><use href="#i-strike" /></svg></button>
+              <button class="btn btn-icon" data-format="emph" title="强调 \emph (Ctrl+E)"><svg class="ico"><use href="#i-emph" /></svg></button>
+              <button class="btn btn-icon" data-format="texttt" title="等宽 \texttt"><svg class="ico"><use href="#i-tt" /></svg></button>
+              <button class="btn btn-ghost size-btn" data-menu="size" id="sizeBtn" title="字号">
+                <span id="sizeLabel">字号</span><svg class="ico ico-caret"><use href="#i-chevron-down" /></svg>
+              </button>
+              <button class="btn btn-ghost font-btn" data-menu="font" id="fontBtn" title="字体（读取系统本地字体）">
+                <svg class="ico"><use href="#i-type" /></svg><span>字体</span>
+              </button>
+            </div>
+            <div class="ribbon-label">字形</div>
+          </div>
+
+          <div class="ribbon-group">
+            <div class="ribbon-row">
+              <button class="btn btn-icon" data-menu="list" title="列表环境"><svg class="ico"><use href="#i-list-ul" /></svg></button>
+              <button class="btn btn-icon" data-menu="align" title="对齐方式"><svg class="ico"><use href="#i-align-left" /></svg></button>
+              <button class="btn btn-icon" data-format="section" title="章节命令"><svg class="ico"><use href="#i-outline" /></svg></button>
+              <button class="btn btn-icon" data-menu="spacing" title="行距与段落"><svg class="ico"><use href="#i-layers" /></svg></button>
+            </div>
+            <div class="ribbon-label">段落</div>
+          </div>
+
+          <div class="ribbon-group">
+            <div class="ribbon-row">
+              <button class="btn btn-icon" data-cmd="insert.image" title="插入图片（支持粘贴）"><svg class="ico"><use href="#i-image" /></svg></button>
+              <button class="btn btn-icon" data-cmd="insert.table" title="插入表格（三线表 / 长表格）"><svg class="ico"><use href="#i-table" /></svg></button>
+              <button class="btn btn-icon" data-menu="math" title="数学符号面板"><svg class="ico"><use href="#i-sigma" /></svg></button>
+              <button class="btn btn-icon" data-cmd="insert.cite" title="插入引用"><svg class="ico"><use href="#i-book" /></svg></button>
+              <button class="btn btn-icon" data-menu="env" title="插入环境"><svg class="ico"><use href="#i-code" /></svg></button>
+            </div>
+            <div class="ribbon-label">插入</div>
+          </div>
+
+          <div class="ribbon-group">
+            <div class="ribbon-row">
+              <button class="btn btn-icon" data-cmd="format.punctHalf" title="中文标点 → 英文标点（自动补英文空格，保留顿号与引号）"><svg class="ico"><use href="#i-punct-half" /></svg></button>
+              <button class="btn btn-icon" data-cmd="format.punctFull" title="英文标点 → 中文标点（自动去除多余空格，保留顿号与引号）"><svg class="ico"><use href="#i-punct-full" /></svg></button>
+              <button class="btn btn-icon" data-format="displaystyle" title="行间公式 \displaystyle 化"><svg class="ico"><use href="#i-sigma" /></svg></button>
+              <button class="btn btn-icon" data-cmd="view.toggleWordWrap" id="wrapBtn" title="自动换行 (Alt+Z)"><svg class="ico"><use href="#i-wrap" /></svg></button>
+              <button class="btn btn-ghost" data-cmd="format.beautify" title="LaTeX 原稿格式整理">
+                <svg class="ico"><use href="#i-wand" /></svg><span>整理</span>
+              </button>
+              <button class="btn btn-ghost" data-menu="tools" title="更多工具">
+                <svg class="ico"><use href="#i-more" /></svg>
+              </button>
+            </div>
+            <div class="ribbon-label">整理</div>
+          </div>
+
+          <div class="ribbon-group">
+            <div class="ribbon-row">
+              <button class="btn btn-ghost ai-btn" data-cmd="ai.assistant" title="AI 写作助手">
+                <svg class="ico"><use href="#i-sparkles" /></svg><span>AI 助手</span>
+              </button>
+            </div>
+            <div class="ribbon-label">智能</div>
+          </div>
+        </div>
+
+        <div class="ribbon-tail">
+          <button class="icon-btn" data-cmd="editor.replace" id="findBtn" title="查找与替换 (Ctrl+F / Ctrl+H)">
+            <svg class="ico"><use href="#i-search" /></svg>
+          </button>
+          <button class="icon-btn" data-cmd="view.livePreview" id="liveBtn" title="自动编译">
+            <svg class="ico"><use href="#i-eye" /></svg>
+          </button>
+          <button class="icon-btn" data-cmd="view.toggleSidebar" id="toggleSidebarBtn" title="折叠侧边栏">
+            <svg class="ico"><use href="#i-panel-left" /></svg>
+          </button>
+          <button class="icon-btn" data-cmd="view.togglePreview" id="togglePreviewBtn" title="折叠 PDF 预览">
+            <svg class="ico"><use href="#i-panel-right" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <nav class="activitybar" id="activitybar">
+          <button class="act-btn active" data-panel="files" title="文件浏览器"><svg class="ico"><use href="#i-files" /></svg></button>
+          <button class="act-btn" data-panel="outline" title="文档大纲"><svg class="ico"><use href="#i-outline" /></svg></button>
+          <button class="act-btn" data-panel="math" title="数学环境"><svg class="ico"><use href="#i-sigma" /></svg></button>
+          <button class="act-btn" data-panel="labels" title="标签与引用"><svg class="ico"><use href="#i-tags" /></svg></button>
+          <button class="act-btn" data-panel="search" title="全局查找"><svg class="ico"><use href="#i-search" /></svg></button>
+          <button class="act-btn" data-panel="history" title="本地历史"><svg class="ico"><use href="#i-history" /></svg></button>
+          <button class="act-btn" data-panel="git" title="Git 版本控制"><svg class="ico"><use href="#i-git" /></svg></button>
+          <span class="act-spacer"></span>
+          <button class="act-btn" data-panel="ai" title="AI 助手"><svg class="ico"><use href="#i-sparkles" /></svg></button>
+        </nav>
+
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-head">
+            <div class="sidebar-title" id="sidebarTitle">文件</div>
+            <div class="sidebar-actions" id="sidebarActions"></div>
+          </div>
+          <div class="sidebar-body" id="sidebarBody"></div>
+        </aside>
+
+        <div class="splitter" id="splitterSidebar" data-split="sidebar"></div>
+
+        <main class="editor-area">
+          <div class="tabstrip">
+            <div class="tabs" id="tabs"></div>
+            <div class="tabstrip-actions">
+              <button class="icon-btn sm" data-cmd="doc.new" title="新建文档"><svg class="ico"><use href="#i-plus" /></svg></button>
+              <button class="icon-btn sm" data-cmd="build.toggleProblems" id="problemsToggle" title="问题面板"><svg class="ico"><use href="#i-alert" /></svg></button>
+            </div>
+          </div>
+          <div class="editor-shell" id="editorShell">
+            <div class="breadcrumbs" id="breadcrumbs"></div>
+            <div class="editor-host" id="editorHost"></div>
+            <div class="editor-empty" id="editorEmpty">
+              <div class="empty-card">
+                <div class="empty-mark"><svg viewBox="0 0 24 24"><path d="M5.4 18.6 12 5.2l2.6 5.3 2.2-2.3 1.6 1.6-3.4 3.5 3.6 7.3h-3l-2.6-5.3-2.5 5.3z" fill="currentColor" stroke="none"/></svg></div>
+                <h2>开始一段安静的写作</h2>
+                <p>打开一个 LaTeX 项目，或从模板中心新建文档。</p>
+                <div class="empty-actions">
+                  <button class="btn btn-primary" data-cmd="project.open"><svg class="ico"><use href="#i-folder" /></svg>打开项目</button>
+                  <button class="btn" data-cmd="project.new"><svg class="ico"><use href="#i-plus" /></svg>新建文档</button>
+                  <button class="btn" data-cmd="templates.open"><svg class="ico"><use href="#i-layers" /></svg>模板中心</button>
+                </div>
+                <div class="empty-recent" id="emptyRecent"></div>
+              </div>
+            </div>
+          </div>
+          <div class="problems" id="problems">
+            <div class="problems-head">
+              <div class="problems-tabs" id="problemsTabs">
+                <button class="ptab active" data-problems="all">全部 <span class="badge" id="badgeAll">0</span></button>
+                <button class="ptab" data-problems="error">错误 <span class="badge danger" id="badgeErr">0</span></button>
+                <button class="ptab" data-problems="warning">警告 <span class="badge warn" id="badgeWarn">0</span></button>
+                <button class="ptab" data-problems="log">编译输出</button>
+              </div>
+              <div class="problems-actions">
+                <button class="btn btn-tiny" data-cmd="ai.fixProblem"><svg class="ico"><use href="#i-sparkles" /></svg>AI 修复建议</button>
+                <button class="icon-btn sm" data-cmd="build.toggleProblems" title="收起"><svg class="ico"><use href="#i-chevron-down" /></svg></button>
+              </div>
+            </div>
+            <div class="problems-body" id="problemsBody"></div>
+          </div>
+        </main>
+
+        <div class="splitter" id="splitterPreview" data-split="preview"></div>
+
+        <section class="preview" id="previewPane">
+          <div class="preview-toolbar">
+            <div class="pv-group">
+              <button class="icon-btn sm" data-cmd="preview.prev" title="上一页"><svg class="ico"><use href="#i-chevron-left" /></svg></button>
+              <span class="pv-pages"><span id="pageCurrent">–</span><span class="pv-sep">/</span><span id="pageTotal">–</span></span>
+              <button class="icon-btn sm" data-cmd="preview.next" title="下一页"><svg class="ico"><use href="#i-chevron-right" /></svg></button>
+            </div>
+            <div class="pv-group">
+              <button class="icon-btn sm" data-cmd="preview.zoomOut" title="缩小"><svg class="ico"><use href="#i-zoom-out" /></svg></button>
+              <span class="pv-zoom" id="zoomLabel">100%</span>
+              <button class="icon-btn sm" data-cmd="preview.zoomIn" title="放大"><svg class="ico"><use href="#i-zoom-in" /></svg></button>
+              <button class="icon-btn sm" data-cmd="preview.fitWidth" title="适合宽度"><svg class="ico"><use href="#i-fit" /></svg></button>
+            </div>
+            <div class="pv-group pv-right">
+              <button class="icon-btn sm" data-cmd="preview.invert" id="invertBtn" title="夜间护眼反色"><svg class="ico"><use href="#i-moon" /></svg></button>
+              <button class="icon-btn sm" data-cmd="preview.refresh" title="刷新预览"><svg class="ico"><use href="#i-refresh" /></svg></button>
+              <button class="icon-btn sm" data-cmd="preview.external" title="用外部程序打开 PDF"><svg class="ico"><use href="#i-external" /></svg></button>
+            </div>
+          </div>
+          <div class="preview-stage" id="previewStage">
+            <div class="preview-placeholder" id="previewPlaceholder">
+              <div class="pv-icon"><svg class="ico"><use href="#i-paper" /></svg></div>
+              <p id="previewHint">编译后在此显示 PDF 预览</p>
+              <button class="btn btn-sm" data-cmd="build.run">立即编译</button>
+            </div>
+          </div>
+          <div class="preview-progress" id="previewProgress"><span></span></div>
+        </section>
+      </div>
+
+      <footer class="statusbar" id="statusbar">
+        <div class="sb-left">
+          <button class="sb-item sb-build" id="sbBuild" data-cmd="build.run">
+            <span class="sb-dot" id="sbDot"></span><span id="sbBuildText">空闲</span>
+          </button>
+          <span class="sb-item" id="sbEngine">XeLaTeX</span>
+          <span class="sb-item sb-live" id="sbLive" data-cmd="view.livePreview"><svg class="ico"><use href="#i-eye" /></svg>自动编译开</span>
+          <button class="sb-item" id="sbRootFile" title="点击切换主文档"><svg class="ico"><use href="#i-target" /></svg><span id="sbRootName">main.tex</span></button>
+        </div>
+        <div class="sb-center">
+          <button class="sb-item" id="sbProblems" data-cmd="build.toggleProblems">
+            <svg class="ico"><use href="#i-alert" /></svg><span id="sbProblemsText">0 个问题</span>
+          </button>
+          <span class="sb-item" id="sbStats">0 字 · 0 词</span>
+        </div>
+        <div class="sb-right">
+          <span class="sb-item" id="sbCursor">Ln 1, Col 1</span>
+          <span class="sb-item">UTF-8</span>
+          <span class="sb-item">CRLF</span>
+          <span class="sb-item" id="sbWrap" data-cmd="view.toggleWordWrap" title="切换自动换行 (Alt+Z)">换行: 关</span>
+          <span class="sb-item" id="sbSpaces">空格: 2</span>
+          <span class="sb-item sb-git" id="sbGit"><svg class="ico"><use href="#i-branch" /></svg><span id="sbGitText">–</span></span>
+          <span class="sb-item sb-theme" id="sbTheme">夜晚</span>
+        </div>
+      </footer>
+    </div>
+
+    <div class="find-bar" id="findBar">
+      <div class="find-line">
+        <input class="input input-sm" id="findInput" placeholder="在本文件中查找…" spellcheck="false" />
+        <span class="find-count" id="findCount">0/0</span>
+        <button class="find-btn" id="findCase" title="区分大小写">Aa</button>
+        <button class="find-btn" id="findPrev" title="上一个 (Shift+Enter)">↑</button>
+        <button class="find-btn" id="findNext" title="下一个 (Enter)">↓</button>
+        <button class="find-btn" id="findToggleReplace" title="切换替换">⇄</button>
+        <button class="find-btn" id="findClose" title="关闭 (Esc)">×</button>
+      </div>
+      <div class="find-line find-replace-line">
+        <input class="input input-sm" id="findReplace" placeholder="替换为…" spellcheck="false" />
+        <button class="find-btn wide" id="findReplaceOne">替换当前</button>
+        <button class="find-btn wide" id="findReplaceAll">全部替换</button>
+      </div>
+    </div>
+    <div class="tooltip-layer" id="tooltipLayer"></div>
+    <div class="menu-layer" id="menuLayer"></div>
+    <div class="modal-layer" id="modalLayer"></div>
+    <div class="toast-layer" id="toastLayer"></div>
+    <div class="palette-layer" id="paletteLayer"></div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

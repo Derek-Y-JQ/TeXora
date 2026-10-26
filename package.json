@@ -1,0 +1,111 @@
+{
+  "name": "texora",
+  "version": "1.2.5",
+  "description": "TeXora — a modern local-first LaTeX editor for Windows with block editing, SyncTeX, local history and controlled AI assistance",
+  "main": "electron/main.js",
+  "author": "TeXora Studio",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "dev": "vite",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "capture": "node scripts/cdp.mjs --script scripts/verify-ui.mjs",
+    "verify": "node scripts/cdp.mjs --script scripts/verify-interactions.mjs",
+    "gallery": "node scripts/cdp.mjs --script scripts/demo-shots.mjs"
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.18.0",
+    "monaco-editor": "0.57.0",
+    "vite": "7.3.1"
+  },
+  "build": {
+    "appId": "com.texora.editor",
+    "productName": "TeXora",
+    "copyright": "Copyright © 2026 TeXora Studio",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "README.md",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "docs/**/*",
+      "samples/**/*",
+      "skills/**/*",
+      "build/icon.ico",
+      "build/icon.png"
+    ],
+    "asar": false,
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "TeXora-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TeXora",
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    },
+    "fileAssociations": [
+      {
+        "ext": "tex",
+        "name": "LaTeX Document",
+        "description": "LaTeX 源文件",
+        "role": "Editor"
+      },
+      {
+        "ext": "ltx",
+        "name": "LaTeX Document",
+        "role": "Editor"
+      },
+      {
+        "ext": "sty",
+        "name": "LaTeX Package",
+        "role": "Editor"
+      },
+      {
+        "ext": "cls",
+        "name": "LaTeX Class",
+        "role": "Editor"
+      },
+      {
+        "ext": "bib",
+        "name": "BibTeX Bibliography",
+        "role": "Editor"
+      },
+      {
+        "ext": "md",
+        "name": "Markdown Document",
+        "role": "Editor"
+      }
+    ],
+    "electronDist": "node_modules/electron/dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Derek-Y-JQ/TeXora.git"
+  },
+  "homepage": "https://github.com/Derek-Y-JQ/TeXora"
+}

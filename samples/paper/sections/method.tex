@@ -1,0 +1,139 @@
+%======================================================================
+\section{Log-signature compound BSDE with stop-gradient interfaces}\label{sec:method}
+%======================================================================
+
+The proposed method comprises four components: a two-grid simulation with local log-signatures, a shared Neural RDE encoder, layer-specific heads with a forward Euler recursion, and a training loss with detached interface targets. \Cref{fig:framework} illustrates how these components are organized, and \cref{alg:train} summarizes the training loop.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/fig_framework.tex}}
+\caption{Overview of the method: (a) time grids, (b) shared encoder and layer heads, (c) stop-gradient compound loss.}
+\label{fig:framework}
+\end{figure}
+
+\subsection{Grids and local log-signatures}\label{sec:grids}
+
+We use two nested time grids: a fine grid $t_n=n\hf$, on which asset paths are simulated and payoffs are monitored, and a coarser learning grid $u_i=ih$ with $h=T/N$, on which the encoder and the BSDE recursion operate. The learning grid contains every exercise date, and the refinement ratio $m=h/\hf$ is an integer. The simulated prices $S^{\mathrm f}_{t_n}$ are driven by the increments of $W$ on the fine grid, exactly for geometric Brownian motion and by the Euler scheme otherwise, and $\Ipl S^{\mathrm f}$ denotes their piecewise-linear interpolation. Accordingly, the monitored payoffs and links are given by
+\[
+\Phi^{\mathrm f}_j=\Phi_j\left(\Ipl S^{\mathrm f}|_{[0,T_j]}\right),\quad g^{\mathrm f}_j(y)=g_j\left(\Ipl S^{\mathrm f}|_{[0,T_j]},y\right).
+\]
+
+The encoder takes as input the normalized time-augmented path $X_t=\left(t/T,\,D^{-1}(\Ipl S^{\mathrm f}_t-\mu)\right)\in\R^{1+d}$. The constants $\mu\in\R^d$ and the diagonal matrix $D$ are estimated once on a pilot sample and then frozen. The signature of $X$ on $[s,t]$ truncated at level $M$ collects the iterated integrals
+\[
+\Sig^{M}(X)_{s,t}=\left(1,\ \int_{s<v<t}\dd X_{v},\ \int_{s<v_1<v_2<t}\dd X_{v_1}\otimes\dd X_{v_2},\ \dots\right)
+\]
+up to order $M$. Chen's identity $\Sig^M(X)_{0,t}=\Sig^M(X)_{0,s}\otimes\Sig^M(X)_{s,t}$ assembles the signature of the whole path from those of its pieces \cite{lyons1998}. The log-signature $\LogSig^M=\log_\otimes\Sig^M$ encodes the same information in $q_M$ coordinates, far fewer than the signature. The encoder uses the local log-signatures
+\begin{equation}\label{eq:local-logsig}
+\ell_i=\LogSig^M(X)_{u_i,u_{i+1}}\in\R^{q_M},\quad i=0,\dots,N-1 .
+\end{equation}
+The first level records the increments of time and price, while the second level captures the signed L\'evy areas between coordinates. Since the L\'evy area between price coordinate $a$ and normalized time differs from $T^{-1}\int_{u_i}^{u_{i+1}}(X^a_t-X^a_{u_i})\dd t$ only by a multiple of the price increment, the level-two log-signature already encodes the local running integral of the price; \cref{lem:information} makes this precise.
+
+\subsection{Shared Neural RDE encoder}\label{sec:encoder}
+
+The hidden state $H_t\in\R^p$ starts from $H_0=\rho_\theta(X_0)$ and follows the log-ODE
+\begin{equation}\label{eq:logode}
+\frac{\dd H_s}{\dd s}=G_\theta(H_s)\,\frac{\ell_i}{h},\quad s\in[u_i,u_{i+1}],
+\end{equation}
+where $G_\theta:\R^p\to\R^{p\times q_M}$ is a neural vector field \cite{morrill2021}. A fixed number of Runge--Kutta sub-steps defines the update map $H_{u_{i+1}}=R_\theta(H_{u_i},\ell_i)$. A single state sequence $(H_{u_i})_{i\le N}$ extends across all layers without being reset at the exercise dates, and the encoder parameters are shared by every layer.
+
+\subsection{Heads and forward recursion}\label{sec:heads}
+
+Let $\xi_i=(H_{u_i},X_{u_i})$ denote the input of the heads at $u_i$, which contains the hidden state, the normalized price, and the time. The price at time zero is a trainable scalar $y_0$. For $j\ge2$, a value head outputs the initial value of layer $j$, and on every layer a hedge head outputs the integrand:
+\[
+\hY_{j,T_{j-1}}=\psi^Y_{j}(\xi_{i}),\quad u_i=T_{j-1},\quad
+\hZ_{u_i}=\psi^Z_{j}(\xi_i),\quad u_i\in[T_{j-1},T_j).
+\]
+Within each layer, the value follows the forward Euler recursion
+\begin{equation}\label{eq:scheme}
+\hY_{1,0}=y_0,\quad \hY_{j,u_{i+1}}=\hY_{j,u_i}+\hZ_{u_i}^\top\Delta W_i,\quad u_i\in[T_{j-1},T_j),
+\end{equation}
+where $\Delta W_i=W_{u_{i+1}}-W_{u_i}$. Between grid points, we set $\hY_{j,t}=\hY_{j,T_{j-1}}+\int_{T_{j-1}}^t\hZ_s^\top\dd W_s$ with $\hZ$ piecewise constant. In the implementation, undiscounted values follow the step $(1+rh)\hY_{j,u_i}+\hZ_{u_i}^\top\Delta W_i$, and \cref{lem:discount} shows that the discrete discount factor $(1+rh)^{-i}$ maps this step exactly onto \eqref{eq:scheme}. The interface and terminal residuals are defined by
+\begin{equation}\label{eq:residual}
+e_j=\hY_{j,T_j}-g^{\mathrm f}_j\left(\hY_{j+1,T_j}\right),\quad j<K,\quad e_K=\hY_{K,T}-\Phi^{\mathrm f}_K .
+\end{equation}
+
+By construction, the network is non-anticipative. To make this precise, let $\cG^{\pi}_{u_i}=\sigma(S^{\mathrm f}_{t_n}:t_n\le u_i)$ denote the fine-grid filtration and $\cG^{M}_{u_i}=\sigma(\ell_0,\dots,\ell_{i-1})$ the encoder filtration.
+
+\begin{lemma}[non-anticipation]\label{lem:nonanticipation}
+For every parameter $\theta$, every level $M$, and every number of Runge--Kutta sub-steps:
+\begin{enumerate}[label=(\roman*)]
+\item $H_{u_i}$ is $\cG^{M}_{u_i}$-measurable and $\cG^{M}_{u_i}\subseteq\cG^{\pi}_{u_i}\subseteq\cF_{u_i}$;
+\item $\hZ_{u_i}$ is $\cG^{M}_{u_i}$-measurable and $\hY_{j,T_{j-1}}$ is $\cG^{M}_{T_{j-1}}$-measurable;
+\item if $\E\abs{\hY_{j,T_{j-1}}}^2+h\sum_{u_i\in[T_{j-1},T_j)}\E\abs{\hZ_{u_i}}^2<\infty$, then $t\mapsto\hY_{j,t}$ is a square-integrable martingale on $[T_{j-1},T_j]$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}[Proof sketch]
+Each $\ell_k$ is a Borel function of the fine-grid prices on $[u_k,u_{k+1}]$, and $H_{u_{i+1}}$ is a Borel function of $(H_{u_i},\ell_i)$, so induction over $i$ yields (i). Part (ii) follows because the normalized price $X_{u_i}$ is determined by the level-one increments $\ell_0,\dots,\ell_{i-1}$. Part (iii) is a consequence of $\E[\Delta W_i\mid\cF_{u_i}]=0$ and It\^o's isometry. See \cref{app:nonanticipation}.
+\end{proof}
+
+\begin{remark}\label{rem:nonanticipation}
+The network value is a martingale on every layer for every choice of parameters, trained or not, and this is the only property of the architecture used in \cref{sec:analysis}. The lemma dictates two design rules: the hedge head at $u_i$ must not access the current increment $\ell_i$, and the normalization statistics $(\mu,D)$ must not be computed on the active training batch. Violating either rule induces a look-ahead bias with $\E[\hZ_{u_i}^\top\Delta W_i]\ne0$, which invalidates both the a posteriori estimate and the dual upper bound.
+\end{remark}
+
+\subsection{Stop-gradient interface targets}\label{sec:loss}
+
+The training objective is the weighted endpoint loss
+\begin{equation}\label{eq:loss}
+\cL_\omega(\theta)=\sum_{j=1}^K\omega_j\,\E\abs{e_j}^2,\quad \omega_j>0,
+\end{equation}
+which is estimated on fresh batches of simulated paths. We write $\cL(\theta)$ for the unweighted loss with $\omega_j=1$; the experiments use $\omega_j=1/K$. The residual $e_j$ depends on the parameters through both sides of the interface: the left side $\hY_{j,T_j}$ depends on the heads of layer $j$ and on the encoder, whereas the target $g^{\mathrm f}_j(\hY_{j+1,T_j})$ depends on the value head of layer $j+1$. \emph{Joint training} \cite{huang2026} differentiates both sides.
+
+\emph{Stop-gradient training} detaches the target instead. Denoting by $\sg[\cdot]$ the stop-gradient operator, which acts as the identity in the forward pass but has zero derivative in the backward pass, we define the detached residual
+\begin{equation}\label{eq:sg-residual}
+e^{\sg}_j=\hY_{j,T_j}-g^{\mathrm f}_j\left(\sg[\hY_{j+1,T_j}]\right).
+\end{equation}
+Write $\cL^{\sg}_\omega$ for \eqref{eq:loss} with $e^{\sg}_j$ in place of $e_j$. The case $K=2$ with the Bermudan link shows the difference. Let $\theta^Y_2$ denote the parameters of the value head $\psi^Y_2$, and write $v=\hY_{2,T_1}$ for its output. The value $v$ enters both residuals: as the initial value of layer $2$ in $e_2=v+\sum_{u_i\in[T_1,T)}\hZ_{u_i}^\top\Delta W_i-\Phi^{\mathrm f}_2$, and as the continuation value in $e_1=\hY_{1,T_1}-\max\{\Phi^{\mathrm f}_1,v\}$. By the chain rule,
+\begin{equation}\label{eq:grad-K2}
+\begin{aligned}
+\nabla_{\theta^Y_2}\cL_\omega&=2\,\E\Bigl[\bigl(\omega_2e_2-\omega_1e_1\1\{v>\Phi^{\mathrm f}_1\}\bigr)\nabla_{\theta^Y_2}v\Bigr] &&\text{(joint)},\\
+\nabla_{\theta^Y_2}\cL^{\sg}_\omega&=2\,\E\bigl[\omega_2e_2\,\nabla_{\theta^Y_2}v\bigr] &&\text{(stop-gradient)}.
+\end{aligned}
+\end{equation}
+So the value head $\psi^Y_2$ is updated using only the second-layer residual $e_2$. Now suppose that the value head permits local perturbations $v+\varepsilon h$ for every bounded $\cG^M_{T_1}$-measurable function $h$, changing the residual to $e_2+\varepsilon h$. At a stationary point, $0=\left.\frac{\dd}{\dd\varepsilon}\omega_2\E[(e_2+\varepsilon h)^2]\right|_{\varepsilon=0}=2\omega_2\E[e_2h]$. Because this equality holds for every such $h$, it implies $\E[e_2\mid\cG^M_{T_1}]=0$. Hence, by the martingale property of layer $2$ (\cref{lem:nonanticipation}(iii)), we have $v=\E[\Phi^{\mathrm f}_2\mid\cG^M_{T_1}]$. However, under joint training, we have
+\[
+v-\E[\Phi^{\mathrm f}_2\mid\cG^M_{T_1}]=\frac{\omega_1}{\omega_2}\E\left[e_1\1\{v>\Phi^{\mathrm f}_1\}\bigm|\cG^M_{T_1}\right].
+\]
+Thus, the first-layer residual can shift $v$ away from the
+conditional expectation of the future payoff. On paths where
+$v>\Phi^{\mathrm f}_1$, the residual is $e_1=\hY_{1,T_1}-v$. If $e_1>0$, the first-layer prediction exceeds $v$, so increasing $v$ reduces the first-layer squared residual locally. This will accumulate errors through layers. Stop-gradient training removes this contribution to the update of the second-layer value head.  \cref{thm:stationary} states this observation detailedly for general $K$.
+
+This construction transfers the semi-gradient rule of temporal-difference learning and the target network of deep $Q$-learning \cite{sutton2018,mnih2015} to the compound BSDE. Two related variants appear in \cref{sec:experiments}. The exponential moving average (EMA) variant evaluates the target with a slowly updated moving average of the parameters, and layerwise training uses the same detached target but trains the layers one at a time, backward from $T$. \Cref{fig:interface} compares the gradient paths.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{\input{figures/fig_interface.tex}}
+\caption{Interface training variants. Top: forward computation. Bottom: gradient of $|e_j|^2$.}
+\label{fig:interface}
+\end{figure}
+
+\begin{algorithm}[htbp]
+\caption{Stop-gradient training of the log-signature compound BSDE}
+\label{alg:train}
+\begin{algorithmic}[1]
+\Require grids $(t_n)$, $(u_i)\ni T_j$; level $M$; weights $\omega_j$; batch size $B$; number of updates $n_{\mathrm{it}}$
+\For{$n=1,\dots,n_{\mathrm{it}}$}
+  \State simulate $B$ fine-grid paths $S^{\mathrm f}$ with increments $\Delta W$
+  \State compute $\ell_i$ by \eqref{eq:local-logsig} and $H_{u_{i+1}}=R_\theta(H_{u_i},\ell_i)$ for $i<N$
+  \For{$j=1,\dots,K$}
+    \State $\hY_{j,T_{j-1}}\gets y_0$ if $j=1$, else $\psi^Y_j(\xi_i)$ with $u_i=T_{j-1}$
+    \State run \eqref{eq:scheme} on $[T_{j-1},T_j]$ with $\hZ_{u_i}=\psi^Z_j(\xi_i)$
+  \EndFor
+  \State form $e^{\sg}_j$ by \eqref{eq:sg-residual} and the batch loss $\frac1B\sum_b\sum_j\omega_j\abs{e^{\sg,(b)}_j}^2$
+  \State update all parameters $\theta$ by one Adam step
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Exercise rule and primal--dual bounds}\label{sec:certificates}
+
+A trained network defines both an exercise rule and a dual martingale. Given a margin $\eex\ge0$, the rule exercises at the first date at which the payoff is positive and exceeds the predicted continuation value by at least $\eex$:
+\[
+\hat\tau=\min\bigl\{T_k,\ k<K:\ \Phi^{\mathrm f}_k>0,\ \Phi^{\mathrm f}_k\ge\hY_{k+1,T_k}+\eex\bigr\}\wedge T_K .
+\]
+The hedge heads define the martingale $\int_0^t\hZ_s^\top\dd W_s$, accumulated across all layers, and the lower and upper bounds are
+\begin{equation}\label{eq:bounds}
+L_0=\E\,\Phi^{\mathrm f}_{\hat\tau},\quad
+U_0=\E\max_{1\le k\le K}\left(\Phi^{\mathrm f}_k-\int_0^{T_k}\hZ_s^\top\dd W_s\right),
+\end{equation}
+following the primal--dual construction of \cite{rogers2002,haugh2004}. Both bounds are estimated on independent test paths in a single forward pass. The asset position is recovered from $\hZ$ by $\hat\Delta_{u_i}=(\sigma(u_i,S_{u_i})^\top)^{-1}\hZ_{u_i}$ when $\sigma$ has full rank.

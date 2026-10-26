@@ -1,0 +1,940 @@
+'use strict';
+/**
+ * LaTeX build pipeline: multi-engine recipes, bibliography passes,
+ * log parsing, PDF preview rasterization, SyncTeX queries and
+ * isolated snippet compilation (math / TikZ / tables).
+ */
+const fs = require('node:fs');
+const fsp = fs.promises;
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { run, killTree } = require('./run');
+
+const AUX_EXT = new Set([
+  '.aux', '.log', '.out', '.toc', '.lof', '.lot', '.synctex.gz', '.synctex', '.bbl', '.blg',
+  '.fls', '.fdb_latexmk', '.xdv', '.bcf', '.run.xml', '.nav', '.snm', '.vrb', '.idx', '.ind',
+  '.ilg', '.glo', '.gls', '.glg', '.loa', '.lol', '.thm', '.brf', '.spl', '.acn', '.acr', '.alg'
+]);
+
+const PDF_RENDER_DPI = 128;
+
+function splitArgs(str) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(str || ''))) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
+
+function pngSize(file) {
+  try {
+    const fd = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(24);
+    fs.readSync(fd, buf, 0, 24, 0);
+    fs.closeSync(fd);
+    if (buf.toString('ascii', 1, 4) !== 'PNG') return null;
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
+}
+
+function countPagesFromPngs(dir) {
+  try {
+    return fs.readdirSync(dir).filter((f) => /^page-\d+\.png$/.test(f)).length;
+  } catch {
+    return 0;
+  }
+}
+
+/** Parse a LaTeX log / transcript into structured problems. */
+function parseLatexLog(text, opts = {}) {
+  const rootFile = opts.rootFile || '';
+  const problems = [];
+  if (!text) return problems;
+  const lines = text.replace(/\r/g, '').split('\n');
+  const push = (p) => {
+    if (!p.message) return;
+    const key = `${p.severity}|${p.file || ''}|${p.line || 0}|${p.message}`;
+    if (problems.some((x) => x._key === key)) return;
+    p._key = key;
+    problems.push(p);
+  };
+  let pendingPackage = '';
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+
+    // file:line: message   (with -file-line-error)
+    let m = line.match(/^(.+?\.(?:tex|sty|cls|def|bib|ltx)):(\d+):\s*(.+)$/);
+    if (m && !/^(Package|LaTeX|Overfull|Underfull|Class)\b/.test(line)) {
+      const msg = m[3].trim();
+      const sev = /^(warning|Warning)/i.test(msg) ? 'warning' : 'error';
+      push({ severity: sev, file: m[1], line: Number(m[2]), message: msg, raw: line, source: 'latex' });
+      continue;
+    }
+
+    m = line.match(/^!\s+(.+)$/);
+    if (m) {
+      let msg = m[1].trim();
+      let file = rootFile;
+      let lineno = 0;
+      // LaTeX reports "! LaTeX Error: File `x.sty' not found." plus the next help lines
+      for (let j = i + 1; j < Math.min(i + 30, lines.length); j++) {
+        const nxt = lines[j];
+        const lm = nxt.match(/^l\.(\d+)\s?(.*)$/);
+        if (lm) {
+          lineno = Number(lm[1]);
+          break;
+        }
+        const fm = nxt.match(/^\\\.\.\.|\s*$/);
+        if (fm) continue;
+        if (/^\(\/|^l\./.test(nxt)) break;
+      }
+      const missing = msg.match(/File [`']([^'`]+)' not found/);
+      if (missing) {
+        push({
+          severity: 'error',
+          file,
+          line: lineno,
+          message: `缺少宏包或文件：${missing[1]}`,
+          detail: msg,
+          missingFile: missing[1],
+          source: 'latex'
+        });
+        continue;
+      }
+      if (/^Undefined control sequence/.test(msg)) {
+        const ctx = lines[i + 1] && lines[i + 1].trim().startsWith('l.') ? lines[i + 1].trim() : '';
+        push({ severity: 'error', file, line: lineno, message: msg + (ctx ? ` (${ctx})` : ''), source: 'latex' });
+        continue;
+      }
+      push({ severity: 'error', file, line: lineno, message: msg, source: 'latex' });
+      continue;
+    }
+
+    // Overfull / Underfull boxes
+    m = line.match(/^(Overfull|Underfull) \\([hv])box \(([\d.]+)pt too (?:wide|high|short)\)[^]*?lines? (\d+)(?:--(\d+))?/);
+    if (!m) {
+      m = line.match(/^(Overfull|Underfull) \\([hv])box.*?(?:at lines? (\d+)(?:--(\d+))?|detected at line (\d+))/);
+    }
+    if (m) {
+      const ln = Number(m[3] || m[5] || 0);
+      push({
+        severity: 'warning',
+        file: rootFile,
+        line: ln,
+        message: `${m[1]} \\${m[2]}box` + (m[3] ? `（约 ${m[3]}pt）` : ''),
+        detail: line,
+        source: 'latex',
+        kind: 'badbox'
+      });
+      continue;
+    }
+
+    if (/^LaTeX Warning:\s+/.test(line)) {
+      let msg = line.replace(/^LaTeX Warning:\s+/, '');
+      let ln = 0;
+      const lm = line.match(/on input line (\d+)/);
+      if (lm) ln = Number(lm[1]);
+      // continuation lines belong to the warning
+      for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+        if (/^\(|^\s*$|^!{1}|^LaTeX Warning|^Package/.test(lines[j])) break;
+        msg += ' ' + lines[j].trim();
+      }
+      push({ severity: 'warning', file: rootFile, line: ln, message: msg, source: 'latex' });
+      continue;
+    }
+
+    m = line.match(/^Package ([^\s]+) Warning:\s+(.+)$/);
+    if (m) {
+      pendingPackage = m[1];
+      let msg = m[2];
+      const lm = line.match(/on input line (\d+)/);
+      let ln = lm ? Number(lm[1]) : 0;
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        const nxt = lines[j];
+        if (/^[A-Z(]|^\s*$|^!{1}/.test(nxt)) break;
+        msg += ' ' + nxt.trim();
+        const l2 = nxt.match(/on input line (\d+)/);
+        if (l2) ln = Number(l2[1]);
+      }
+      if (/Please \(re\)run|Rerun to get|rerunfilecheck/i.test(msg)) {
+        push({ severity: 'info', file: rootFile, line: ln, message: `${m[1]}: ${msg}`, source: 'latex' });
+      } else {
+        push({ severity: 'warning', file: rootFile, line: ln, message: `${m[1]}: ${msg}`, source: 'latex' });
+      }
+      continue;
+    }
+
+    if (/^Class ([^\s]+) Warning:/.test(line)) {
+      push({ severity: 'warning', file: rootFile, line: 0, message: line, source: 'latex' });
+      continue;
+    }
+
+    if (/^!{1,2}\s*Run number|^Rerun to get cross-references/.test(line)) {
+      push({ severity: 'info', file: rootFile, line: 0, message: '需要再次编译以更新交叉引用', source: 'latex' });
+    }
+  }
+  return problems.map(({ _key, ...p }) => p);
+}
+
+class Compiler {
+  constructor({ store, project, tex, history, send, fallbackCacheRoot }) {
+    this.store = store;
+    this.project = project;
+    this.tex = tex;
+    this.history = history;
+    this.send = send || (() => {});
+    this.fallbackCacheRoot = fallbackCacheRoot || require('node:os').tmpdir();
+    this.activeCache = '';
+    this.running = false;
+    this.childPid = 0;
+    this.lastResult = null;
+    this._queue = [];
+    this.startedAt = 0;
+    this.logFile = '';
+  }
+
+  get root() {
+    return this.project.root;
+  }
+
+  cacheDir() {
+    if (this.activeCache && this.activeCacheRoot === this.root) return this.activeCache;
+    const name = this.store.get('build.cacheDir', '.latex_cache') || '.latex_cache';
+    return path.join(this.root, name);
+  }
+
+  /**
+   * Use <project>/.latex_cache when it is writable; otherwise fall back to the
+   * user data directory (e.g. when the project lives inside a read-only
+   * installation folder such as Program Files).
+   */
+  async resolveCacheDir() {
+    const name = this.store.get('build.cacheDir', '.latex_cache') || '.latex_cache';
+    const primary = path.join(this.root, name);
+    const probe = async (dir) => {
+      try {
+        await fsp.mkdir(dir, { recursive: true });
+        const test = path.join(dir, '.texora-write-test');
+        await fsp.writeFile(test, 'ok');
+        await fsp.unlink(test);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    let target = primary;
+    if (!(await probe(primary))) {
+      const hash = crypto.createHash('sha1').update(this.root || '').digest('hex').slice(0, 12);
+      target = path.join(this.fallbackCacheRoot, 'build-cache', hash);
+      await fsp.mkdir(target, { recursive: true }).catch(() => {});
+      this.send('build:log', { chunk: `\n[cache] 项目目录不可写，改用用户缓存：${target}\n` });
+    }
+    this.activeCache = target;
+    this.activeCacheRoot = this.root;
+    return target;
+  }
+
+  jobnameFor(rootFile) {
+    return path.basename(rootFile || 'main.tex', path.extname(rootFile || 'main.tex'));
+  }
+
+  resolveRootFile(file) {
+    const preferred = file && /\.tex$/i.test(file) ? file : '';
+    const rootFile = this.project.rootFile || preferred;
+    if (rootFile && fs.existsSync(rootFile)) return rootFile;
+    if (preferred && fs.existsSync(preferred)) return preferred;
+    return rootFile;
+  }
+
+  async build(options = {}) {
+    if (this.running) {
+      this._queue.push(options);
+      return { ok: false, queued: true };
+    }
+    if (!this.root) return { ok: false, error: '尚未打开项目' };
+    const rootFile = this.resolveRootFile(options.file);
+    if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, error: '未找到主文档（含 \\documentclass 的 .tex 文件）' };
+    const engine = options.engine || this.store.get('build.engine', 'xelatex');
+    const cache = await this.resolveCacheDir();
+    await fsp.mkdir(cache, { recursive: true });
+    const previewDir = path.join(cache, 'preview');
+    await fsp.mkdir(previewDir, { recursive: true });
+    const jobname = this.jobnameFor(rootFile);
+    const rootDir = path.dirname(rootFile);
+    const relRoot = path.relative(this.root, rootFile) || path.basename(rootFile);
+    // TeX must run from the directory that contains the root document so that
+    // \input{sections/...}, \includegraphics{figures/...} and relative .bib
+    // paths resolve exactly as they do on the command line. This also makes
+    // projects whose main.tex lives in a subdirectory (samples/demo) work.
+    const docArg = path.basename(rootFile);
+    const runCwd = rootDir;
+    const pdfPath = path.join(cache, jobname + '.pdf');
+    const started = Date.now();
+    this.running = true;
+    this.startedAt = started;
+    const before = fs.existsSync(pdfPath) ? fs.statSync(pdfPath).mtimeMs : 0;
+
+    this.send('build:status', { state: 'running', engine, rootFile, jobname, pass: 0 });
+    this.send('build:log', { chunk: `\n€ TeXora 编译开始 · ${engine} · ${path.basename(rootFile)}\n`, reset: true });
+
+    const env = { ...(this.tex.env || {}) };
+    if (this.store.get('build.autoInstallMissing', 'ask') === 'auto') env.MIKTEX_AUTOINSTALL = '1';
+    const extra = splitArgs(this.store.get('build.extraArgs', ''));
+    const maxRuns = Math.max(1, Number(this.store.get('build.maxRuns', 3)) || 3);
+    const timeout = Math.max(20, Number(this.store.get('build.timeout', 180)) || 180) * 1000;
+    const recipe = this.store.get('build.recipe', 'auto');
+    const actualRecipe = recipe === 'auto' ? engine : recipe;
+
+    const results = [];
+    let code = 0;
+    let timedOut = false;
+    let transcript = '';
+
+    const exec = async (exe, args, cwd = this.root, passLabel = '') => {
+      const outFile = path.join(cache, 'compile-console.log');
+      const res = await run(exe, args, {
+        cwd,
+        env,
+        timeout,
+        outFile,
+        onSpawn: (child) => { this.childPid = child.pid; },
+        onChunk: (chunk) => this.send('build:log', { chunk })
+      });
+      transcript += res.output;
+      code = res.code;
+      timedOut = res.timedOut;
+      results.push({ exe: path.basename(exe), args, code: res.code, pass: passLabel });
+      this.childPid = 0;
+      return res;
+    };
+
+    try {
+      if (actualRecipe === 'latexmk' && this.tex.get('latexmk')) {
+        const args = [
+          engine === 'pdflatex' ? '-pdf' : engine === 'lualatex' ? '-lualatex' : '-xelatex',
+          '-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-halt-on-error=0',
+          `-outdir=${cache}`, docArg
+        ].concat(extra);
+        await exec(this.tex.get('latexmk'), args, runCwd, 'latexmk');
+      } else {
+        const engineName = engine === 'latexmk' ? 'xelatex' : engine;
+        const exe = this.tex.get(engineName) || this.tex.get('xelatex') || this.tex.get('pdflatex');
+        if (!exe) throw new Error('未找到可用的 LaTeX 引擎，请在设置中配置 TeX 发行版路径');
+        const baseArgs = [
+          '-synctex=1',
+          '-interaction=nonstopmode',
+          '-file-line-error',
+          `-output-directory=${cache}`,
+          docArg
+        ].concat(extra);
+        const sourceText = await fsp.readFile(rootFile, 'utf8').catch(() => '');
+        const needsRerun = /\\(ref|eqref|pageref|autoref|cref|Cref|cite[a-zA-Z]*|tableofcontents|listoffigures|listoftables|bibliography|addbibresource|printbibliography|footnote)\b/.test(sourceText);
+        const runs = needsRerun ? Math.min(maxRuns, 3) : 2;
+        for (let pass = 1; pass <= runs; pass++) {
+          this.send('build:status', { state: 'running', engine: engineName, rootFile, jobname, pass, total: runs, runs });
+          this.send('build:log', { chunk: `\n— 第 ${pass}/${runs} 遍（${engineName}）—\n` });
+          await exec(exe, baseArgs, runCwd, `pass${pass}`);
+          const auxPath = path.join(cache, jobname + '.aux');
+          const bcfPath = path.join(cache, jobname + '.bcf');
+          if (pass === 1) {
+            const bibEngine = this.store.get('build.bibliography', 'biber');
+            const auxText = fs.existsSync(auxPath) ? await fsp.readFile(auxPath, 'utf8').catch(() => '') : '';
+            if ((bibEngine === 'biber' || fs.existsSync(bcfPath)) && fs.existsSync(bcfPath) && this.tex.get('biber')) {
+              this.send('build:log', { chunk: '\n— 参考文献（Biber）—\n' });
+              await exec(this.tex.get('biber'), ['--input-directory', rootDir, '--output-directory', cache, bcfPath], cache, 'biber');
+            } else if (/\\bibdata|\\citation/.test(auxText) && this.tex.get('bibtex')) {
+              this.send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
+              const bibEnv = { ...env, BIBINPUTS: [rootDir, this.root, cache].join(path.delimiter), BSTINPUTS: [rootDir, this.root, cache].join(path.delimiter) };
+              await run(this.tex.get('bibtex'), [jobname], {
+                cwd: cache,
+                env: bibEnv,
+                timeout,
+                onSpawn: (child) => { this.childPid = child.pid; },
+                onChunk: (chunk) => this.send('build:log', { chunk })
+              }).then((r) => { transcript += r.output; results.push({ exe: 'bibtex', code: r.code }); this.childPid = 0; });
+            }
+          }
+          if (timedOut) break;
+        }
+      }
+
+      const pdfFresh = fs.existsSync(pdfPath) && fs.statSync(pdfPath).mtimeMs > started - 1500;
+      const pdfStat = fs.existsSync(pdfPath) ? fs.statSync(pdfPath) : null;
+      let logText = '';
+      const logPath = path.join(cache, jobname + '.log');
+      if (fs.existsSync(logPath)) logText = await fsp.readFile(logPath, 'utf8').catch(() => '');
+      if (!logText || logText.trim().length < 20) logText = transcript;
+      const problems = parseLatexLog(logText, { rootFile });
+      if (!/Output written on/.test(transcript) && /I can't find file|not found\.|Emergency stop/.test(transcript) && /main\.tex|.tex/.test(transcript)) {
+        problems.unshift({
+          severity: 'error',
+          file: rootFile,
+          line: 0,
+          message: `无法启动排版：TeX 找不到主文档 ${path.basename(rootFile)}。请打开直接包含该文件的文件夹，或在状态栏切换主文档。`,
+          detail: transcript.slice(-800),
+          source: 'texora'
+        });
+      }
+      const errors = problems.filter((p) => p.severity === 'error');
+      const ok = (pdfFresh && pdfStat && pdfStat.size > 0) && (code === 0 || errors.length === 0 || /Output written on/.test(transcript));
+
+      // copy PDF next to sources
+      let rootPdf = '';
+      if (ok && this.store.get('build.pdfInRoot', true) && pdfStat) {
+        rootPdf = path.join(rootDir, jobname + '.pdf');
+        try { await fsp.copyFile(pdfPath, rootPdf); } catch (err) { console.warn('copy pdf failed', err.message); }
+      }
+
+      const missing = errors.find((p) => p.missingFile && /\.sty$/.test(p.missingFile));
+      let autoInstalled = null;
+      if (!ok && missing && this.store.get('build.autoInstallMissing', 'ask') === 'auto') {
+        const pkgName = missing.missingFile.replace(/\.sty$/, '');
+        this.send('build:log', { chunk: `\n— 自动安装缺失宏包 ${pkgName} —\n` });
+        autoInstalled = await this.tex.installPackage(pkgName);
+        if (autoInstalled.ok) {
+          this.running = false;
+          const retry = await this.build({ ...options, retried: true });
+          return retry;
+        }
+      }
+
+      const pages = ok ? await this.renderPages(pdfPath, previewDir) : await this.readExistingPages(previewDir);
+      if (ok && pages.length) {
+        try {
+          const linkMap = await this.extractLinks(pdfPath, pages.length);
+          for (const pg of pages) pg.links = linkMap[pg.index] || [];
+        } catch (err) {
+          console.warn('[links]', err.message);
+        }
+      }
+      const duration = Date.now() - started;
+      const result = {
+        ok,
+        engine: actualRecipe === 'latexmk' ? 'latexmk' : engine,
+        code,
+        timedOut,
+        duration,
+        rootFile,
+        jobname,
+        pdf: ok ? pdfPath : '',
+        rootPdf,
+        pages,
+        problems,
+        errorCount: errors.length,
+        warningCount: problems.filter((p) => p.severity === 'warning').length,
+        transcriptTail: transcript.slice(-4000),
+        autoInstalled
+      };
+      this.lastResult = result;
+      if (ok && this.history) {
+        this.history.snapshot(rootFile, await fsp.readFile(rootFile, 'utf8').catch(() => ''), 'build');
+      }
+      this.send('build:done', result);
+      return result;
+    } catch (err) {
+      const result = {
+        ok: false,
+        engine,
+        error: err.message,
+        duration: Date.now() - started,
+        rootFile,
+        pages: await this.readExistingPages(previewDir),
+        problems: [{ severity: 'error', file: rootFile, line: 0, message: err.message, source: 'texora' }],
+        errorCount: 1,
+        warningCount: 0,
+        transcriptTail: transcript.slice(-4000)
+      };
+      this.lastResult = result;
+      this.send('build:done', result);
+      return result;
+    } finally {
+      this.running = false;
+      this.send('build:status', { state: 'idle' });
+      if (this._queue.length) {
+        const next = this._queue.shift();
+        setTimeout(() => this.build(next), 40);
+      }
+    }
+  }
+
+  /** Extract clickable link rectangles (internal page jumps + external URLs). */
+  async extractLinks(pdfPath, pageCount) {
+    const exe = this.tex.get('pdftohtml');
+    if (!exe || !pageCount) return {};
+    const dir = path.dirname(pdfPath);
+    const outBase = 'links';
+    await run(exe, ['-xml', '-i', '-q', '-f', '1', '-l', String(pageCount), path.basename(pdfPath), outBase], {
+      cwd: dir,
+      env: this.tex.env,
+      timeout: 120000
+    });
+    let xml = '';
+    try {
+      xml = await fsp.readFile(path.join(dir, outBase + '.xml'), 'utf8');
+    } catch {
+      return {};
+    }
+    const map = {};
+    for (const block of xml.split(/<page /).slice(1)) {
+      const num = Number((block.match(/number="(\d+)"/) || [])[1] || 0);
+      const pw = Number((block.match(/width="([\d.]+)"/) || [])[1] || 0);
+      const ph = Number((block.match(/height="([\d.]+)"/) || [])[1] || 0);
+      if (!num || !pw || !ph) continue;
+      const links = [];
+      const re = /<text\s+([^>]*)>([\s\S]*?)<\/text>/g;
+      let m;
+      while ((m = re.exec(block))) {
+        const attrs = m[1];
+        const content = m[2];
+        const href = (content.match(/<a\s+href="([^"]+)"/) || [])[1];
+        if (!href) continue;
+        const top = Number((attrs.match(/top="(-?[\d.]+)"/) || [])[1] || 0);
+        const left = Number((attrs.match(/left="(-?[\d.]+)"/) || [])[1] || 0);
+        const width = Number((attrs.match(/width="([\d.]+)"/) || [])[1] || 0);
+        const height = Number((attrs.match(/height="([\d.]+)"/) || [])[1] || 0);
+        let page = 0;
+        let url = '';
+        const pm = href.match(/#(\d+)$/);
+        if (pm) page = Number(pm[1]);
+        else if (/^(https?:|mailto:)/i.test(href)) url = href;
+        if (!page && !url) continue;
+        links.push({ x: left / pw, y: top / ph, w: width / pw, h: height / ph, page, url });
+      }
+      if (links.length) map[num] = links;
+    }
+    return map;
+  }
+
+  /** Load an existing PDF (last build) without invoking TeX. */
+  async loadExisting() {
+    if (!this.root) return { ok: false, error: '尚未打开项目' };
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) {
+      try { this.tex.detect(); } catch {}
+      if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) {
+        await new Promise((r) => setTimeout(r, 400));
+        try { this.tex.detect(); } catch {}
+      }
+    }
+    const rootFile = this.resolveRootFile();
+    if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, noPdf: true, error: '尚未生成 PDF' };
+    const cache = await this.resolveCacheDir();
+    const jobname = this.jobnameFor(rootFile);
+    const rootDir = path.dirname(rootFile);
+    const candidates = [
+      path.join(cache, jobname + '.pdf'),
+      path.join(rootDir, jobname + '.pdf'),
+      path.join(this.root, jobname + '.pdf'),
+      path.join(rootDir, 'main.pdf'),
+      path.join(this.root, 'main.pdf')
+    ];
+    let pdfPath = '';
+    let bestMtime = 0;
+    for (const candidate of candidates) {
+      try {
+        const st = await fsp.stat(candidate);
+        if (st.isFile() && st.size > 0) { pdfPath = candidate; bestMtime = st.mtimeMs; break; }
+      } catch {}
+    }
+    if (!pdfPath) {
+      // Fallback: any PDF next to the root document / in the project folder.
+      const dirs = [rootDir, this.root].filter((d, i, a) => d && a.indexOf(d) === i);
+      const found = [];
+      const walk = async (dir, depth) => {
+        if (depth > 1) return;
+        let entries = [];
+        try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          const full = path.join(dir, e.name);
+          if (e.isDirectory()) {
+            if (e.name === '.latex_cache' || e.name === '.git' || e.name === 'node_modules') continue;
+            await walk(full, depth + 1);
+          } else if (/\.pdf$/i.test(e.name)) {
+            try {
+              const st = await fsp.stat(full);
+              if (st.size > 0) found.push({ file: full, size: st.size, mtime: st.mtimeMs });
+            } catch {}
+          }
+        }
+      };
+      for (const dir of dirs) await walk(dir, 0);
+      const stem = path.basename(rootFile, path.extname(rootFile)).toLowerCase();
+      const projName = path.basename(this.root).toLowerCase();
+      const allowed = found.filter((f) => {
+        const dir = path.dirname(f.file);
+        const name = path.basename(f.file, '.pdf').toLowerCase();
+        if (dir === rootDir || dir === this.root) return true;
+        return name === stem || name === 'main' || name === projName || name.includes(stem) || stem.includes(name);
+      });
+      if (!allowed.length) return { ok: false, noPdf: true, error: '尚未生成 PDF' };
+      allowed.sort((a, b) => b.mtime - a.mtime || b.size - a.size);
+      pdfPath = allowed[0].file; bestMtime = allowed[0].mtime;
+    }
+    if (!pdfPath) return { ok: false, noPdf: true, error: '尚未生成 PDF' };
+    const previewDir = path.join(cache, 'preview');
+    await fsp.mkdir(previewDir, { recursive: true });
+    const pages = await this.renderPages(pdfPath, previewDir).catch(() => []);
+    if (!pages.length) return { ok: false, noPdf: true, error: '已有 PDF，但无法生成预览图片' };
+    try {
+      const linkMap = await this.extractLinks(pdfPath, pages.length);
+      for (const pg of pages) pg.links = linkMap[pg.index] || [];
+    } catch {}
+    const result = {
+      ok: true,
+      cached: true,
+      cachedPdf: pdfPath,
+      rootFile,
+      pdf: pdfPath,
+      rootPdf: path.join(rootDir, jobname + '.pdf'),
+      pages,
+      problems: [],
+      errorCount: 0,
+      warningCount: 0,
+      duration: 0,
+      at: bestMtime
+    };
+    this.lastResult = result;
+    return result;
+  }
+
+  async renderPages(pdfPath, previewDir) {
+    const out = [];
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return out;
+    try {
+      for (const f of await fsp.readdir(previewDir)) {
+        if (/^page-\d+\.png$/.test(f)) await fsp.unlink(path.join(previewDir, f)).catch(() => {});
+      }
+    } catch {}
+    // poppler's Windows build cannot open non-ASCII absolute paths, so run it
+    // from the cache directory with relative ASCII filenames. pdftoppm is used
+    // when available because some MiKTeX builds ship a broken pdftocairo.
+    const pdfName = path.basename(pdfPath);
+    const cwd = path.dirname(pdfPath);
+    let res;
+    if (this.tex.get('pdftoppm')) {
+      res = await run(this.tex.get('pdftoppm'), ['-png', '-r', String(PDF_RENDER_DPI), pdfName, 'preview/page'], {
+        timeout: 120000,
+        env: this.tex.env,
+        cwd
+      });
+    }
+    if (!this.tex.get('pdftoppm') || res.code !== 0) {
+      const alt = await run(this.tex.get('pdftocairo') || this.tex.get('pdftoppm'), ['-png', '-r', String(PDF_RENDER_DPI), '-o', 'preview/page', pdfName], {
+        timeout: 120000,
+        env: this.tex.env,
+        cwd
+      });
+      if (!res) res = alt;
+      else res.output += '\n' + alt.output;
+    }
+    let files = [];
+    try {
+      files = (await fsp.readdir(previewDir)).filter((f) => /^page-\d+\.png$/.test(f));
+    } catch {}
+    files.sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
+    for (const f of files) {
+      const full = path.join(previewDir, f);
+      const size = pngSize(full);
+      if (!size) continue;
+      out.push({
+        index: Number(f.match(/\d+/)[0]),
+        file: full,
+        width: size.width,
+        height: size.height,
+        widthPt: (size.width / PDF_RENDER_DPI) * 72,
+        heightPt: (size.height / PDF_RENDER_DPI) * 72,
+        dpi: PDF_RENDER_DPI
+      });
+    }
+    if (!out.length) this.send('build:log', { chunk: `\n[pdftocairo] ${res.output.slice(-600)}\n` });
+    return out;
+  }
+
+  async readExistingPages(previewDir) {
+    const out = [];
+    try {
+      const files = (await fsp.readdir(previewDir)).filter((f) => /^page-\d+\.png$/.test(f));
+      files.sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
+      for (const f of files) {
+        const full = path.join(previewDir, f);
+        const size = pngSize(full);
+        if (!size) continue;
+        out.push({
+          index: Number(f.match(/\d+/)[0]),
+          file: full,
+          width: size.width,
+          height: size.height,
+          widthPt: (size.width / PDF_RENDER_DPI) * 72,
+          heightPt: (size.height / PDF_RENDER_DPI) * 72,
+          dpi: PDF_RENDER_DPI
+        });
+      }
+    } catch {}
+    return out;
+  }
+
+  stop() {
+    this._queue.length = 0;
+    if (this.childPid) {
+      killTree(this.childPid);
+      this.childPid = 0;
+      this.send('build:log', { chunk: '\n■ 已停止编译\n' });
+    }
+    this.running = false;
+  }
+
+  clean(includePdf = false) {
+    const cache = this.cacheDir();
+    let removed = 0;
+    try {
+      for (const f of fs.readdirSync(cache)) {
+        const ext = path.extname(f);
+        const hit = AUX_EXT.has(ext) || /\.(synctex\.gz|run\.xml)$/i.test(f) || includePdf;
+        if (hit) {
+          try {
+            fs.rmSync(path.join(cache, f), { recursive: true, force: true });
+            removed++;
+          } catch {}
+        }
+      }
+      const previewDir = path.join(cache, 'preview');
+      if (includePdf && fs.existsSync(previewDir)) {
+        fs.rmSync(previewDir, { recursive: true, force: true });
+        removed++;
+      }
+      if (includePdf && this.project.rootFile) {
+        const jobname = this.jobnameFor(this.project.rootFile);
+        for (const ext of ['.pdf']) {
+          const p = path.join(path.dirname(this.project.rootFile), jobname + ext);
+          if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); removed++; }
+        }
+      }
+    } catch (err) {
+      return { ok: false, error: err.message, removed };
+    }
+    return { ok: true, removed };
+  }
+
+  async synctexForward(file, line, column = 0) {
+    const synctex = this.tex.get('synctex');
+    if (!synctex || !this.project.rootFile) return { ok: false, error: 'SyncTeX 不可用' };
+    const jobname = this.jobnameFor(this.project.rootFile);
+    const pdf = path.join(this.cacheDir(), jobname + '.pdf');
+    if (!fs.existsSync(pdf)) return { ok: false, error: '尚未生成 PDF' };
+    let res = await run(synctex, ['view', '-i', `${line}:${column}:${path.resolve(file)}`, '-o', pdf], {
+      cwd: this.root, env: this.tex.env, timeout: 20000
+    });
+    let text = res.output || '';
+    if (!/Page:\s*\d+/.test(text)) {
+      const rel = path.relative(this.root, file);
+      if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+        const alt = await run(synctex, ['view', '-i', `${line}:${column}:${rel.split(path.sep).join('/')}`, '-o', pdf], {
+          cwd: this.root, env: this.tex.env, timeout: 20000
+        });
+        if (/Page:\s*\d+/.test(alt.output || '')) { res = alt; text = alt.output; }
+      }
+    }
+    const page = Number((text.match(/Page:\s*(\d+)/) || [])[1] || 0);
+    const x = Number((text.match(/x:\s*([\d.]+)/) || [])[1] || 0);
+    const y = Number((text.match(/y:\s*([\d.]+)/) || [])[1] || 0);
+    const h = Number((text.match(/^H:\s*([\d.]+)/m) || [])[1] || 0);
+    const w = Number((text.match(/^W:\s*([\d.]+)/m) || [])[1] || 0);
+    if (!page) return { ok: false, error: text.slice(0, 400) || '未找到对应位置' };
+    return { ok: true, page, x, y, height: h, width: w };
+  }
+
+  async synctexInverse(page, x, y) {
+    const synctex = this.tex.get('synctex');
+    if (!synctex || !this.project.rootFile) return { ok: false, error: 'SyncTeX 不可用' };
+    const jobname = this.jobnameFor(this.project.rootFile);
+    const pdf = path.join(this.cacheDir(), jobname + '.pdf');
+    if (!fs.existsSync(pdf)) return { ok: false, error: '尚未生成 PDF' };
+    const res = await run(synctex, ['edit', '-o', `${page}:${x}:${y}:${pdf}`], {
+      cwd: this.root, env: this.tex.env, timeout: 20000
+    });
+    const text = res.output || '';
+    const input = (text.match(/Input:(.+)/) || [])[1];
+    const line = Number((text.match(/Line:(\d+)/) || [])[1] || 0);
+    const column = Number((text.match(/Column:(-?\d+)/) || [])[1] || 0);
+    if (!input || !line) return { ok: false, error: text.slice(0, 400) || '未找到对应源码位置' };
+    return { ok: true, file: input.trim(), line, column };
+  }
+
+  /** Extract a portable preamble from the root document for snippet builds. */
+  async extractPreamble() {
+    const rootFile = this.project.rootFile;
+    if (!rootFile) return { preamble: '', engine: this.store.get('build.engine', 'xelatex'), packages: [] };
+    const text = await fsp.readFile(rootFile, 'utf8').catch(() => '');
+    const beginIdx = text.indexOf('\\begin{document}');
+    let pre = beginIdx > 0 ? text.slice(0, beginIdx) : text.slice(0, 4000);
+    const rootDir = path.dirname(rootFile);
+    const seenInputs = new Set();
+    const expandInputs = async (source, depth = 0) => {
+      if (depth > 3) return source;
+      const re = /\\(?:input|include)\{([^}]+)\}/g;
+      let out = '';
+      let last = 0;
+      let m;
+      while ((m = re.exec(source))) {
+        out += source.slice(last, m.index);
+        let rel = m[1].trim();
+        if (!/\.tex$/i.test(rel)) rel += '.tex';
+        const full = path.resolve(rootDir, rel);
+        if (seenInputs.has(full)) {
+          last = re.lastIndex;
+          continue;
+        }
+        seenInputs.add(full);
+        const body = await fsp.readFile(full, 'utf8').catch(() => '');
+        out += body ? await expandInputs(body, depth + 1) : m[0];
+        last = re.lastIndex;
+      }
+      out += source.slice(last);
+      return out;
+    };
+    pre = await expandInputs(pre);
+    const keep = /^\s*\\(usepackage|RequirePackage|usetikzlibrary|newcommand|renewcommand|providecommand|DeclareMathOperator|def|definecolor|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand|linespread|graphicspath|newtheorem|tikzset|pgfplotsset|newcolumntype|colorlet)\b/;
+    const lines = pre
+      .split(/\r?\n/)
+      .filter((l) => keep.test(l))
+      .filter((l) => !/\\(usepackage\s*(\[[^\]]*\])?\{\s*(geometry|hyperref|ctex|xeCJK|fontspec|CJKutf8|luatexja)\s*\}|geometry\s*\{|hypersetup\s*\{)/.test(l))
+      .filter((l) => !/^\s*\\(setCJKmainfont|setCJKsansfont|setCJKmonofont|setCJKfamilyfont|setmainfont|setsansfont|setmonofont|setmathfont|newfontfamily|fontsize|selectfont|defaultfontfeatures|setmathrm|setmathsf|setmathtt)\b/.test(l))
+      // Skip incomplete multi-line definitions and internal (\makeatletter) macros.
+      .filter((l) => (l.match(/{/g) || []).length === (l.match(/}/g) || []).length)
+      .filter((l) => !/^\s*\\def\\.*@/.test(l));
+    const safeLines = lines.filter((l) => !/^\s*\\(?:def|newtheorem)\b/.test(l) && !/^\s*\\renewcommand\s*\{\\the/.test(l));
+    const safePreamble = safeLines.join('\n').trim();
+    const packages = [];
+    for (const l of lines) {
+      const m = l.match(/\\usepackage\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
+      if (m) m[1].split(',').forEach((p) => packages.push(p.trim()));
+    }
+    const usesCJK = /ctexart|ctex|xeCJK|CJKutf8|luatexja/.test(pre);
+    return { preamble: lines.join('\n'), safePreamble, engine: usesCJK ? 'xelatex' : this.store.get('build.engine', 'xelatex'), packages, usesCJK };
+  }
+
+  /** Compile an isolated snippet and rasterize it (math / tikz / table previews). */
+  async snippet({ code, kind = 'math', scale = 2, displayMode = false }) {
+    const engineName = this.store.get('build.engine', 'xelatex') === 'lualatex' ? 'lualatex' : 'xelatex';
+    const exe = this.tex.get(engineName) || this.tex.get('xelatex') || this.tex.get('pdflatex');
+    if (!exe) return { ok: false, error: '未检测到 LaTeX 引擎，无法渲染预览' };
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return { ok: false, error: '未检测到 pdftoppm / pdftocairo，无法渲染预览' };
+    const body = String(code || '').trim();
+    if (!body) return { ok: false, error: '空内容' };
+    const { preamble, safePreamble, usesCJK } = await this.extractPreamble();
+    const hash = crypto.createHash('sha1').update(kind + '|' + body + '|' + preamble + '|' + scale).digest('hex').slice(0, 16);
+    const outDir = path.join(this.cacheDir(), 'snippets');
+    await fsp.mkdir(outDir, { recursive: true });
+    const png = path.join(outDir, hash + '.png');
+    if (fs.existsSync(png) && Date.now() - fs.statSync(png).mtimeMs < 1000 * 60 * 60 * 24 && !this.store.get('build.previewNoCache')) {
+      const size = pngSize(png);
+      return { ok: true, png, width: size?.width || 0, height: size?.height || 0, cached: true, dpi: 288 * scale };
+    }
+    const hasCJK = /[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff]/.test(body);
+    const docClass = hasCJK ? '\\documentclass[border=2pt]{standalone}\n\\usepackage{ctex}\n' : '\\documentclass[border=2pt]{standalone}\n';
+    const tikzPkg = kind === 'tikz' || /\\usetikzlibrary/.test(preamble) ? '\\usepackage{tikz}\n' : '';
+    const base = '\\usepackage{amsmath,amssymb,mathtools}\n\\usepackage{xcolor}\n' + tikzPkg;
+    const build = (pre) => {
+      const head = docClass + base + (kind === 'table' ? '\\usepackage{booktabs}\n\\usepackage{array}\n' : '');
+      let bodyBlock;
+      if (kind === 'math') bodyBlock = `\\ensuremath{${displayMode ? '\\displaystyle ' : ''}${body}}`;
+      else if (kind === 'displayblock') bodyBlock = `\\[\n${body}\n\\]`;
+      else bodyBlock = body;
+      return `${head}${pre}\n\\begin{document}\n${bodyBlock}\n\\end{document}\n`;
+    };
+    const content = build(preamble);
+    const workDir = path.join(outDir, hash);
+    await fsp.mkdir(workDir, { recursive: true });
+    const texFile = path.join(workDir, 'snippet.tex');
+    const pdf = path.join(workDir, 'snippet.pdf');
+
+    const compileSnippet = async (source, first = false) => {
+      await fsp.writeFile(texFile, source, 'utf8');
+      try { await fsp.rm(pdf, { force: true }); } catch {}
+      const res = await run(exe, ['-interaction=nonstopmode', '-halt-on-error', '-output-directory=' + workDir, 'snippet.tex'], {
+        cwd: workDir, env: this.tex.env, timeout: 60000
+      });
+      const ok = fs.existsSync(pdf);
+      if (!ok && first) {
+        try { await fsp.copyFile(texFile, path.join(workDir, 'snippet-first.tex')); } catch {}
+        try { await fsp.copyFile(path.join(workDir, 'snippet.log'), path.join(workDir, 'snippet-first.log')); } catch {}
+      }
+      return { res, ok };
+    };
+
+    let res = await compileSnippet(content, true);
+    if (!res.ok && safePreamble) {
+      // second try: drop class-specific / theorem definitions but keep project macros
+      res = await compileSnippet(build(safePreamble));
+    }
+    if (!res.ok) {
+      // last resort: base packages only, so the preview still shows the fragment
+      res = await compileSnippet(build(''));
+    }
+    if (!res.ok) return { ok: false, error: res.res.output.slice(-1200) || '编译失败' };
+    const renderer = this.tex.get('pdftoppm');
+    const render = renderer
+      ? await run(renderer, ['-png', '-r', String(288 * scale), '-singlefile', 'snippet.pdf', 'snippet'], { env: this.tex.env, timeout: 30000, cwd: workDir })
+      : await run(this.tex.get('pdftocairo'), ['-png', '-r', String(288 * scale), '-singlefile', '-o', 'snippet', 'snippet.pdf'], { env: this.tex.env, timeout: 30000, cwd: workDir });
+    const rendered = path.join(workDir, 'snippet.png');
+    if (fs.existsSync(rendered) && !fs.existsSync(png)) {
+      try { fs.copyFileSync(rendered, png); } catch {}
+    }
+    if (!fs.existsSync(png)) return { ok: false, error: render.output.slice(-800) || '光栅化失败' };
+    const size = pngSize(png);
+    return { ok: true, png, width: size?.width || 0, height: size?.height || 0, dpi: 288 * scale };
+  }
+
+  /** Run ChkTeX over a file and map findings into problems. */
+  async lint(file) {
+    const chktex = this.tex.get('chktex');
+    if (!chktex) return { ok: false, error: '未安装 ChkTeX' };
+    const target = file || this.project.rootFile;
+    if (!target) return { ok: false, error: '没有可检查的文件' };
+    const res = await run(chktex, ['-wall', '-n1', '-q', '-I0', '-f', '%f:%l:%c:%m', target], {
+      cwd: this.root, env: this.tex.env, timeout: 60000
+    });
+    const problems = [];
+    for (const line of (res.output || '').split(/\r?\n/)) {
+      const m = line.match(/^(.+?):(\d+):(\d+):(.*)$/);
+      if (!m) continue;
+      problems.push({
+        severity: /warning/i.test(m[4]) ? 'warning' : 'info',
+        file: m[1],
+        line: Number(m[2]),
+        column: Number(m[3]),
+        message: m[4].replace(/\s*\(Warning.*\)$/, '').trim(),
+        source: 'chktex'
+      });
+    }
+    return { ok: true, problems };
+  }
+
+  /** latexdiff between two files or snapshots → diff PDF. */
+  async latexdiff(fileA, fileB, outName) {
+    const latexdiff = this.tex.get('latexdiff');
+    const latexmk = this.tex.get('latexmk');
+    if (!latexdiff) return { ok: false, error: '未安装 latexdiff（MiKTeX 中为 latexdiff.exe）' };
+    const cache = this.cacheDir();
+    await fsp.mkdir(cache, { recursive: true });
+    const diffTex = path.join(cache, (outName || 'diff') + '.tex');
+    const res = await run(latexdiff, ['--flatten', fileA, fileB], {
+      cwd: this.root, env: this.tex.env, timeout: 120000
+    });
+    // latexdiff writes to stdout, which our runner captured in its log file
+    if (res.code !== 0 || !res.output.trim()) return { ok: false, error: res.output.slice(-1500) || 'latexdiff 执行失败' };
+    await fsp.writeFile(diffTex, res.output, 'utf8');
+    const engineName = this.store.get('build.engine', 'xelatex') === 'pdflatex' ? 'pdflatex' : this.store.get('build.engine', 'xelatex');
+    const exe = this.tex.get(engineName) || this.tex.get('xelatex');
+    const built = await run(exe, ['-interaction=nonstopmode', '-output-directory=' + cache, path.basename(diffTex)], {
+      cwd: this.root, env: this.tex.env, timeout: 180000
+    });
+    const pdf = diffTex.replace(/\.tex$/, '.pdf');
+    if (!fs.existsSync(pdf)) return { ok: false, error: built.output.slice(-1500) };
+    return { ok: true, pdf, tex: diffTex };
+  }
+}
+
+module.exports = { Compiler, parseLatexLog, splitArgs };

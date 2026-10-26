@@ -1,0 +1,38 @@
+% Rough Bergomi Bermudan put: bounds of each method minus those of LogSig--NRDE, 95% intervals.
+\begin{tikzpicture}
+\pgfplotsset{forest/.style={paper, ymin=-0.6, ymax=6.6, y dir=reverse, ytick={0,...,6},
+    ymajorgrids=false, xmajorgrids=true, axis lines*=box,
+    xticklabel style={/pgf/number format/fixed}, scaled x ticks=false, clip=false},
+  ci/.style={only marks, mark=*, mark size=1.7pt, color=cInk!80, mark options={fill=cInk!80},
+    error bars/x dir=both, error bars/x explicit,
+    error bars/error bar style={line width=0.8pt, color=cInk!80},
+    error bars/error mark options={rotate=90, mark size=1.8pt, color=cInk!80}},
+}
+\begin{groupplot}[group style={group size=4 by 1, horizontal sep=0.3cm, yticklabels at=edge left},
+  forest, width=4.1cm, height=5.0cm, yticklabels={{\textbf{\textcolor{cStop!80!black}{LogSig--NRDE (ours)}}},{Markov state $(t,S_t)$},{LSTM on LogSig},{Longstaff--Schwartz},{signature LS},{Markov state $(t,S_t,V_t)$},{LogSig--NRDE $+\,V_t$}}, yticklabel style={font=\scriptsize, text=cInk}]
+\nextgroupplot[title={(a) $\Delta L_0$, $K=4$}, xmin=-0.08, xmax=0.08]
+\fill[cStop!9] (axis cs:\pgfkeysvalueof{/pgfplots/xmin},\pgfkeysvalueof{/pgfplots/ymin}) rectangle (axis cs:0,\pgfkeysvalueof{/pgfplots/ymax});
+\draw[cStop!85!black, line width=1.1pt] (axis cs:0,\pgfkeysvalueof{/pgfplots/ymin}) -- (axis cs:0,\pgfkeysvalueof{/pgfplots/ymax});
+\addplot[only marks, mark=diamond*, mark size=3pt, color=cStop!85!black] coordinates {(0,0)};
+\draw[cInk!40, densely dashed, line width=0.5pt] (axis cs:\pgfkeysvalueof{/pgfplots/xmin},4.5) -- (axis cs:\pgfkeysvalueof{/pgfplots/xmax},4.5);
+\addplot[ci] coordinates {(-0.027,1) += (0.0220,0) -= (0.0220,0) (-0.027,2) += (0.0240,0) -= (0.0240,0) (-0.038,3) += (0.0220,0) -= (0.0200,0) (-0.041,4) += (0.0270,0) -= (0.0270,0) (0.001,5) += (0.0270,0) -= (0.0270,0) (0.021,6) += (0.0240,0) -= (0.0240,0)};
+\nextgroupplot[title={(b) $\Delta U_0$, $K=4$}, xmin=-0.4, xmax=0.75]
+\fill[cStop!9] (axis cs:0,\pgfkeysvalueof{/pgfplots/ymin}) rectangle (axis cs:\pgfkeysvalueof{/pgfplots/xmax},\pgfkeysvalueof{/pgfplots/ymax});
+\draw[cStop!85!black, line width=1.1pt] (axis cs:0,\pgfkeysvalueof{/pgfplots/ymin}) -- (axis cs:0,\pgfkeysvalueof{/pgfplots/ymax});
+\addplot[only marks, mark=diamond*, mark size=3pt, color=cStop!85!black] coordinates {(0,0)};
+\draw[cInk!40, densely dashed, line width=0.5pt] (axis cs:\pgfkeysvalueof{/pgfplots/xmin},4.5) -- (axis cs:\pgfkeysvalueof{/pgfplots/xmax},4.5);
+\addplot[ci] coordinates {(0.037,1) += (0.0140,0) -= (0.0150,0) (0.073,2) += (0.0710,0) -= (0.0480,0) (0.264,4) += (0.0420,0) -= (0.0400,0) (-0.026,5) += (0.0170,0) -= (0.0180,0) (-0.135,6) += (0.0160,0) -= (0.0160,0)};
+\nextgroupplot[title={(c) $\Delta L_0$, $K=12$}, xmin=-0.08, xmax=0.1]
+\fill[cStop!9] (axis cs:\pgfkeysvalueof{/pgfplots/xmin},\pgfkeysvalueof{/pgfplots/ymin}) rectangle (axis cs:0,\pgfkeysvalueof{/pgfplots/ymax});
+\draw[cStop!85!black, line width=1.1pt] (axis cs:0,\pgfkeysvalueof{/pgfplots/ymin}) -- (axis cs:0,\pgfkeysvalueof{/pgfplots/ymax});
+\addplot[only marks, mark=diamond*, mark size=3pt, color=cStop!85!black] coordinates {(0,0)};
+\draw[cInk!40, densely dashed, line width=0.5pt] (axis cs:\pgfkeysvalueof{/pgfplots/xmin},4.5) -- (axis cs:\pgfkeysvalueof{/pgfplots/xmax},4.5);
+\addplot[ci] coordinates {(-0.005,1) += (0.0360,0) -= (0.0360,0) (-0.008,2) += (0.0350,0) -= (0.0360,0) (0.025,3) += (0.0360,0) -= (0.0350,0) (-0.005,4) += (0.0430,0) -= (0.0400,0) (0.042,5) += (0.0420,0) -= (0.0410,0) (0.046,6) += (0.0280,0) -= (0.0290,0)};
+\nextgroupplot[title={(d) $\Delta U_0$, $K=12$}, xmin=-0.4, xmax=0.75]
+\fill[cStop!9] (axis cs:0,\pgfkeysvalueof{/pgfplots/ymin}) rectangle (axis cs:\pgfkeysvalueof{/pgfplots/xmax},\pgfkeysvalueof{/pgfplots/ymax});
+\draw[cStop!85!black, line width=1.1pt] (axis cs:0,\pgfkeysvalueof{/pgfplots/ymin}) -- (axis cs:0,\pgfkeysvalueof{/pgfplots/ymax});
+\addplot[only marks, mark=diamond*, mark size=3pt, color=cStop!85!black] coordinates {(0,0)};
+\draw[cInk!40, densely dashed, line width=0.5pt] (axis cs:\pgfkeysvalueof{/pgfplots/xmin},4.5) -- (axis cs:\pgfkeysvalueof{/pgfplots/xmax},4.5);
+\addplot[ci] coordinates {(0.099,1) += (0.0370,0) -= (0.0360,0) (-0.003,2) += (0.0250,0) -= (0.0220,0) (0.64,4) += (0.0500,0) -= (0.0500,0) (-0.13,5) += (0.0350,0) -= (0.0340,0) (-0.303,6) += (0.0340,0) -= (0.0350,0)};
+\end{groupplot}
+\end{tikzpicture}

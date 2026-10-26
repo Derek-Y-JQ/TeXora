@@ -1,0 +1,54 @@
+%======================================================================
+\section{Compound BSDEs on path space}\label{sec:setting}
+%======================================================================
+
+Let $(\Omega,\cF,\F,\Q)$ be a filtered probability space supporting a $d$-dimensional Brownian motion $W$, where $\F=(\cF_t)_{t\le T}$ is the augmented filtration of $W$ and $\Q$ is a risk-neutral measure. The asset prices solve
+\begin{equation}\label{eq:sde}
+\dd S_t=b(t,S_t)\dd t+\sigma(t,S_t)\dd W_t,\quad S_0=s_0\in\R^d .
+\end{equation}
+We write $S_{[0,t]}$ for the path on $[0,t]$ and $\norm{x}_t=\sup_{s\le t}\abs{x_s}$ for the sup norm of a path $x$ on $[0,t]$.
+
+\begin{assumption}\label{ass:sde}
+The coefficients $b,\sigma$ are Lipschitz in $x$ uniformly in $t$, $\tfrac12$-H\"older in $t$, and $\sup_t(\abs{b(t,0)}+\abs{\sigma(t,0)})<\infty$.
+\end{assumption}
+
+The dates $0=T_0<T_1<\dots<T_K=T$, where $T_1,\dots,T_K$ are the exercise dates, partition the time horizon into $K$ layers, with layer $j$ defined on $[T_{j-1},T_j]$. A payoff $\Phi_j$ maps the path $S_{[0,T_j]}$ to the exercise value at $T_j$, and a link $g_j(x,y)$ maps a path $x$ on $[0,T_j]$ and the value $y$ of the next layer to the terminal value of layer $j$. The Bermudan link is $g_j(x,y)=\max\{\Phi_j(x),y\}$ for $j<K$ and $g_K(x,y)=\Phi_K(x)$. Similarly, a compound call uses $g_j(x,y)=(y-\kappa_j)^+$, and the identity link $g_j(x,y)=y$ decomposes a single European claim into $K$ layers.
+
+\begin{assumption}\label{ass:link}
+There exists a constant $L_g\ge0$ such that for all $j=1,\dots,K$, all continuous paths $x,x'$, and all $y,y'\in\R$,
+\[
+\abs{g_j(x,y)-g_j(x',y')}\le\max\bigl\{L_g\norm{x-x'}_{T_j},\ \abs{y-y'}\bigr\}.
+\]
+\end{assumption}
+
+The Bermudan link satisfies \cref{ass:link} whenever every $\Phi_j$ is $L_g$-Lipschitz in the sup norm, which covers European, Asian, lookback, basket, max-call, and Amerasian payoffs. Barrier payoffs are also accommodated once the indicator function is smoothed. With interest rate $r\ge0$, the compound BSDE reads, for $j=1,\dots,K$ and $t\in[T_{j-1},T_j]$,
+\begin{equation}\label{eq:cbsde}
+Y_{j,t}=g_j\left(S_{[0,T_j]},Y_{j+1,T_j}\right)-\int_t^{T_j}\left(rY_{j,s}\dd s+Z_{j,s}^\top\dd W_s\right).
+\end{equation}
+By It\^o's formula, $(e^{-rt}Y_{j,t},e^{-rt}Z_{j,t})$ solves \eqref{eq:cbsde} with $r=0$ and the discounted links $\tilde g_j(x,y)=e^{-rT_j}g_j(x,e^{rT_j}y)$, which satisfy \cref{ass:link} with constant $e^{-rT_j}L_g\le L_g$ (\cref{lem:discount}). Hereafter, we work with discounted quantities and set $r=0$ without loss of generality. The price of the Bermudan contract is $V_0=\sup_\tau\E\,\Phi_\tau$, where $\tau$ ranges over stopping times with values in $\{T_1,\dots,T_K\}$.
+
+\begin{theorem}[well-posedness]\label{thm:wellposed}
+Let \cref{ass:sde,ass:link} hold.
+\begin{enumerate}[label=(\roman*)]
+\item The compound BSDE \eqref{eq:cbsde} has a unique square-integrable solution $(Y_j,Z_j)_{j=1}^K$.
+\item There exist measurable functionals $u_j$ such that $Y_{j,t}=u_j(t,S_{[0,t]})$ for $t\in[T_{j-1},T_j]$, given recursively by
+\[
+u_j(t,x)=\E\left[g_j\left(S^{t,x}_{[0,T_j]},\,u_{j+1}(T_j,S^{t,x}_{[0,T_j]})\right)\right],
+\]
+where $S^{t,x}$ equals $x$ on $[0,t]$ and follows \eqref{eq:sde} afterwards.
+\item There exists a constant $C$ depending only on $T$ and the Lipschitz constants of $b,\sigma$ such that $\abs{u_j(t,x)-u_j(t,x')}\le CL_g\norm{x-x'}_t$ for all $j$ and $K$.
+\item For Bermudan links, $(Y_{k,T_k})_{k\le K}$ is the Snell envelope of $(\Phi_k)_{k\le K}$ and $Y_{1,0}=V_0$. The rule $\tau^*=\min\{T_k:\Phi_k\ge Y_{k+1,T_k}\}\wedge T_K$ is optimal, and
+\begin{equation}\label{eq:dual-identity}
+\max_{1\le k\le K}\left(\Phi_k-\int_0^{T_k}Z_s^\top\dd W_s\right)=V_0\quad\text{a.s.},
+\end{equation}
+where $Z=Z_j$ on $[T_{j-1},T_j)$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Since \cref{ass:link} keeps every layer terminal value square integrable, backward induction over the layers and the martingale representation theorem yield (i). Part (ii) follows from the Markov property of $S$ conditional on its past. By Gronwall's inequality, $\E\norm{S^{t,x}-S^{t,x'}}_T\le C\norm{x-x'}_t$, and the max form of \cref{ass:link} propagates this bound through the layers without accumulation, which proves (iii). Part (iv) is the discrete Snell recursion, and the identity \eqref{eq:dual-identity} follows by concatenating the layer martingales. \Cref{app:wellposed} contains the details.
+\end{proof}
+
+\begin{remark}\label{rem:wellposed}
+The value of each layer is a Lipschitz functional of the observed path, so a neural network that takes path features as input targets a well-defined and Lipschitz-stable functional. Moreover, the $K$-independent constant in (iii) keeps the discretization error of \cref{thm:discretisation} uniform in the number of exercise dates. Huang and Oosterlee \cite[Thm.~3.1]{huang2026} prove the Markov version $Y_{j,t}=u_j(t,S_t)$; part (ii) replaces the spot state with the price path, in the spirit of path-dependent BSDEs \cite{peng2016}. An additive link, such as a coupon, would give the constant $CKL_g$ instead.
+\end{remark}

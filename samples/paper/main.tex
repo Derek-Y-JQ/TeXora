@@ -1,0 +1,54 @@
+% =====================================================================
+%  SIAM Journal on Financial Mathematics -- first draft.
+%  Compile:  pdflatex main && bibtex main && pdflatex main && pdflatex main
+%  (or: latexmk -pdf main.tex)
+% =====================================================================
+\documentclass[final,onefignum,onetabnum]{siamart220329}
+\input{macros.tex}
+
+\newcommand{\TheTitle}{Stop-gradient compound BSDEs with log-signature
+encoders for path-dependent early-exercise options}
+\newcommand{\TheAuthors}{[Yin Junqi]}
+
+\headers{Stop-gradient compound BSDEs with log-signatures}{\TheAuthors}
+
+\title{{\TheTitle}\thanks{Submitted to the editors DATE.
+\funding{[Funding information.]}}}
+
+\author{[Author One]\thanks{[Affiliation]
+  (\email{[email]}).}
+\and [Author Two]\thanks{[Affiliation]
+  (\email{[email]}).}}
+
+\ifpdf
+\hypersetup{pdftitle={\TheTitle}, pdfauthor={\TheAuthors}}
+\fi
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Pricing path-dependent options with early exercise requires the price history at every exercise date. We price such contracts with a compound backward stochastic differential equation (BSDE), which has one layer per exercise period, links the layers through the Bellman condition, and trains them forward under a single objective. A neural rough differential equation (Neural RDE) driven by local log-signatures encodes the price path for all layers, and the interface target is detached by a stop-gradient operator. We prove that this rule turns each value head into the conditional expectation of its target, so that the stationary price coincides with the optimal stopping value under the encoder filtration. By contrast, differentiating through the target, as in the original compound BSDE method, introduces a residual-driven bias of either sign. We further show that the training loss bounds the squared price and hedge errors up to a factor linear in the number of exercise dates, without a smallness condition, decompose the error into learning-grid, monitoring, truncation, and network terms, and prove that level-two log-signatures capture all information required by arithmetic Asian and Amerasian payoffs. Its exercise rule and hedge also yield certified primal--dual price bounds. On Bermudan, Amerasian, basket, and max-call options in up to ten dimensions, stop-gradient training reduces the price error of joint training by a factor of $9$ to $45$ at equal cost, and its certified intervals match or improve on regression, deep optimal stopping, and signature-based methods, also under rough volatility.
+\end{abstract}
+
+\begin{keywords}
+compound BSDE, path signature, neural rough differential equation, optimal stopping, Bermudan option, Amerasian option, primal--dual bounds
+\end{keywords}
+
+\begin{MSCcodes}
+60H35, 65C30, 91G20, 91G60, 60G40, 68T07
+\end{MSCcodes}
+
+\input{sections/introduction.tex}
+\input{sections/setting.tex}
+\input{sections/method.tex}
+\input{sections/analysis.tex}
+\input{sections/experiments.tex}
+\input{sections/conclusion.tex}
+
+\appendix
+\input{appendix/proofs.tex}
+
+\bibliographystyle{siamplain}
+\bibliography{references}
+\end{document}

@@ -1,0 +1,41 @@
+% Loss floor and hedge error against h (geometric Asian call, K = 1) and the
+% scaled floor K*L against K at three steps per layer (Bermudan put);
+% (d) loss against the truncation level M and the fine grid N_f.
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 2, horizontal sep=1.6cm, vertical sep=1.7cm},
+                  paper, width=6.6cm, height=4.6cm]
+\nextgroupplot[title={(a) Endpoint loss}, xmode=log, ymode=log, log basis x=2,
+  xlabel={$h$}, ylabel={$\mathcal L(\theta)$},
+  xmin=0.008, xmax=0.11, ymin=0.2, ymax=4,
+  xtick={0.0104167,0.0208333,0.0416667,0.0833333},
+  xticklabels={$\tfrac1{96}$,$\tfrac1{48}$,$\tfrac1{24}$,$\tfrac1{12}$},
+  ytick={0.25,0.5,1,2}, yticklabels={$0.25$,$0.5$,$1$,$2$}]
+\addplot[sGuide, domain=0.0095:0.1] {31.09*x};
+\addplot[sStop] table[x=h, y=J] {data/cv_asian_N.dat};
+\node[font=\scriptsize, text=cInk!70, rotate=36] at (axis cs:0.0165,0.72) {slope $1$};
+
+\nextgroupplot[title={(b) Hedge error}, xmode=log, ymode=log, log basis x=2,
+  xlabel={$h$}, ylabel={$\|Z-\widehat Z\|_{L^2}$},
+  xmin=0.008, xmax=0.11, ymin=1e-4, ymax=1e-2,
+  xtick={0.0104167,0.0208333,0.0416667,0.0833333},
+  xticklabels={$\tfrac1{96}$,$\tfrac1{48}$,$\tfrac1{24}$,$\tfrac1{12}$}]
+\addplot[sStop] table[x=h, y=z] {data/cv_asian_N.dat};
+
+\nextgroupplot[title={(c) Scaled floor}, xmode=log,
+  xlabel={layers $K$}, ylabel={$K\,\mathcal L(\theta)$},
+  xmin=3, xmax=32, ymin=0, ymax=24, xtick={4,12,24}, xticklabels={$4$,$12$,$24$},
+  legend pos=south east]
+\addplot[sJoint] table[x=K, y expr=\thisrow{K}*\thisrow{joint_J}] {data/cv_kscan_berm.dat};
+\addplot[sStop]  table[x=K, y expr=\thisrow{K}*\thisrow{stopgrad_J}] {data/cv_kscan_berm.dat};
+\legend{joint, stop-gradient}
+
+\nextgroupplot[title={(d) Truncation and monitoring},
+  xlabel={$M$ \ / \ fine steps $N_{\mathrm f}$}, ylabel={$\mathcal L(\theta)$},
+  xmin=0.6, xmax=4.4, ymin=1.0, ymax=1.6, xtick={1,2,3,4},
+  xticklabels={$1$/$252$,$2$/$504$,$3$/$1008$,$4$/$2016$},
+  ytick={1.0,1.2,1.4,1.6}, legend pos=north east]
+\addplot[sStop] table[x=M, y=J] {data/cv_asian_M.dat};
+\addplot[color=cEma, mark=diamond*, mark size=2.6pt] table[x expr=ln(\thisrow{Nf}/126)/ln(2), y=J] {data/cv_asian_Nf.dat};
+\legend{vary $M$, vary $N_{\mathrm f}$}
+\end{groupplot}
+\end{tikzpicture}

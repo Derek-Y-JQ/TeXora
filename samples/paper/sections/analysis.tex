@@ -1,0 +1,181 @@
+%======================================================================
+\seeftion{Error analysis}\label{sec:analysis}
+%======================================================================
+
+The total error of a trained network stems from four sources: monitoring the payoffs on the fine grid, holding the hedge constant over each learning step, truncating the log-signature at level $M$, and approximating the optimal measurable outputs with a finite-capacity network. \Cref{sec:disc,sec:aposteriori} control the first two sources and relate the loss to the error. \Cref{sec:info} incorporates truncation and assembles the error budget. \Cref{sec:stationary} then compares the stationary points of the two interface rules, and \cref{sec:certificate} turns the trained network into price bounds. Throughout, \cref{ass:sde,ass:link} hold, all quantities are discounted, and $C$ denotes a constant depending only on $T$, $L_g$, $b$, and $\sigma$, but never on $K$, $h$, $\hf$, $M$, or $\theta$.
+
+The network targets the \emph{monitored solution} $(Y^{\mathrm f}_j,Z^{\mathrm f}_j)$, namely the solution of \eqref{eq:cbsde} with links $g^{\mathrm f}_j$, and its price $V^{\mathrm f}_0=Y^{\mathrm f}_{1,0}$. For a process $Z$, let
+\[
+\bZ_{u_i}=\frac1h\,\E\left[\int_{u_i}^{u_{i+1}}Z_t\dd t\Bigm|\cF_{u_i}\right],\quad
+\varepsilon^\pi(Z)=\sum_{i}\E\int_{u_i}^{u_{i+1}}\abs{Z_t-\bZ_{u_i}}^2\dd t,
+\]
+where $Z=Z_j$ on $[T_{j-1},T_j)$. The integrand $\bZ_{u_i}$ is the best $\cF_{u_i}$-measurable constant approximation of $Z$ on $[u_i,u_{i+1})$ in $L^2$, and $\varepsilon^\pi(Z)$ is the error of the best hedge that is rebalanced only on the learning grid. The monitoring error is $\emon=\E\norm{S-\Ipl S^{\mathrm f}}_T^2$.
+
+\subsection{Discretization}\label{sec:disc}
+
+\begin{theorem}[discretization]\label{thm:discretisation}
+\leavevmode
+\begin{enumerate}[label=(\alph*)]
+\item $\max_j\sup_{t}\E\abs{Y_{j,t}-Y^{\mathrm f}_{j,t}}^2\le L_g^2\emon$ and $\sum_{j=1}^K\E\int_{T_{j-1}}^{T_j}\abs{Z_{j,t}-Z^{\mathrm f}_{j,t}}^2\dd t\le KL_g^2\emon$.
+\item $\emon\le C\hf\log(2T/\hf)$ and $\varepsilon^\pi(Z)\le CKh$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+For (a), backward induction over the layers and the max form of \cref{ass:link} yield $\abs{Y_{j,t}-Y^{\mathrm f}_{j,t}}\le L_g\E[\norm{S-\Ipl S^{\mathrm f}}_T\mid\cF_t]$, and It\^o's isometry on each layer bounds the hedge difference by the terminal difference. For (b), the Euler sup-norm estimate of \cite[Thm.~4.2]{zhang2004} transfers to the interpolation $\Ipl S^{\mathrm f}$ with a factor of $9$. Moreover, the layer terminal value $g_j(S,u_{j+1}(T_j,S))$ is Lipschitz in the path by \cref{thm:wellposed}(iii), so Zhang's $L^2$-regularity theorem \cite{zhang2004}, applied to smooth approximations of each layer, gives $\varepsilon^\pi(Z_j)\le Ch$ per layer. See \cref{app:discretisation}.
+\end{proof}
+
+\begin{remark}\label{rem:discretisation}
+Monitoring changes the price and the hedge by $O(\sqrt{\hf\log(1/\hf)})$, uniformly in $K$. Rebalancing on the learning grid incurs an error of $O(Kh)$, or $O(T/n)$ with $n$ learning steps per layer; consequently, the irreducible discretization floor is governed by the number of learning steps per layer. The factor $K$ reflects the kink that each interface creates in the layer payoff, and \cref{fig:floor}(c) confirms this scaling. For a single BSDE, Zhang \cite{zhang2004} obtains $\varepsilon^\pi(Z)=O(h)$, and Bayraktar, Feng, and Zhang \cite{bayraktar2024} bound the error of their backward signature scheme in terms of the step size, the truncation order, and the network errors. Part (b) extends the regularity result to $K$ linked layers on path space.
+\end{remark}
+
+\subsection{A posteriori estimate}\label{sec:aposteriori}
+
+\begin{theorem}[a posteriori estimate]\label{thm:aposteriori}
+Let $y_0$, $\hY_{j,T_{j-1}}$, and $\hZ_{u_i}$ be any square-integrable outputs adapted to $\F$, in particular those of any network (\cref{lem:nonanticipation}). Then
+\begin{equation}\label{eq:aposteriori}
+\max_j\sup_{t}\E\abs{Y^{\mathrm f}_{j,t}-\hY_{j,t}}^2+\sum_{j=1}^K\E\int_{T_{j-1}}^{T_j}\abs{Z^{\mathrm f}_{j,t}-\hZ_t}^2\dd t\le2K\,\cL(\theta).
+\end{equation}
+Each of the two terms is bounded by $K\cL(\theta)$, and $\abs{y_0-V^{\mathrm f}_0}\le\sum_j\norm{e_j}_{L^2}$. Conversely, $\cL(\theta)\le4\sum_j\E\abs{Y^{\mathrm f}_{j,T_j}-\hY_{j,T_j}}^2$. With $(Y,Z)$ in place of $(Y^{\mathrm f},Z^{\mathrm f})$, the right-hand side of \eqref{eq:aposteriori} becomes $4K\cL(\theta)+2(K+1)L_g^2\emon$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Set $\delta Y_j=Y^{\mathrm f}_j-\hY_j$. Since both processes are martingales on each layer, It\^o's isometry gives $\E\int\abs{\delta Z_j}^2=\norm{\delta Y_{j,T_j}}^2_{L^2}-\norm{\delta Y_{j,T_{j-1}}}^2_{L^2}$. As the link is $1$-Lipschitz in $y$, we have $\norm{\delta Y_{j,T_j}}_{L^2}\le\norm{\delta Y_{j+1,T_j}}_{L^2}+\norm{e_j}_{L^2}$, and iterating from $j=K$ yields $\norm{\delta Y_{j,T_j}}_{L^2}\le\sum_{k\ge j}\norm{e_k}_{L^2}$. Telescoping the isometries then gives the bound $(\sum_j\norm{e_j}_{L^2})^2\le K\cL$. See \cref{app:aposteriori}.
+\end{proof}
+
+\begin{remark}\label{rem:aposteriori}
+Whereas the approximation error is unobservable, the training loss is directly computable; \cref{thm:aposteriori} bridges the two for any adapted network, regardless of how it is trained. The converse inequality shows that loss and error are equivalent up to a factor of $4K$, and this equivalence links training to accuracy in \cref{thm:attainable,thm:primaldual}. Huang and Oosterlee \cite[Thm.~3.4]{huang2026} prove an a posteriori bound for general drivers under the condition $6T^2K_y^2<1$, and Han and Long \cite{han2020convergence} prove a single-layer analogue for the deep BSDE method under a weak-coupling condition. By contrast, discounting makes our scheme an exact martingale transform, so only the $1$-Lipschitz property of the link in $y$ is needed, and no condition on $h$, on the driver, or on the Markov property remains.
+\end{remark}
+
+\subsection{Log-signature information and the error budget}\label{sec:info}
+
+The next assumption requires the simulated price to be a Markov chain on the fine grid. It holds for the exact simulation of geometric Brownian motion and for the Euler scheme, but fails for rough volatility models.
+
+\begin{assumption}\label{ass:obs}
+$S^{\mathrm f}_{t_{n+1}}=\Psi_n(S^{\mathrm f}_{t_n},W_{t_{n+1}}-W_{t_n})$ for Borel maps $\Psi_n$, and $s_0$ is deterministic.
+\end{assumption}
+
+The truncation error quantifies the part of the targets that is lost by conditioning on the encoder filtration $\cG^M$ instead of the fine-grid filtration:
+\[
+\etr(M)=\sum_{j=2}^K\E\bigl\lvert Y^{\mathrm f}_{j,T_{j-1}}-\E[Y^{\mathrm f}_{j,T_{j-1}}\mid\cG^{M}_{T_{j-1}}]\bigr\rvert^2+h\sum_i\E\bigl\lvert\bZ^{\mathrm f}_{u_i}-\E[\bZ^{\mathrm f}_{u_i}\mid\cG^{M}_{u_i}]\bigr\rvert^2 .
+\]
+
+\begin{lemma}[information]\label{lem:information}
+Let \cref{ass:obs} hold.
+\begin{enumerate}[label=(\roman*)]
+\item $Y^{\mathrm f}_{j,u_i}$ and $\bZ^{\mathrm f}_{u_i}$ are $\cG^{\pi}_{u_i}$-measurable for $u_i\in[T_{j-1},T_j)$.
+\item $\cG^{M}_{u_i}\subseteq\cG^{M+1}_{u_i}$, so $\etr(M)$ is nonincreasing in $M$.
+\item If $M\ge m$, then $\cG^{M}_{u_i}=\cG^{\pi}_{u_i}$ for all $i$ and $\etr(M)=0$.
+\item If every $\Phi_j$ depends on the current price only, then $\etr(M)=0$ for $M\ge1$. If every $\Phi_j$ depends on the current price and $\int_0^{T_j}\Ipl S^{\mathrm f}_t\dd t$ only, as for arithmetic Asian and Amerasian payoffs, then $\etr(M)=0$ for all $M\ge2$, regardless of $m$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}[Proof sketch]
+Under \cref{ass:obs}, future prices depend on the past only through the grid prices, which proves (i), and part (ii) follows from the tower property. For (iii), the coordinates of $\ell_i$ with $r$ time letters followed by one price letter are linear combinations of the $m$ fine increments on $[u_i,u_{i+1}]$, and the coefficient matrix is of Vandermonde type with determinant $(\hf/T)^{m(m-1)/2}>0$. For (iv), the first level determines the current price and the second level the running integral, and this pair is a Markov state for the corresponding payoffs. See \cref{app:information}.
+\end{proof}
+
+\begin{remark}\label{rem:information}
+The lemma provides a rule for choosing the truncation level: current-price payoffs require $M=1$, average-type payoffs require $M=2$, and level $m$ recovers the entire monitored path. Refining the learning grid lowers $m$ and hence the level needed for exact recovery. Universal approximation results for signatures \cite{lyons1998,cuchiero2025} guarantee approximation only as $M\to\infty$, whereas part (iv) identifies finite levels at which the information loss vanishes exactly.
+\end{remark}
+
+Let $\Lstar$ denote the minimum loss attainable by outputs adapted to the encoder filtration, namely the infimum of $\cL$ over $y_0\in\R$, $\hY_{j,T_{j-1}}\in L^2(\cG^{M}_{T_{j-1}})$, and $\hZ_{u_i}\in L^2(\cG^{M}_{u_i})$. Every network satisfying the integrability condition of \cref{lem:nonanticipation} lies in this class, so $\enet(\theta)=\cL(\theta)-\Lstar\ge0$ measures its approximation and optimization error.
+
+\begin{theorem}[error budget]\label{thm:attainable}
+\leavevmode
+\begin{enumerate}[label=(\alph*)]
+\item The attainable loss satisfies
+\[
+\frac1K\varepsilon^\pi(Z^{\mathrm f})\le\Lstar\le2\varepsilon^\pi(Z^{\mathrm f})+4\etr(M),\quad
+\varepsilon^\pi(Z^{\mathrm f})\le CK\left(h+\hf\log(2T/\hf)\right).
+\]
+If $\etr(M)=0$, then $\Lstar\le\varepsilon^\pi(Z^{\mathrm f})$.
+\item For every network output,
+\[
+\begin{aligned}
+&\max_j\sup_t\E\abs{Y_{j,t}-\hY_{j,t}}^2+\sum_{j=1}^K\E\int_{T_{j-1}}^{T_j}\abs{Z_{j,t}-\hZ_t}^2\dd t\\
+&\quad\le CK\left[Kh+K\hf\log(2T/\hf)+\etr(M)+\enet(\theta)\right].
+\end{aligned}
+\]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+For the upper bound in (a), we take $y_0=V^{\mathrm f}_0$ together with the projections $\E[Y^{\mathrm f}_{j,T_{j-1}}\mid\cG^M_{T_{j-1}}]$ and $\E[\bZ^{\mathrm f}_{u_i}\mid\cG^M_{u_i}]$; It\^o's isometry and the Pythagorean identity for $\bZ$ then give a loss of at most $(\sqrt{\varepsilon^\pi+\etr}+\sqrt{\etr})^2$. The lower bound follows from \cref{thm:aposteriori} and the optimality of $\bZ^{\mathrm f}$, and the bound on $\varepsilon^\pi(Z^{\mathrm f})$ combines both parts of \cref{thm:discretisation}. Part (b) combines (a) with \cref{thm:aposteriori,thm:discretisation}. See \cref{app:attainable}.
+\end{proof}
+
+\begin{remark}\label{rem:attainable}
+Even a perfect network cannot drive the loss to zero, since the floor $\varepsilon^\pi(Z^{\mathrm f})/K$ stems from rebalancing on the learning grid; a training curve that levels off at this floor has therefore converged. Part (b) is the error budget of the method, in which each term is governed by its own parameter: the learning step, the fine step, the truncation level, and the network size and training. The experiments in \cref{sec:exp-budget} show that the learning grid dominates. Backward signature schemes \cite{bayraktar2024} obtain a comparable decomposition for a recursion of $K$ regressions, whereas here a single loss controls all layers at once.
+\end{remark}
+
+\subsection{Stationary points of interface training}\label{sec:stationary}
+
+This subsection considers Bermudan links and the weighted objective \eqref{eq:loss}, and the scalar $y_0$ varies independently of all other outputs. \emph{Joint training} refers to a stationary point $\theta$ of $\cL_\omega$. By contrast, \emph{stop-gradient training} refers to a fixed point $\theta^-=\theta$, where $\theta$ is stationary for $\cL_\omega$ with the interface targets $g^{\mathrm f}_j(\hY_{j+1,T_j})$ evaluated at frozen parameters $\theta^-$. Layerwise training and EMA targets share the same stationary points. To characterize these points explicitly, we introduce three idealized conditions:
+\begin{itemize}[leftmargin=2.6em,itemsep=1pt,topsep=2pt]
+\item[(H)] \emph{Rich value heads}: each $\hY_{j,T_{j-1}}$, $j\ge2$, admits every bounded $\cG^{M}_{T_{j-1}}$-measurable perturbation while all other outputs stay fixed.
+\item[(I)] \emph{Observable payoffs}: every $\Phi^{\mathrm f}_k$ is $\cG^{M}_{T_k}$-measurable.
+\item[(T)] \emph{No ties}: $\Q(\hY_{j,T_{j-1}}=\Phi^{\mathrm f}_{j-1})=0$ for $j=2,\dots,K$.
+\end{itemize}
+Under (I), $V^{(M)}_0$ denotes the Bermudan price over stopping times $\tau$ with $\{\tau=T_k\}\in\cG^{M}_{T_k}$, that is, the price available to a holder who observes only the encoder filtration.
+
+\begin{theorem}[stationary points]\label{thm:stationary}
+At a stationary point of either rule, $y_0=\E\max\{\Phi^{\mathrm f}_1,\hY_{2,T_1}\}$.
+\begin{enumerate}[label=(\roman*)]
+\item \emph{Stop-gradient, under (H).} For $j=2,\dots,K$,
+\[
+\hY_{j,T_{j-1}}=\E\left[g^{\mathrm f}_j(\hY_{j+1,T_j})\bigm|\cG^{M}_{T_{j-1}}\right].
+\]
+If (I) also holds, then $y_0=V^{(M)}_0\le V^{\mathrm f}_0$, and $V^{(M)}_0$ is nondecreasing in $M$. If $\etr(M)=0$, in particular if $M\ge m$ under \cref{ass:obs}, then $y_0=V^{\mathrm f}_0$.
+\item \emph{Joint, under (H) and (T).} For $j=2,\dots,K$,
+\[
+\hY_{j,T_{j-1}}-\E\left[g^{\mathrm f}_j(\hY_{j+1,T_j})\bigm|\cG^{M}_{T_{j-1}}\right]
+=\frac{\omega_{j-1}}{\omega_j}\,\E\left[e_{j-1}\1\{\hY_{j,T_{j-1}}>\Phi^{\mathrm f}_{j-1}\}\bigm|\cG^{M}_{T_{j-1}}\right].
+\]
+\item \emph{Joint, under (H), (I), and (T).}
+\[
+\abs{y_0-V^{(M)}_0}\le\sum_{j=2}^K\frac{\omega_{j-1}}{\omega_j}\,\E\left[\abs{e_{j-1}}\1\{\hY_{j,T_{j-1}}>\Phi^{\mathrm f}_{j-1}\}\right].
+\]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Since the network value is a martingale on each layer, $\E[e_j\mid\cG^M_{T_{j-1}}]=\hY_{j,T_{j-1}}-\E[g^{\mathrm f}_j(\hY_{j+1,T_j})\mid\cG^M_{T_{j-1}}]$. Perturbing $y_0$ yields $\E e_1=0$, and perturbing $\hY_{j,T_{j-1}}$ by a bounded $\cG^M_{T_{j-1}}$-measurable $v$ changes $e_j$ by $v$. Under stop-gradient training no other residual moves, so $\E[e_j\mid\cG^M_{T_{j-1}}]=0$, which is (i), and the resulting recursion is the Snell recursion under the encoder filtration. Under joint training, the perturbation also changes $e_{j-1}$ by $-v\1\{\hY_{j,T_{j-1}}>\Phi^{\mathrm f}_{j-1}\}$, which produces the bias term in (ii). Part (iii) follows by iterating (ii) via the conditional Jensen inequality. See \cref{app:stationary}.
+\end{proof}
+
+\begin{remark}\label{rem:stationary}
+Stop-gradient training turns each value head into a regression on its own target, so its stationary price is the optimal stopping value under the available information and becomes exact once the log-signature captures the continuation values. By contrast, joint training adds the residual of the preceding layer, restricted to the predicted continuation region. These residuals cannot vanish, because by \cref{thm:attainable}(a) the loss stays above $\varepsilon^\pi(Z^{\mathrm f})/K>0$; the bias therefore persists at every training budget and shrinks only with the learning grid, as \cref{fig:bias} shows. The result parallels the bias of residual-gradient methods in reinforcement learning \cite{baird1995,sutton2018}. Earlier analyses of the compound BSDE \cite{huang2026} bound the error by the loss but leave open which minimizer training reaches; (i)--(iii) answer this for both interface rules.
+\end{remark}
+
+The bias term in (ii) has no fixed sign. Although it leads to overpricing in our experiments, a joint stationary point can also underprice, as the following example shows.
+
+\begin{example}\label{ex:downward}
+Take $d=1$, $S=W$, $T_1=1$, $T_2=2$, the learning grid $\{0,1,2\}$, $\omega_1=\omega_2=1$, $\Phi_1=1$, and $\Phi_2=\abs{W_1}$. Then $V^{\mathrm f}_0=1+\E(\abs{W_1}-1)^+$. With full information in (H), the outputs $\hZ\equiv0$,
+\[
+y_0=1+\frac{\E(\abs{W_1}-1)^+}{2-\Q(\abs{W_1}>1)},\quad
+\hY_{2,1}=\begin{cases}\abs{W_1},&\abs{W_1}\le1,\\(\abs{W_1}+y_0)/2,&\abs{W_1}>1,\end{cases}
+\]
+form a joint stationary point with $y_0<V^{\mathrm f}_0$. \Cref{app:stationary} verifies the first-order conditions and gives an exact decomposition of the joint price error for $K=2$.
+\end{example}
+
+\subsection{Primal--dual certificate}\label{sec:certificate}
+
+\begin{theorem}[primal--dual certificate]\label{thm:primaldual}
+Let the links be Bermudan with $0\le\Phi^{\mathrm f}_k\in L^2(\cF_{T_k})$, and let the outputs satisfy the integrability condition of \cref{lem:nonanticipation}. Then:
+\begin{enumerate}[label=(\alph*)]
+\item $L_0\le V^{\mathrm f}_0\le U_0$;
+\item $U_0-V^{\mathrm f}_0\le\left(\E\int_0^T\abs{Z^{\mathrm f}_t-\hZ_t}^2\dd t\right)^{1/2}\le\sqrt{K\cL(\theta)}$;
+\item $V^{\mathrm f}_0-L_0\le\sum_{k=1}^{K-1}\E\abs{\hY_{k+1,T_k}-Y^{\mathrm f}_{k+1,T_k}}+(K-1)\eex$;
+\item $U_0\le y_0+\sum_j\E e_j^-$, $L_0\ge y_0-\sum_j\E e_j^+-(K-1)\eex$, and hence
+\[
+U_0-L_0\le\sum_{j=1}^K\E\abs{e_j}+(K-1)\eex\le\sqrt{K\cL(\theta)}+(K-1)\eex .
+\]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+The rule $\hat\tau$ is admissible, and optional sampling of the martingale $\int\hZ^\top\dd W$ gives (a). For (b), the dual identity \eqref{eq:dual-identity} for the monitored problem reduces $U_0-V^{\mathrm f}_0$ to the expected running maximum of $N=\int(Z^{\mathrm f}-\hZ)^\top\dd W$, and $\E\sup N\le\norm{N_T}_{L^2}$ holds for a continuous martingale starting at zero. Part (c) compares the exercise decisions of $\hat\tau$ and $\tau^*$ date by date, and part (d) expresses the network value at each exercise date as $y_0$ plus the martingale minus the accumulated interface terms. See \cref{app:primaldual}.
+\end{proof}
+
+\begin{remark}\label{rem:primaldual}
+A single forward pass yields a price, an exercise rule, and a hedge, and the theorem turns them into a two-sided certificate for the monitored price. Since the width is controlled by the residuals of the trained network, a small loss certifies a tight interval, and with independent test paths and one-sided confidence bounds the interval attains asymptotic coverage. Rogers \cite{rogers2002}, Haugh and Kogan \cite{haugh2004}, and Andersen and Broadie \cite{andersen2004} construct the dual martingale by a separate nested simulation, and signature methods \cite{bayer2025primal} fit it by a separate regression. Here, by contrast, the dual martingale is the hedge of the BSDE itself, and part (b) ties its quality to the training loss.
+\end{remark}
+\c
