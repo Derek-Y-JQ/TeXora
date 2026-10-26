@@ -13,7 +13,7 @@ const PROVIDERS = {
     label: 'DeepSeek',
     kind: 'openai',
     baseUrl: 'https://api.deepseek.com/v1',
-    models: ['deepseek-chat', 'deepseek-reasoner'],
+    models: ['deepseek-flash', 'deepseek-reasoner', 'deepseek-chat'],
     docs: 'https://platform.deepseek.com'
   },
   openai: {
@@ -62,6 +62,7 @@ class AiService {
   constructor(store) {
     this.store = store;
     this.lastRequest = null;
+    this.controllers = new Map();
   }
 
   providers() {
@@ -76,9 +77,9 @@ class AiService {
     const cfg = this.settings();
     const providerId = opts.provider || cfg.provider || 'deepseek';
     const preset = PROVIDERS[providerId] || PROVIDERS.custom;
-    const baseUrl = (opts.baseUrl || cfg.baseUrl || preset.baseUrl || '').replace(/\/+$/, '');
-    const apiKey = opts.apiKey || cfg.apiKey || '';
-    const model = opts.model || cfg.model || (preset.models[0] || '');
+    const baseUrl = String(opts.baseUrl || cfg.baseUrl || preset.baseUrl || '').trim().replace(/\/+$/, '');
+    const apiKey = String(opts.apiKey || cfg.apiKey || '').trim();
+    const model = String(opts.model || cfg.model || (preset.models[0] || '')).trim();
     return {
       ...cfg,
       providerId,
@@ -99,12 +100,17 @@ class AiService {
     const wanted = Array.isArray(ids)
       ? skills.filter((s) => ids.includes(s.id))
       : skills.filter((s) => s.enabled && s.scope !== 'polish');
+    if (Array.isArray(ids) && ids.some(id => !skills.some(s => s.id === id))) throw new Error('所选 Skill 已移除，请重新选择。');
     const chunks = [];
+    let remaining = 24000;
     for (const s of wanted) {
       try {
         const text = await fsp.readFile(s.path, 'utf8');
-        chunks.push(`### Skill: ${s.name || path.basename(s.path)}\n${text.slice(0, 12000)}`);
-      } catch {}
+        if (remaining <= 0) throw new Error('Skills 内容超过上限，请减少本次选择。');
+        const part = text.slice(0, Math.min(12000, remaining));
+        chunks.push(`### Skill: ${s.name || path.basename(s.path)}\n${part}`);
+        remaining -= part.length;
+      } catch (err) { throw new Error(`Skill 无法读取（${s.name || s.id}）：${err.message}`); }
     }
     return chunks.join('\n\n');
   }
@@ -128,31 +134,43 @@ class AiService {
     if (!cfg.baseUrl) {
       return { ok: false, code: 'NO_BASEURL', error: '尚未配置 Base URL（OpenAI 兼容接口地址）。' };
     }
-    const skillText = await this.loadSkillText(payload.skillIds);
-    const system = [cfg.systemPrompt || '', payload.system || '', skillText ? `你会严格遵循以下已激活的 Skills 规则：\n\n${skillText}` : '']
-      .filter(Boolean)
-      .join('\n\n');
-    const messages = payload.messages || [];
+    if (!Array.isArray(payload.messages) || !payload.messages.length) return { ok: false, code: 'EMPTY_REQUEST', error: '请求内容为空。' };
+    const requestId = payload.requestId || 'service-' + Date.now() + '-' + Math.random().toString(36).slice(2);
     const controller = new AbortController();
+    const job = { controller, cancelled: false };
+    this.controllers.set(requestId, job);
     const timer = setTimeout(() => controller.abort(), cfg.timeout);
     this.lastRequest = { provider: cfg.providerId, model: cfg.model, at: Date.now() };
     try {
+      const skillText = await this.loadSkillText(payload.skillIds);
+      const system = [cfg.systemPrompt || '', payload.system || '', skillText ? `你会严格遵循以下已激活的 Skills 规则：\n\n${skillText}` : '']
+        .filter(Boolean)
+        .join('\n\n');
+      const messages = payload.messages || [];
       let res;
       if (cfg.kind === 'anthropic') res = await this._anthropic(cfg, system, messages, controller.signal);
       else if (cfg.kind === 'gemini') res = await this._gemini(cfg, system, messages, controller.signal);
       else res = await this._openai(cfg, system, messages, controller.signal);
-      clearTimeout(timer);
+      if (res.ok && !String(res.text || '').trim()) return { ok: false, code: 'EMPTY_RESPONSE', error: '模型返回了空内容，请重试或检查模型名。' };
       return res;
     } catch (err) {
-      clearTimeout(timer);
       const aborted = err && (err.name === 'AbortError' || /aborted/i.test(err.message || ''));
       return {
         ok: false,
-        code: aborted ? 'TIMEOUT' : 'NETWORK',
-        error: aborted ? `请求超时（${Math.round(cfg.timeout / 1000)}s），请检查网络或代理设置。` : `网络请求失败：${err.message}`,
+        code: job.cancelled ? 'CANCELLED' : aborted ? 'TIMEOUT' : 'NETWORK',
+        error: job.cancelled ? '请求已取消。' : aborted ? `请求超时（${Math.round(cfg.timeout / 1000)}s），请检查网络或代理设置。` : `网络请求失败：${err.message}`,
         provider: cfg.providerId
       };
+    } finally {
+      clearTimeout(timer);
+      this.controllers.delete(requestId);
     }
+  }
+
+  cancel(id) {
+    const job = this.controllers.get(id);
+    if (job) { job.cancelled = true; job.controller.abort(); }
+    return { ok: true };
   }
 
   _contentParts(messages) {
@@ -197,7 +215,7 @@ class AiService {
     const data = await this._readJson(res);
     if (!res.ok) return this._httpError(res, data, cfg);
     const text = data?.choices?.[0]?.message?.content ?? '';
-    return { ok: true, text: typeof text === 'string' ? text : JSON.stringify(text), usage: data?.usage, model: cfg.model };
+    return { ok: true, text: typeof text === 'string' ? text : '', incomplete: data?.choices?.[0]?.finish_reason === 'length', usage: data?.usage, model: cfg.model };
   }
 
   async _anthropic(cfg, system, messages, signal) {
@@ -231,7 +249,7 @@ class AiService {
     const data = await this._readJson(res);
     if (!res.ok) return this._httpError(res, data, cfg);
     const text = (data?.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n');
-    return { ok: true, text, usage: data?.usage, model: cfg.model };
+    return { ok: true, text, incomplete: data?.stop_reason === 'max_tokens', usage: data?.usage, model: cfg.model };
   }
 
   async _gemini(cfg, system, messages, signal) {
@@ -257,7 +275,7 @@ class AiService {
     const data = await this._readJson(res);
     if (!res.ok) return this._httpError(res, data, cfg);
     const text = (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
-    return { ok: true, text, usage: data?.usageMetadata, model: cfg.model };
+    return { ok: true, text, incomplete: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS', usage: data?.usageMetadata, model: cfg.model };
   }
 
   async _readJson(res) {

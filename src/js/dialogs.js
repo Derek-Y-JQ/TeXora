@@ -15,8 +15,11 @@ import { renderMarkdown, mdToLatex } from './markdown.js';
 import { ENVIRONMENTS, wrapCommandFor } from './latex.js';
 
 let activeModal = null;
+let modalEscape = null;
 
 function closeModal() {
+  if (modalEscape) document.removeEventListener('keydown', modalEscape);
+  modalEscape = null;
   const layer = $('#modalLayer');
   if (!layer) return;
   layer.innerHTML = '';
@@ -44,6 +47,7 @@ function modal({ title = '', subtitle = '', iconName = '', width = 560, height =
   layer.classList.add('open');
   const root = layer.querySelector('.modal');
   const close = () => {
+    if (activeModal?.root !== root) return;
     onClose?.();
     closeModal();
   };
@@ -52,13 +56,13 @@ function modal({ title = '', subtitle = '', iconName = '', width = 560, height =
     layer.querySelector('.modal-backdrop')?.addEventListener('click', close);
   }
   activeModal = { root, close };
-  document.addEventListener('keydown', function esc(e) {
-    if (e.key === 'Escape' && activeModal) {
+  modalEscape = e => {
+    if (e.key === 'Escape' && activeModal?.root === root) {
       e.preventDefault();
-      document.removeEventListener('keydown', esc);
       close();
     }
-  });
+  };
+  document.addEventListener('keydown', modalEscape);
   onMount?.({ root, close });
   // focus first input
   setTimeout(() => root.querySelector('.modal-body input, .modal-body textarea')?.focus(), 30);

@@ -3,8 +3,9 @@
  * project search, local history, git and the AI assistant panel.
  */
 import { ctx } from './ctx.js';
-import { $, $$, el, icon, escapeHtml, baseName, relPath, fileIcon, extOf, debounce, formatBytes, timeAgo, timeOfDay, toast, openMenu, copyText } from './util.js';
+import { $, $$, el, icon, escapeHtml, baseName, relPath, fileIcon, extOf, debounce, formatBytes, timeAgo, timeOfDay, toast, openMenu, openPopover, closeMenu, copyText } from './util.js';
 import { parseDocument } from './latex.js';
+import { contextPolicy } from './ai-context.js';
 
 const PANEL_META = {
   files: { title: '文件', icon: 'files' },
@@ -25,6 +26,7 @@ export class Sidebar {
     this.searchState = { query: '', caseSensitive: false, wholeWord: false, regex: false, include: '', results: null, busy: false, scope: 'project' };
     this.historyItems = [];
     this.aiThread = [];
+    this.aiContext = { selection: true, file: true, skillIds: null, files: new Set() };
     this.ready = false;
   }
 
@@ -54,7 +56,9 @@ export class Sidebar {
       this.expanded.clear();
       this.refreshAll(true);
     });
-    ctx.on('settings:changed', () => this.refreshAiStatus());
+    ctx.on('settings:changed', () => { this.refreshAiStatus(); this.refreshAiContext(); });
+    ctx.on('cursor', () => { if (this.panel === 'ai') this.refreshAiContext(); });
+    ctx.on('project:changed', () => { this.aiContext.files.clear(); this.refreshAiContext(); });
   }
 
   show(id, silent = false) {
@@ -921,21 +925,18 @@ export class Sidebar {
     p.innerHTML = `
       <div class="ai-panel">
         <div class="ai-status" id="aiStatus"></div>
-        <div class="ai-quick">
-          <button data-ai="explain">${icon('message')}<span>解释选中内容</span></button>
-          <button data-ai="polish">${icon('wand')}<span>润色当前段落</span></button>
-          <button data-ai="translate">${icon('code')}<span>中英学术互译</span></button>
-          <button data-ai="table">${icon('table')}<span>生成表格代码</span></button>
-        </div>
         <div class="ai-prompt">
-          <textarea class="input" id="aiPrompt" placeholder="描述你的需求，例如：把这段改写成更学术的表达，并保留所有公式…"></textarea>
-          <div class="ai-context-row">
-            <span class="chip" data-ctx="selection">${icon('target')} 选中内容</span>
-            <span class="chip" data-ctx="file">${icon('paper')} 当前文件</span>
-            <span class="chip" data-ctx="skills">${icon('layers')} Skills</span>
+          <div class="ai-context-row" id="aiContextControls">
+            <button class="ai-context-btn" data-ctx="selection" type="button">${icon('target')}<span>选中内容</span><small></small></button>
+            <button class="ai-context-btn" data-ctx="file" type="button">${icon('paper')}<span>当前文件</span><small></small></button>
+            <button class="ai-context-btn" data-ctx="skills" type="button">${icon('layers')}<span>Skills</span><small></small></button>
+            <button class="ai-context-btn" data-ctx="files" type="button">${icon('files')}<span>其他文件</span><small></small></button>
           </div>
+          <div class="ai-context-hint" id="aiContextHint"></div>
+          <textarea class="input" id="aiPrompt" placeholder="输入你的指令；上方所选上下文会放在指令前面…"></textarea>
           <div class="row">
             <button class="btn btn-sm btn-primary" id="aiSend" style="flex:1">${icon('send')} 发送</button>
+            <button class="btn btn-sm hidden" id="aiCancel" title="取消当前请求">取消</button>
             <button class="btn btn-sm" id="aiOcr" title="从剪贴板图片识别公式">${icon('image')}</button>
           </div>
         </div>
@@ -946,18 +947,15 @@ export class Sidebar {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') this.aiSend();
     });
     p.querySelector('#aiOcr').addEventListener('click', () => ctx.cmd('ai.ocr'));
-    for (const btn of $$('[data-ai]', p)) {
-      btn.addEventListener('click', () => {
-        const map = { explain: 'ai.explain', polish: 'ai.polish', translate: 'ai.translate', table: 'ai.tableFromText' };
-        ctx.cmd(map[btn.dataset.ai]);
+    p.querySelector('#aiCancel').onclick = () => ctx.ai.cancel();
+    for (const button of $$('[data-ctx]', p)) {
+      button.addEventListener('click', () => {
+        const type = button.dataset.ctx;
+        if (type === 'skills' || type === 'files') this.openAiContextPicker(type, button).catch(err => toast({ type: 'warn', title: '上下文菜单无法打开', body: err.message }));
+        else { this.aiContext[type] = !this.aiContext[type]; this.refreshAiContext(); }
       });
     }
-    for (const chip of $$('[data-ctx]', p)) {
-      chip.addEventListener('click', () => {
-        if (chip.dataset.ctx === 'skills') ctx.cmd('settings.open', 'ai');
-        else chip.classList.toggle('accent');
-      });
-    }
+    this.refreshAiContext();
     this.refreshAiStatus();
   }
 
@@ -982,30 +980,97 @@ export class Sidebar {
     const box = this.panels.ai?.querySelector('#aiThread');
     if (!box) return;
     if (!this.aiThread.length) {
-      box.innerHTML = `<div class="empty-hint">AI 会读取当前文档上下文，生成结果先以 Diff 预览，确认后再替换，不会静默修改文件。</div>`;
+      box.innerHTML = `<div class="empty-hint">选择本次上下文后发送。侧栏和 Block 共用设置中的读取上限；建议确认后才会修改文件。历史消息可点击打开。</div>`;
       return;
     }
-    box.innerHTML = this.aiThread
-      .map(
-        (m) => `<div class="ai-msg ${m.role} ${m.error ? 'error' : ''}">
-        <div class="ai-msg-head">${m.role === 'user' ? '你' : 'TeXora AI'}${m.time ? ` · ${m.time}` : ''}</div>
-        <div class="ai-msg-body">${escapeHtml(m.text || '')}</div>
-        ${m.actions ? `<div class="ai-msg-actions">${m.actions}</div>` : ''}
-      </div>`
-      )
-      .join('');
-    box.scrollTop = box.scrollHeight;
-    for (const btn of $$('[data-ai-action]', box)) {
-      btn.addEventListener('click', () => ctx.cmd('ai.resultAction', { action: btn.dataset.aiAction, index: Number(btn.dataset.index) }));
+    box.innerHTML = this.aiThread.map(m => `<div class="ai-msg ${m.role} ${m.error ? 'error' : ''} ${m.applied ? 'applied' : ''}" ${m.resultId ? `data-result-id="${escapeHtml(m.resultId)}" role="button" tabindex="0" aria-label="打开 AI 建议"` : ''}>
+      <div class="ai-msg-head">${m.role === 'user' ? '你' : 'TeXora AI'}${m.time ? ` · ${escapeHtml(m.time)}` : ''}${m.applied ? '<span class="ai-applied-badge">已修改</span>' : ''}</div>
+      <div class="ai-msg-body">${escapeHtml((m.text || '').slice(0, 420))}${(m.text || '').length > 420 ? '…' : ''}</div>
+      ${m.resultId ? `<div class="ai-msg-actions"><button class="btn btn-tiny">${m.applied ? '查看已修改内容' : '打开 Diff 建议'}</button></div>` : ''}</div>`).join('');
+    for (const message of $$('[data-result-id]', box)) {
+      message.onclick = () => ctx.ai.resultAction({ id: message.dataset.resultId });
+      message.onkeydown = e => { if (e.target === message && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); message.click(); } };
     }
+    box.scrollTop = box.scrollHeight;
   }
 
-  aiSend() {
+  async aiSend() {
+    if (ctx.state.aiBusy) return;
     const input = this.panels.ai.querySelector('#aiPrompt');
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    ctx.cmd('ai.freeform', { prompt: text });
+    const prompt = input.value.trim();
+    if (!prompt) return;
+    const result = await ctx.ai.freeform({ prompt, attachments: this.aiAttachments() });
+    if (result && input.value.trim() === prompt) input.value = '';
+  }
+
+  aiAttachments() {
+    const policy = contextPolicy(ctx.state.settings.ai);
+    return { selection: this.aiContext.selection, file: policy.file && this.aiContext.file,
+      skillIds: this.aiContext.skillIds == null ? null : [...this.aiContext.skillIds],
+      files: policy.otherFiles ? [...this.aiContext.files] : [] };
+  }
+
+  refreshAiContext() {
+    const panel = this.panels.ai;
+    if (!panel?.querySelector('#aiContextHint')) return;
+    const policy = contextPolicy(ctx.state.settings.ai);
+    const selected = ctx.editor?.getSelectionText?.() || '';
+    const defaults = (ctx.state.settings.ai.skills || []).filter(s => s.enabled && s.scope !== 'polish').map(s => s.id);
+    const skillIds = this.aiContext.skillIds == null ? defaults : [...this.aiContext.skillIds];
+    for (const button of $$('[data-ctx]', panel)) {
+      const type = button.dataset.ctx;
+      button.disabled = type === 'file' ? !policy.file : type === 'files' ? !policy.otherFiles : false;
+      const enabled = type === 'selection' ? this.aiContext.selection : type === 'file' ? policy.file && this.aiContext.file : type === 'skills' ? skillIds.length > 0 : policy.otherFiles && this.aiContext.files.size > 0;
+      button.classList.toggle('active', enabled);
+      button.setAttribute('aria-pressed', String(enabled));
+      button.querySelector('small').textContent = type === 'selection' ? selected ? `${selected.length} 字` : '无选区' : type === 'file' ? policy.file ? '' : '范围限制' : type === 'skills' ? `${skillIds.length} 项` : policy.otherFiles ? `${this.aiContext.files.size} 项` : '范围限制';
+      button.title = type === 'selection' ? '发送时附带当前编辑器中的选区；可取消' : type === 'file' ? policy.file ? '附带当前文件作为参考；可取消' : '当前设置仅允许选中内容或 Block' : type === 'skills' ? '多选本次调用的 Skills，未选的规则不会注入' : policy.otherFiles ? '多选其他项目文件（最多 8 个）' : '需在 AI 设置中选择项目范围，并允许跨文件读取';
+    }
+    const scopes = { selection: '选中内容 / Block', file: '当前文件', 'file-with-preamble': '当前文件 + 导言区', project: '项目内所选文件' };
+    panel.querySelector('#aiContextHint').textContent = `读取上限：${scopes[policy.scope] || scopes['file-with-preamble']}。上下文先于手写指令；不会自动附带整个项目。`;
+    panel.querySelector('#aiSend').disabled = !!ctx.state.aiBusy;
+    panel.querySelector('#aiSend').innerHTML = ctx.state.aiBusy ? `${icon('loader', 'spin')}正在生成…` : `${icon('send')}发送`;
+    panel.querySelector('#aiCancel').classList.toggle('hidden', !ctx.state.aiBusy);
+    panel.querySelector('#aiOcr').disabled = !!ctx.state.aiBusy;
+  }
+
+  async openAiContextPicker(type, anchor) {
+    let choices, selected;
+    if (type === 'skills') {
+      const result = await ctx.api.ai.skills();
+      if (!result.ok) throw new Error(result.error || 'Skills 读取失败');
+      choices = (result.skills || []).map(s => ({ id: s.id, name: s.name, disabled: !s.exists }));
+      if (this.aiContext.skillIds == null) this.aiContext.skillIds = new Set((ctx.state.settings.ai.skills || []).filter(s => s.enabled && s.scope !== 'polish').map(s => s.id));
+      selected = this.aiContext.skillIds;
+    } else {
+      if (!contextPolicy(ctx.state.settings.ai).otherFiles) return;
+      choices = (ctx.state.assets.all || []).filter(p => /\.(tex|ltx|sty|cls|bib|md|txt)$/i.test(p) && (!ctx.state.activePath || (ctx.state.project.root + '/' + p).replace(/\\/g, '/').toLowerCase() !== ctx.state.activePath.replace(/\\/g, '/').toLowerCase())).map(p => ({ id: p, name: p }));
+      selected = this.aiContext.files;
+    }
+    const container = el('div', { class: 'ai-context-picker' });
+    container.innerHTML = `<div class="ai-picker-title">${type === 'skills' ? '本次调用的 Skills' : '附加其他项目文件'}</div><input class="input input-sm" placeholder="筛选…" aria-label="筛选上下文"/><div class="ai-picker-options"></div><div class="row"><button class="btn btn-tiny" data-clear>全部取消</button><span class="spacer"></span><button class="btn btn-tiny" data-done>完成</button></div>`;
+    const options = container.querySelector('.ai-picker-options');
+    const render = query => {
+      options.innerHTML = '';
+      const visible = choices.filter(c => c.name.toLowerCase().includes(query.toLowerCase())).slice(0, 300);
+      if (!visible.length) options.innerHTML = `<div class="field-hint">${choices.length ? '没有匹配项' : type === 'skills' ? '尚未导入 Skills，可在 AI 设置中添加。' : '当前项目没有其他文本文件。'}</div>`;
+      for (const choice of visible) {
+        const label = el('label', { class: 'ai-picker-option' });
+        label.innerHTML = `<input type="checkbox" ${selected.has(choice.id) ? 'checked' : ''} ${choice.disabled ? 'disabled' : ''}/><span>${escapeHtml(choice.name)}${choice.disabled ? '（文件不存在）' : ''}</span>`;
+        label.querySelector('input').onchange = e => {
+          if (e.target.checked && type === 'files' && selected.size >= 8) { e.target.checked = false; return toast({ type: 'info', title: '最多附加 8 个文件' }); }
+          if (e.target.checked) selected.add(choice.id); else selected.delete(choice.id);
+          this.refreshAiContext();
+        };
+        options.appendChild(label);
+      }
+    };
+    container.querySelector('input').oninput = e => render(e.target.value);
+    container.querySelector('[data-clear]').onclick = () => { selected.clear(); render(container.querySelector('input').value); this.refreshAiContext(); };
+    container.querySelector('[data-done]').onclick = closeMenu;
+    render('');
+    openPopover(anchor, container);
+    container.querySelector('input').focus();
   }
 
   pushAiThread(message) {

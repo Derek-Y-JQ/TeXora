@@ -282,7 +282,24 @@
 .ai-quick .ico { width: 14px; height: 14px; color: var(--accent); }
 .ai-prompt { display: flex; flex-direction: column; gap: 6px; }
 .ai-prompt textarea { min-height: 74px; font-family: var(--font-ui); font-size: 12px; }
-.ai-context-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.ai-context-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.ai-context-btn { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text-2); font-size: 11px; }
+.ai-context-btn .ico { width: 13px; height: 13px; }
+.ai-context-btn small { margin-left: auto; font-size: 9px; color: var(--text-3); }
+.ai-context-btn.active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-softer); }
+.ai-context-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ai-context-hint { font-size: 10px; line-height: 1.6; color: var(--text-3); }
+.ai-context-picker { width: min(330px, 85vw); padding: 6px; display: flex; flex-direction: column; gap: 8px; }
+.ai-picker-title { font-size: 12px; font-weight: 600; padding: 2px; }
+.ai-picker-options { max-height: 260px; overflow: auto; }
+.ai-picker-option { display: flex; align-items: flex-start; gap: 7px; padding: 7px 4px; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; }
+.ai-picker-option:hover { background: var(--hover); border-radius: 5px; }
+.ai-picker-option input { accent-color: var(--accent); flex: none; }
+.ai-msg[data-result-id] { cursor: pointer; }
+.ai-msg[data-result-id]:hover { border-color: var(--accent-border); }
+.ai-applied-badge { margin-left: auto; color: var(--success); }
+.ai-result .diff-grid.applied { grid-template-columns: minmax(0, 1fr); }
+.ai-result-warning { padding: 9px; margin: 8px 0; color: var(--warn); background: var(--warn-soft); border-radius: 7px; font-size: 12px; }
 .ai-thread { display: flex; flex-direction: column; gap: 8px; }
 .ai-msg { border-radius: 9px; padding: 9px 10px; font-size: 12px; line-height: 1.65; background: var(--surface-2); border: 1px solid var(--border-soft); }
 .ai-msg.user { background: var(--accent-softer); border-color: var(--accent-border); }

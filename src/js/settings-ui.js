@@ -7,7 +7,7 @@ import { $, $$, icon, escapeHtml, toast, formatBytes, debounce } from './util.js
 import { CODE_THEMES } from './code-themes.js';
 
 const PROVIDER_PRESETS = {
-  deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-reasoner'] },
+  deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-flash', 'deepseek-reasoner', 'deepseek-chat'] },
   openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'o4-mini'] },
   anthropic: { label: 'Anthropic Claude', baseUrl: 'https://api.anthropic.com', models: ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-3-5-haiku-latest'] },
   gemini: { label: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', models: ['gemini-2.5-pro', 'gemini-2.5-flash'] },
@@ -271,9 +271,9 @@ export function createSettingsUI() {
       <div class="setting-card">${textAreaRow('ai.systemPrompt', 'System Prompt', '限定学术语气、禁止修改公式符号定义、输出语言偏好等', 5)}</div>
       ${group('上下文与 Skills')}
       <div class="setting-card">
-        ${selectRow('ai.contextScope', '上下文读取范围', '', [['selection', '仅选中块'], ['file', '当前完整文件'], ['file-with-preamble', '当前文件 + 导言区'], ['project', '允许跨文件检索整个项目']])}
-        ${switchRow('ai.crossFile', '允许跨文件读取（@文件名 / 自动检索）', '携带其他 .tex / .bib / .md 内容以保证术语一致')}
-        ${switchRow('ai.includePreamble', '携带导言区自定义宏', '包含 \\newcommand 等定义，避免破坏符号体系')}
+        ${selectRow('ai.contextScope', '上下文读取范围', '侧栏与 Block 共用此上限；侧栏可取消本次不需要的上下文', [['selection', '仅选中内容 / 当前块'], ['file', '当前文件'], ['file-with-preamble', '当前文件 + 主文档导言区'], ['project', '允许附加其他项目文件']])}
+        ${switchRow('ai.crossFile', '允许跨文件读取', '仅在项目范围开启时，可在侧栏「其他文件」中多选；不会自动发送整个项目')}
+        ${switchRow('ai.includePreamble', '额外附带主文档导言区', '处理子文件时补充主文档的宏与宏包；当前文件选项仍表示该文件的完整参考内容')}
       </div>
       <div class="setting-card" style="padding:12px 16px">
         <div class="row" style="margin-bottom:8px">

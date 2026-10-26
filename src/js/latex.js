@@ -22,12 +22,11 @@ export function stripComment(line) {
   let out = '';
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
-    if (ch === '\\' && line[i + 1] === '%') {
-      out += '\\%';
-      i++;
-      continue;
+    if (ch === '%') {
+      let count = 0;
+      for (let j = i - 1; j >= 0 && line[j] === '\\'; j--) count++;
+      if (count % 2 === 0) break;
     }
-    if (ch === '%') break;
     out += ch;
   }
   return out;
@@ -322,6 +321,41 @@ export function applyDisplayStyle(text) {
  * Beautify a LaTeX source file: environment indentation, paragraph unwrapping,
  * preamble/section banner comments.
  */
+function literalLineMask(lines) {
+  const mask = new Set();
+  let env = null, math = null;
+  for (let index = 0; index < lines.length; index++) {
+    const code = stripComment(lines[index]);
+    if (env) {
+      mask.add(index);
+      if (code.includes(`\\end{${env}}`)) env = null;
+      continue;
+    }
+    const begin = code.match(/\\begin\{([^}]+)\}/);
+    if (begin && (VERBATIM_ENVS.has(begin[1]) || MATH_ENVS.has(begin[1].replace(/\*$/, '')))) {
+      mask.add(index);
+      if (!code.includes(`\\end{${begin[1]}}`)) env = begin[1];
+      continue;
+    }
+    if (math) mask.add(index);
+    const delimiters = /\\[\[\]()]|\$\$?/g;
+    let match;
+    while ((match = delimiters.exec(code))) {
+      let slashes = 0;
+      for (let i = match.index - 1; i >= 0 && code[i] === '\\'; i--) slashes++;
+      if (slashes % 2) continue;
+      const token = match[0];
+      mask.add(index);
+      if (math) {
+        if (token === math) math = null;
+      } else if (token === '\\[') math = '\\]';
+      else if (token === '\\(') math = '\\)';
+      else if (token === '$' || token === '$$') math = token;
+    }
+  }
+  return mask;
+}
+
 export function beautify(text, options = {}) {
   const {
     indentSize = 2,
@@ -340,10 +374,16 @@ export function beautify(text, options = {}) {
   let merged = [];
   if (mergeParagraphLines) {
     let inBody = false;
+    const literals = literalLineMask(lines);
+    let previousLiteral = false;
     for (let i = 0; i < lines.length; i++) {
       const raw = lines[i];
       const code = stripComment(raw).trim();
       if (/\\begin\{document\}/.test(raw)) { inBody = true; merged.push(raw); continue; }
+      const isLiteral = literals.has(i);
+      const afterLiteral = previousLiteral;
+      previousLiteral = isLiteral;
+      if (isLiteral) { merged.push(raw); continue; }
       if (!inBody || inVerbatim) { merged.push(raw); if (inVerbatim && raw.includes(`\\end{${inVerbatim}}`)) inVerbatim = null; continue; }
       const vb = code.match(/\\begin\{(verbatim\*?|lstlisting|minted|Verbatim|comment)\}/);
       if (vb) { inVerbatim = vb[1]; merged.push(raw); continue; }
@@ -351,7 +391,8 @@ export function beautify(text, options = {}) {
       const prevCode = prev == null ? '' : stripComment(prev).trim();
       const isStructural = /^\\(begin|end|item|section|subsection|subsubsection|chapter|part|label|caption|newcommand|def|input|include|bibliography|addbibresource|maketitle|tableofcontents|centering|hline|toprule|midrule|bottomrule|\\|\%|newline|par|noindent)\b/.test(code) || code.startsWith('\\[') || code.startsWith('\\]') || code.startsWith('$$') || code.startsWith('\\(') || code.startsWith('\\)');
       const prevStructural = /^\\(begin|end|item|section|subsection|subsubsection|chapter|part|label|caption|\\|\%|par|noindent)\b/.test(prevCode) || prevCode === '' || /\\(begin|end)\{[^}]+\}\s*$/.test(prevCode) || /\\\\$/.test(prevCode) || prevCode.startsWith('\\[') || prevCode.startsWith('$$');
-      if (!isStructural && !prevStructural && code && prevCode && !/[{}]$/.test(prevCode)) {
+      const hasComments = stripComment(raw).length !== raw.length || (prev != null && stripComment(prev).length !== prev.length);
+      if (!afterLiteral && !hasComments && !isStructural && !prevStructural && code && prevCode && !/[{}]$/.test(prevCode)) {
         // unwrap: append to previous line
         merged[merged.length - 1] = prev.replace(/\s+$/, '') + (/[\u4e00-\u9fff]$/.test(prev.trim()) || /^[\u4e00-\u9fff]/.test(code) ? '' : ' ') + code;
         continue;
@@ -364,9 +405,11 @@ export function beautify(text, options = {}) {
 
   // ---- 2. normalise indentation
   let result = [];
+  const mergedLiterals = literalLineMask(merged);
   inVerbatim = null;
   depth = 0;
-  for (const raw of merged) {
+  for (const [index, raw] of merged.entries()) {
+    if (mergedLiterals.has(index)) { result.push(raw); continue; }
     const code = stripComment(raw);
     const trimmed = code.trim();
     if (inVerbatim) {
@@ -378,7 +421,7 @@ export function beautify(text, options = {}) {
     if (vb) inVerbatim = vb[1];
 
     if (!trimmed) {
-      result.push('');
+      result.push(raw.trim() ? raw : '');
       continue;
     }
     if (/^\\(end)\{/.test(trimmed)) depth = Math.max(0, depth - 1);
@@ -386,9 +429,9 @@ export function beautify(text, options = {}) {
     if (!normalizeIndent || /^\s*%/.test(raw) || /^\s*(toprule|midrule|bottomrule|hline|centering|noindent|caption|label)\b/.test(trimmed)) {
       result.push(raw.replace(/\s+$/, ''));
     } else if (/^\\(documentclass|usepackage|RequirePackage|title|author|date|begin\{document\}|end\{document\}|newcommand|renewcommand|def|DeclareMathOperator|bibliography|bibliographystyle|addbibresource|printbibliography|maketitle|tableofcontents\}|input|include)/.test(trimmed) || depth === 0) {
-      result.push(trimmed);
+      result.push(raw.trim());
     } else {
-      result.push(unit.repeat(targetDepth) + trimmed);
+      result.push(unit.repeat(targetDepth) + raw.trim());
     }
     if (/\\begin\{/.test(trimmed) && !/\\begin\{[^}]*\}\s*$/.test(trimmed)) depth++;
     else if (/\\begin\{[^}]*\}/.test(trimmed) && !/\\end\{/.test(trimmed)) depth++;
@@ -400,8 +443,10 @@ export function beautify(text, options = {}) {
   // ---- 3. collapse blank lines
   if (collapseBlankLines) {
     const collapsed = [];
+    const literals = literalLineMask(result);
     let blanks = 0;
-    for (const line of result) {
+    for (const [index, line] of result.entries()) {
+      if (literals.has(index)) { collapsed.push(line); blanks = 0; continue; }
       if (!line.trim()) {
         blanks++;
         if (blanks > 1) continue;
@@ -435,7 +480,9 @@ export function beautify(text, options = {}) {
 
   if (sectionBanners) {
     const out = [];
-    for (const line of result) {
+    const literals = literalLineMask(result);
+    for (const [index, line] of result.entries()) {
+      if (literals.has(index)) { out.push(line); continue; }
       const m = line.match(/^\\(chapter|section|subsection|subsubsection)\*?\s*\{/);
       if (m) {
         const prev = out[out.length - 1] || '';
@@ -449,7 +496,8 @@ export function beautify(text, options = {}) {
   }
 
   // tidy trailing whitespace
-  result = result.map((l) => l.replace(/[ \t]+$/, ''));
+  const finalLiterals = literalLineMask(result);
+  result = result.map((l, index) => finalLiterals.has(index) ? l : l.replace(/[ \t]+$/, ''));
   let text2 = result.join('\n');
   if (!/\n$/.test(text2)) text2 += '\n';
   return text2;

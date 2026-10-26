@@ -164,7 +164,10 @@ export function toast({ type = 'info', title = '', body = '', timeout = 3800 } =
 /* ------------------------------------------------------------------- menus */
 let menuOpen = null;
 let menuAnchor = null;
+let popoverDispose = null;
 export function closeMenu() {
+  popoverDispose?.();
+  popoverDispose = null;
   const layer = document.getElementById('menuLayer');
   if (!layer) return;
   layer.innerHTML = '';
@@ -260,6 +263,7 @@ export function openPopover(anchor, contentNode) {
   layer.appendChild(wrap);
   layer.classList.add('open');
   menuOpen = wrap;
+  menuAnchor = anchor;
   const rect = anchor.getBoundingClientRect();
   const mw = wrap.offsetWidth;
   const mh = wrap.offsetHeight;
@@ -269,10 +273,12 @@ export function openPopover(anchor, contentNode) {
   wrap.style.left = left + 'px';
   wrap.style.top = top + 'px';
   const off = (e) => {
-    if (e.target.closest && e.target.closest('[data-menu]')) return; // let the trigger toggle itself
     if (!layer.contains(e.target) && !anchor.contains(e.target)) closeMenu();
   };
-  setTimeout(() => document.addEventListener('mousedown', off, { once: true }), 0);
+  const key = e => { if (e.key === 'Escape') { e.preventDefault(); closeMenu(); } };
+  document.addEventListener('mousedown', off);
+  document.addEventListener('keydown', key);
+  popoverDispose = () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', key); };
   return wrap;
 }
 

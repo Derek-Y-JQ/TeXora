@@ -104,7 +104,7 @@ const DEFAULT_SETTINGS = {
     provider: 'deepseek',
     baseUrl: 'https://api.deepseek.com/v1',
     apiKey: '',
-    model: 'deepseek-chat',
+    model: 'deepseek-flash',
     temperature: 0.4,
     maxTokens: 2048,
     timeout: 90,
@@ -182,6 +182,11 @@ class Store extends EventEmitter {
       }
     }
     const actions = this.data.ai?.blockActions;
+    if (!this.data.migrations?.deepseekFlash131) {
+      if (this.data.ai?.provider === 'deepseek' && this.data.ai.model === 'deepseek-chat' && /^https:\/\/api\.deepseek\.com\/?(?:v1\/?)?$/.test(this.data.ai.baseUrl || 'https://api.deepseek.com/v1')) this.data.ai.model = 'deepseek-flash';
+      this.data.migrations = { ...this.data.migrations, deepseekFlash131: true };
+      this._save();
+    }
     if (Array.isArray(actions)) {
       for (const a of actions) if (a.id === 'ask' && a.label === '提问') a.label = '解释';
     }
