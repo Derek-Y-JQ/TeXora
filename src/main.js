@@ -1369,6 +1369,7 @@ function toggleWordWrap() {
     scrollBeyondLastColumn: next ? 0 : 5,
     scrollbar: { horizontal: next ? 'hidden' : 'auto' }
   });
+  ctx.editor?.syncWrapClass();
   ctx.ribbon.refresh();
   toast({ type: 'info', title: next ? '自动换行已开启' : '自动换行已关闭', timeout: 1500 });
 }
