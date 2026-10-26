@@ -625,7 +625,13 @@ export function createSettingsUI() {
     }
     cur[parts[parts.length - 1]] = value;
     ctx.api.settings.set(path, value);
-    if (path === 'editor.fontSize' || path === 'editor.lineHeight' || path === 'editor.editorFont') {
+    if (path === 'editor.wordWrap') {
+      ctx.editor?.editor?.updateOptions({
+        wordWrap: value ? 'on' : 'off',
+        scrollBeyondLastColumn: value ? 0 : 5,
+        scrollbar: { horizontal: value ? 'hidden' : 'auto' }
+      });
+    } else if (path.startsWith('editor.')) {
       ctx.editor?.applySettings();
     }
     if (path.startsWith('appearance.')) ctx.app.applyAppearance();
