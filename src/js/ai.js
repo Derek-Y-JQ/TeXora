@@ -26,13 +26,13 @@ export function createAI() {
     return idx > 0 ? text.slice(0, Math.min(idx, 6000)) : '';
   }
 
-  function contextFor(target) {
+  function contextFor(target, code = '') {
     const ai = ctx.state.settings.ai;
     const doc = ctx.state.docs.get(ctx.state.activePath);
     const scope = ai.contextScope || 'file-with-preamble';
     let text = '';
-    if (target === 'selection') text = ctx.editor.getSelectionText();
-    else if (target === 'block') text = ctx.editor.getCurrentParagraph().text;
+    if (target === 'selection') text = code || ctx.editor.getSelectionText();
+    else if (target === 'block') text = code || ctx.editor.getCurrentParagraph().text;
     else if (target === 'file' && doc) text = doc.model.getValue().slice(0, 16000);
     if (scope === 'selection' && !text && doc) text = doc.model.getValue().slice(0, 16000);
 
@@ -74,7 +74,7 @@ export function createAI() {
     if (!ensureConfigured()) return;
     const action = actionId ? resolveAction(actionId) : null;
     const instruction = customPrompt || action?.prompt || '请处理下面的内容。';
-    const context = contextFor(target);
+    const context = contextFor(target, code);
     const content = code || context.text;
     const messages = [];
     const userParts = [];
@@ -244,9 +244,9 @@ export function createAI() {
     await request({ actionId, target: 'selection', code: text });
   }
 
-  async function runCustom({ target }) {
+  async function runCustom({ target, block }) {
     const scope = target === 'selection' ? 'selection' : 'block';
-    const text = scope === 'selection' ? ctx.editor.getSelectionText() : ctx.editor.getCurrentParagraph().text;
+    const text = scope === 'selection' ? ctx.editor.getSelectionText() : (block?.text || ctx.editor.getCurrentParagraph().text);
     if (!text) return toast({ type: 'warn', title: scope === 'selection' ? '请先选择内容' : '当前块为空' });
     const prompt = await ctx.dialogs.prompt({
       title: '自定义 AI 指令',
