@@ -1,0 +1,9 @@
+﻿node_modules/
+dist/
+release/
+.capture/
+.tmp/
+.cache/
+*.log
+.DS_Store
+Thumbs.db
