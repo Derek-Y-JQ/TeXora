@@ -9,6 +9,8 @@
 .editor-host { display: flex; }
 .block-rail { width: 20px; flex: none; position: relative; z-index: 4; }
 #monaco { position: relative !important; inset: auto; flex: 1 1 auto; min-width: 0; height: 100%; }
+#monaco.wrap-on .monaco-scrollable-element > .scrollbar.horizontal { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+#monaco.wrap-on .view-lines { max-width: 100% !important; }
 .block-handle { left: 1px; width: 17px; height: 17px; }
 .math-zone {
   display: flex; align-items: center; justify-content: center; height: 100%;
