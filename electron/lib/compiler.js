@@ -259,6 +259,7 @@ class Compiler {
     if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, error: '未找到主文档（含 \\documentclass 的 .tex 文件）' };
     const engine = options.engine || this.store.get('build.engine', 'xelatex');
     this._preCache = null;
+    this._snippetTier = null;
     const cache = await this.resolveCacheDir();
     await fsp.mkdir(cache, { recursive: true });
     const previewDir = path.join(cache, 'preview');
@@ -800,11 +801,11 @@ class Compiler {
       const plain = String(line).replace(/\\[{}]/g, '');
       return (plain.match(/{/g) || []).length - (plain.match(/}/g) || []).length;
     };
-    const collect = (source, test) => {
+    const collect = (source, re) => {
       const src = String(source).split(/\r?\n/);
       const out = [];
       for (let i = 0; i < src.length; i++) {
-        if (!test.test(src[i])) continue;
+        if (!re.test(src[i])) continue;
         const block = [src[i]];
         let balance = braceBalance(src[i]);
         while (balance > 0 && i + 1 < src.length && block.length < 60) {
@@ -817,16 +818,14 @@ class Compiler {
       return out;
     };
 
-    const defRe = /^\s*\\(newcommand|renewcommand|providecommand|DeclareMathOperator|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand|definecolor|colorlet|tikzset|pgfplotsset|newcolumntype|newenvironment|newtheorem)\b/;
-    const pkgRe = /^\s*\\(usepackage|RequirePackage|usetikzlibrary|usepgfplotslibrary|graphicspath|linespread|setlength|setcounter|captionsetup|sisetup|lstset)\b/;
-    const mainDefs = collect(pre, defRe);
-    let pkgs = collect(pre, pkgRe);
-    pkgs = pkgs.filter((l) => !/^\s*\\(usepackage\s*(\[[^\]]*\])?\{\s*(geometry|hyperref|ctex|xeCJK|fontspec|CJKutf8|luatexja)\s*\}|geometry\s*\{|hypersetup\s*\{)/.test(l));
-    pkgs = pkgs.filter((l) => !/^\s*\\(setCJKmainfont|setCJKsansfont|setCJKmonofont|setCJKfamilyfont|setmainfont|setsansfont|setmonofont|setmathfont|newfontfamily|fontsize|selectfont|defaultfontfeatures|setmathrm|setmathsf|setmathtt)\b/.test(l));
-    const rawDefs = collect(pre, /^\s*\\def\b/).filter((l) => !/@/.test(l));
+    const blockRe = /^\s*\\(usepackage|RequirePackage|usetikzlibrary|usepgfplotslibrary|graphicspath|linespread|setlength|setcounter|captionsetup|sisetup|lstset|setlist|newcommand|renewcommand|providecommand|DeclareMathOperator|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand|definecolor|colorlet|tikzset|pgfplotsset|newcolumntype|newenvironment|newtheorem|def)\b/;
+    let blocks = collect(pre, blockRe);
+    blocks = blocks.filter((l) => !/^\s*\\(usepackage\s*(\[[^\]]*\])?\{\s*(geometry|hyperref|ctex|xeCJK|fontspec|CJKutf8|luatexja)\s*\}|geometry\s*\{|hypersetup\s*\{)/.test(l));
+    blocks = blocks.filter((l) => !/^\s*\\(setCJKmainfont|setCJKsansfont|setCJKmonofont|setCJKfamilyfont|setmainfont|setsansfont|setmonofont|setmathfont|newfontfamily|fontsize|selectfont|defaultfontfeatures|setmathrm|setmathsf|setmathtt)\b/.test(l));
+    blocks = blocks.filter((l) => !/^\s*\\def\\.*@/.test(l));
 
-    const styleDefs = [];
     const localNames = new Set();
+    const styleDefs = [];
     const seenStyles = new Set();
     const walkStyles = async (dir, depth) => {
       if (depth > 2) return;
@@ -843,30 +842,48 @@ class Compiler {
         seenStyles.add(full);
         localNames.add(entry.name.replace(/\.(sty|cls)$/i, '').toLowerCase());
         const body = await fsp.readFile(full, 'utf8').catch(() => '');
-        styleDefs.push(...collect(body, defRe));
+        styleDefs.push(...collect(body, /^\s*\\(newcommand|renewcommand|providecommand|DeclareMathOperator|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand|definecolor|colorlet|tikzset|pgfplotsset|newcolumntype|newenvironment)\b/));
       }
     };
     await walkStyles(this.root, 0);
 
-    const safeMainDefs = mainDefs.filter((l) => !/^\s*\\newtheorem\b/.test(l) && !/^\s*\\renewcommand\s*\{\\the/.test(l));
+    const isPkg = (l) => /^\s*\\(usepackage|RequirePackage|usetikzlibrary|usepgfplotslibrary|graphicspath)\b/.test(l);
+    const pkgs = blocks.filter(isPkg);
     const safePkgs = pkgs.filter((l) => {
       const m = l.match(/\\usepackage\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
       if (!m) return true;
       return !m[1].split(',').some((name) => localNames.has(name.trim().toLowerCase()));
     });
+    const safeDefs = blocks.filter((l) => {
+      if (/^\s*\\newtheorem\b/.test(l)) return false;
+      if (/^\s*\\renewcommand\s*\{\\the/.test(l)) return false;
+      if (/^\s*\\renewcommand\s*\{\\(chaptermark|sectionmark|subsectionmark|headrule|headrulewidth|chapter|section)\b/.test(l)) return false;
+      if (/^\s*\\renewcommand\s*\{\\[a-zA-Z@]+mark\}/.test(l)) return false;
+      return true;
+    });
+    const safeSet = new Set(safeDefs);
+    const safeBlocks = blocks.filter((l) => isPkg(l) ? safePkgs.includes(l) : safeSet.has(l));
 
-    const fullLines = [...pkgs, ...mainDefs, ...rawDefs].filter(Boolean);
-    const safeLines = [...safePkgs, ...safeMainDefs, ...rawDefs, ...styleDefs].filter(Boolean);
-    const preamble = fullLines.join('\n').trim();
-    const safePreamble = safeLines.join('\n').trim();
+    const preamble = blocks.join('\n').trim();
+    const safePreamble = [...safePkgs, ...styleDefs, ...safeBlocks.filter((l) => !isPkg(l))].join('\n').trim();
+    const unicodeMath = /\\usepackage(?:\[[^\]]*\])?\{unicode-math\}/.test(pre) ? '\\usepackage{unicode-math}' : '';
+    const essentialDefs = collect(pre, /^\s*\\(definecolor|colorlet|newcommand|providecommand|DeclareMathOperator|DeclarePairedDelimiter|NewDocumentCommand|DeclareDocumentCommand)\b/);
+    const containerDefs = collect(pre, /^\s*\\(usetikzlibrary|usepgfplotslibrary|tikzset|pgfplotsset|newcolumntype)\b/);
+    const mathBase = [unicodeMath, ...essentialDefs, ...styleDefs].filter(Boolean);
+    const essentialMathPreamble = mathBase.join('\n').trim();
+    const essentialTablePreamble = [...mathBase, ...collect(pre, /^\s*\\newcolumntype\b/)].filter(Boolean).join('\n').trim();
+    const tikzBase = [];
+    if (/\\usepackage(?:\[[^\]]*\])?\{pgfplots\}/.test(pre) || /\\pgfplotsset/.test(pre)) tikzBase.push('\\usepackage{pgfplots}');
+    const essentialTikzPreamble = [...mathBase, ...tikzBase, ...containerDefs.filter((l) => !/^\s*\\newcolumntype\b/.test(l))].filter(Boolean).join('\n').trim();
+    const essentialPreamble = essentialTikzPreamble;
     const packages = [];
     for (const l of pkgs) {
       const m = l.match(/\\usepackage\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
       if (m) m[1].split(',').forEach((p) => { if (p.trim() && !packages.includes(p.trim())) packages.push(p.trim()); });
     }
     const usesCJK = /ctexart|ctex|xeCJK|CJKutf8|luatexja/.test(pre);
-    const value = { preamble, safePreamble, engine: usesCJK ? 'xelatex' : this.store.get('build.engine', 'xelatex'), packages, usesCJK, rootDir };
-    this._preCache = { root: rootFile, at: Date.now(), value };
+    const value = { preamble, safePreamble, essentialPreamble, essentialMathPreamble, essentialTablePreamble, essentialTikzPreamble, engine: usesCJK ? 'xelatex' : this.store.get('build.engine', 'xelatex'), packages, usesCJK, rootDir };
+    this._preCache = { root: rootFile, at: now, value };
     return value;
   }
 
@@ -876,9 +893,9 @@ class Compiler {
     const exe = this.tex.get(engineName) || this.tex.get('xelatex') || this.tex.get('pdflatex');
     if (!exe) return { ok: false, error: '未检测到 LaTeX 引擎，无法渲染预览' };
     if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return { ok: false, error: '未检测到 pdftoppm / pdftocairo，无法渲染预览' };
-    const body = String(code || '').trim();
+    const body = String(code || '').trim().replace(/\\qedhere\b/g, '');
     if (!body) return { ok: false, error: '空内容' };
-    const { preamble, safePreamble, usesCJK } = await this.extractPreamble();
+    const { preamble, safePreamble, essentialPreamble, essentialMathPreamble, essentialTablePreamble, essentialTikzPreamble, usesCJK } = await this.extractPreamble();
     const hash = crypto.createHash('sha1').update(kind + '|' + body + '|' + preamble + '|' + scale).digest('hex').slice(0, 16);
     const outDir = path.join(this.cacheDir(), 'snippets');
     await fsp.mkdir(outDir, { recursive: true });
@@ -889,8 +906,9 @@ class Compiler {
     }
     const hasCJK = /[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff]/.test(body);
     const docClass = hasCJK ? '\\documentclass[border=2pt]{standalone}\n\\usepackage{ctex}\n' : '\\documentclass[border=2pt]{standalone}\n';
-    const tikzPkg = kind === 'tikz' || /\\usetikzlibrary/.test(preamble) ? '\\usepackage{tikz}\n' : '';
-    const base = '\\usepackage{amsmath,amssymb,mathtools}\n\\usepackage{xcolor}\n\\usepackage{graphicx}\n\\usepackage{array}\n' + tikzPkg;
+    const needsTikz = kind === 'tikz' || /\\(?:begin\{tikzpicture\}|tikzset|pgfplotsset|begin\{axis\})/.test(body);
+    const tikzPkg = needsTikz ? '\\usepackage{tikz}\n' : '';
+    const base = '\\usepackage{amsmath,amssymb,amsthm,mathtools}\n\\usepackage{xcolor}\n\\usepackage{graphicx}\n\\usepackage{array}\n' + tikzPkg;
     const build = (pre) => {
       const docDir = path.dirname(this.project.rootFile || '').replace(/\\/g, '/');
       const projectDir = String(this.root || '').replace(/\\/g, '/');
@@ -925,15 +943,29 @@ class Compiler {
       return { res, ok };
     };
 
-    let res = await compileSnippet(content, true);
-    if (!res.ok && safePreamble) {
-      // second try: drop class-specific / theorem definitions but keep project macros
-      res = await compileSnippet(build(safePreamble));
+    const tiers = [
+      { name: 'full', pre: preamble },
+      { name: 'safe', pre: safePreamble },
+      { name: 'essential', pre: kind === 'tikz' ? essentialTikzPreamble : kind === 'table' ? essentialTablePreamble : essentialMathPreamble },
+      { name: 'minimal', pre: '' }
+    ].filter((t) => t.pre !== undefined);
+    let order = tiers;
+    if (this._snippetTier) {
+      const preferred = tiers.find((t) => t.name === this._snippetTier);
+      if (preferred) order = [preferred, ...tiers.filter((t) => t !== preferred)];
     }
-    if (!res.ok) {
-      // last resort: base packages only, so the preview still shows the fragment
-      res = await compileSnippet(build(''));
+    let res = null;
+    let usedTier = '';
+    for (const tier of order) {
+      if (tier.name === 'minimal' && order.length > 1 && this._snippetTier === 'minimal') continue;
+      const source = build(tier.pre || '');
+      if (tier.name === 'essential') {
+        try { await fsp.writeFile(path.join(workDir, 'snippet-essential.tex'), source, 'utf8'); } catch {}
+      }
+      res = await compileSnippet(source, tier.name === 'full');
+      if (res.ok) { usedTier = tier.name; break; }
     }
+    if (res && res.ok) this._snippetTier = usedTier;
     if (!res.ok) return { ok: false, error: res.res.output.slice(-1200) || '编译失败' };
     const renderer = this.tex.get('pdftoppm');
     const render = renderer
