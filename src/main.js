@@ -2,6 +2,7 @@
  * TeXora renderer entry: boot, layout, documents, build pipeline, panels.
  */
 import { ctx } from './js/ctx.js';
+import { openUpdateDownload } from './js/external-links.js';
 import { EditorController, monaco } from './js/editor.js';
 import { PreviewController } from './js/preview.js';
 import { Sidebar } from './js/sidebar.js';
@@ -1089,7 +1090,7 @@ async function checkUpdates(manual = false) {
     confirmText: '前往下载',
     cancelText: '稍后'
   });
-  if (go) api.app.openExternal(res.url);
+  if (go) await openUpdateDownload(api, res, toast);
 }
 
 async function runBuild(opts = {}) {

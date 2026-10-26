@@ -4,6 +4,7 @@
  * diff viewer, shortcuts and about.
  */
 import { ctx } from './ctx.js';
+import { PROJECT_HOME, openExternalLink } from './external-links.js';
 import { monaco } from './editor.js';
 import {
   $, $$, el, icon, escapeHtml, openMenu, toast, copyText, baseName, extOf, formatBytes, timeAgo, debounce
@@ -1191,7 +1192,10 @@ export function createDialogs() {
       title: '关于 TeXora',
       width: 640,
       body,
-      foot: `${dialogButton('关闭')}<span class="spacer"></span><button class="btn btn-sm" onclick="window.texora.openExternal('https://github.com')">${icon('external')}项目主页</button>`
+      foot: `${dialogButton('关闭')}<span class="spacer"></span><button class="btn btn-sm" data-project-home>${icon('external')}项目主页</button>`,
+      onMount: ({ root }) => {
+        root.querySelector('[data-project-home]').addEventListener('click', () => openExternalLink(ctx.api, PROJECT_HOME, toast));
+      }
     });
   }
 
