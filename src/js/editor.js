@@ -1133,6 +1133,15 @@ export class EditorController {
     host.appendChild(this.aiBar);
     this.aiBar.addEventListener('mouseenter', () => clearTimeout(this._aiHideTimer));
     this.aiBar.addEventListener('mouseleave', () => this.scheduleHideAiBar(240));
+    // Track the pointer on the stable host, not Monaco's regenerated line nodes.
+    host.addEventListener('pointermove', (e) => {
+      this.blockPointer = { x: e.clientX, y: e.clientY };
+      this.refreshBlockHover();
+    });
+    host.addEventListener('pointerleave', () => {
+      this.blockPointer = null;
+      this.scheduleHideAiBar(240);
+    });
 
     this.dropIndicator = document.createElement('div');
     this.dropIndicator.className = 'block-drop-indicator hidden';
@@ -1149,19 +1158,21 @@ export class EditorController {
     this.editor.onDidScrollChange(() => {
       this.updateBlocks();
       this.hideHover();
-      this.hideAiBar();
+      // Scrolling moves blocks beneath a stationary pointer.
+      cancelAnimationFrame(this._blockHoverFrame);
+      this._blockHoverFrame = requestAnimationFrame(() => this.refreshBlockHover());
     });
-    this.editor.onDidLayoutChange(() => this.updateBlocks());
+    this.editor.onDidLayoutChange(() => {
+      this.updateBlocks();
+      if (this.hoveredBlock) this.positionAiBar(this.hoveredBlock);
+    });
     this.editor.onDidChangeModelContent((e) => {
       this.onContentChange(e);
     });
     this.editor.onMouseMove((e) => {
-      this.onMouseMove(e);
       this.scheduleHover(e);
     });
     this.editor.onMouseLeave(() => {
-      this.renderRail();
-      this.scheduleHideAiBar(320);
       this.hideHover();
     });
     this.editor.onMouseDown((e) => this.onMouseDown(e));
@@ -1222,6 +1233,8 @@ export class EditorController {
       lineNumbersMinChars: 3,
       minimap: { enabled: !!ed.minimap, renderCharacters: false, maxColumn: 70 },
       wordWrap: ed.wordWrap ? 'on' : 'off',
+      // Browser measurements handle Windows fallback fonts and mixed CJK text.
+      wrappingStrategy: 'advanced',
       wordWrapBreakAfterCharacters: ' \\t})]?|/&.,;¢°′″‰℃、。｡､￠，．：；？！％・･ゝゞヽヾーァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿ々〻ｧｨｩｪｫｬｭｮｯｰ”〉》」』】〕）］｝｣\\$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
       scrollBeyondLastColumn: ed.wordWrap ? 0 : 5,
       renderWhitespace: 'selection',
@@ -1312,7 +1325,9 @@ export class EditorController {
 
   syncWrapClass() {
     const host = document.getElementById('monaco');
-    if (host) host.classList.toggle('wrap-on', !!ctx.state.settings?.editor?.wordWrap);
+    host?.parentElement?.classList.toggle('has-block-actions', this.blockAiVisible());
+    this.editor?.layout();
+    if (ctx.state.settings?.editor?.wordWrap) this.editor?.setScrollLeft(0);
   }
 
   /* ------------------------------------------------------------- documents */
@@ -1627,6 +1642,7 @@ export class EditorController {
     this.blocks = ctx.state.blocks;
     ctx.emit('doc:parsed', parsed);
     this.updateBlocks(true);
+    if (this.blockPointer) this.refreshBlockHover();
     this.updateDecorations(parsed);
     this.updateEnvDiagnostics(parsed, text);
   }
@@ -1730,10 +1746,26 @@ export class EditorController {
         if (block) {
           this.hoveredBlock = block;
           this.showBlockAiBar(block);
-          this.renderRail();
+          handle.classList.add('visible');
         }
       });
     }
+  }
+
+  refreshBlockHover() {
+    const point = this.blockPointer;
+    if (!point || !this.editor) return;
+    const element = document.elementFromPoint(point.x, point.y);
+    if (this.aiBar?.contains(element)) {
+      clearTimeout(this._aiHideTimer);
+      if (this.hoveredBlock) this.positionAiBar(this.hoveredBlock);
+      return;
+    }
+    const handle = element?.closest('.block-handle');
+    const position = handle
+      ? { lineNumber: Number(handle.dataset.start) }
+      : this.editor.getTargetAtClientPoint(point.x, point.y)?.position;
+    this.onMouseMove({ target: { position } });
   }
 
   onMouseMove(e) {
@@ -1741,13 +1773,10 @@ export class EditorController {
     if (this.aiBar?.classList.contains('visible') && this.aiBar.matches(':hover')) return;
     const pos = e.target.position;
     if (!pos) {
-      if (this.hoveredBlock) {
-        this.hoveredBlock = null;
-        this.renderRail();
-        this.hideAiBar();
-      }
+      this.scheduleHideAiBar();
       return;
     }
+    clearTimeout(this._aiHideTimer);
     const block = this.blocks.find((b) => pos.lineNumber >= b.startLine && pos.lineNumber <= b.endLine);
     if (block !== this.hoveredBlock) {
       this.hoveredBlock = block || null;
@@ -1759,7 +1788,8 @@ export class EditorController {
       } else if (!this.editor.getSelection()?.isEmpty()) this.updateSelectionBar();
       else this.scheduleHideAiBar(280);
     } else if (block) {
-      this.positionAiBar(block);
+      if (!this.aiBar?.classList.contains('visible')) this.showBlockAiBar(block);
+      else this.positionAiBar(block);
     }
   }
 
@@ -1768,6 +1798,7 @@ export class EditorController {
   }
 
   showBlockAiBar(block) {
+    clearTimeout(this._aiHideTimer);
     if (!this.blockAiVisible() || !this.aiBar) return;
     const sel = this.editor?.getSelection();
     if (sel && !sel.isEmpty()) return;
@@ -1777,7 +1808,7 @@ export class EditorController {
       actions
         .map(
           (a) =>
-            `<button data-action="${escapeHtml(a.id)}" title="${escapeHtml(a.prompt || a.label)}">${icon(a.id === 'translate' ? 'code' : a.id === 'ask' ? 'message' : 'wand')}<span class="ai-label">${escapeHtml(a.label)}</span></button>`
+            `<button data-action="${escapeHtml(a.id)}" title="${escapeHtml(a.prompt || a.label)}">${icon(a.id === 'translate' ? 'translate' : a.id === 'ask' ? 'message' : 'wand')}<span class="ai-label">${escapeHtml(a.label)}</span></button>`
         )
         .join('') + `<button data-action="custom" title="自定义指令">${icon('sparkles')}<span class="ai-label">自定义</span></button>`;
     this.aiBar.classList.add('visible');
@@ -1807,10 +1838,10 @@ export class EditorController {
   positionAiBar(block) {
     if (!this.aiBar || !this.editor) return;
     const top = this.editor.getTopForLineNumber(block.startLine) - this.editor.getScrollTop();
-    const barH = 20;
+    const barH = this.aiBar.offsetHeight;
     const localTop = Math.max(0, Math.min(this.editor.getLayoutInfo().height - barH - 2, top + 2));
     this.aiBar.style.top = localTop + 'px';
-    this.aiBar.style.right = '14px';
+    this.aiBar.style.right = '4px';
   }
 
   scheduleHideAiBar(delay = 260) {

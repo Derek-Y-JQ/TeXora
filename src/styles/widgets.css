@@ -6,11 +6,10 @@
 .btn.busy { opacity: 0.85; }
 
 /* ------------------------------------------------------------- editor rail */
-.editor-host { display: flex; }
+.editor-host { display: flex; min-width: 0; }
+.editor-host.has-block-actions { padding-right: 34px; }
 .block-rail { width: 20px; flex: none; position: relative; z-index: 4; }
-#monaco { position: relative !important; inset: auto; flex: 1 1 auto; min-width: 0; height: 100%; }
-#monaco.wrap-on .monaco-scrollable-element > .scrollbar.horizontal { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
-#monaco.wrap-on .view-lines { max-width: 100% !important; }
+#monaco { position: relative !important; inset: auto; flex: 1 1 0; min-width: 0; height: 100%; overflow: hidden; }
 .block-handle { left: 1px; width: 17px; height: 17px; }
 .math-zone {
   display: flex; align-items: center; justify-content: center; height: 100%;

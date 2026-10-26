@@ -85,6 +85,13 @@
 .split-btn .btn-primary { border-radius: var(--r-sm) 0 0 var(--r-sm); padding-right: 9px; height: 30px; }
 .split-btn .btn-caret { border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: 0 4px; min-width: 20px; border-left: 1px solid rgba(255, 255, 255, 0.22); }
 .split-btn .btn-caret .ico { width: 12px; height: 12px; }
+.split-btn .compile-btn { min-width: 104px; justify-content: center; font-weight: 650; }
+.compile-btn.busy { opacity: 1; background: var(--danger); }
+.compile-btn.busy:hover { filter: brightness(1.08); }
+.editor-theme-btn { display: inline-flex; align-items: center; gap: 5px; height: 27px; padding: 0 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text-2); font-size: 11px; white-space: nowrap; }
+.editor-theme-btn:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-softer); }
+.editor-theme-btn > .ico:first-child { width: 14px; height: 14px; }
+@media (max-width: 1100px) { .editor-theme-btn > span { display: none; } }
 .engine-btn { height: 26px; padding: 0 8px; font-size: 11.5px; color: var(--text-3); border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface-2); margin-left: 3px; gap: 5px; }
 .engine-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-3); }
 .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
@@ -105,7 +112,7 @@
   width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
   color: var(--text-3); position: relative; transition: background var(--t-fast), color var(--t-fast);
 }
-.act-btn .ico { width: 19px; height: 19px; stroke-width: 1.6; }
+.act-btn .ico { width: 19px; height: 19px; stroke-width: 1.95; }
 .act-btn:hover { background: var(--hover); color: var(--text); }
 .act-btn.active { background: var(--accent-soft); color: var(--accent); }
 .act-btn.active::before {
@@ -499,16 +506,15 @@
 .block-handle.dragging { cursor: grabbing; color: var(--accent); }
 .block-handle span { width: 1.5px; height: 1.5px; background: currentColor; border-radius: 50%; }
 .block-ai-bar {
-  position: absolute; right: 14px; display: flex; gap: 1px; padding: 2px;
+  position: absolute; right: 4px; display: flex; flex-direction: column; gap: 1px; padding: 2px;
   border-radius: 7px; background: color-mix(in srgb, var(--surface-2) 92%, transparent);
   border: 1px solid var(--border-strong); box-shadow: var(--shadow-sm); z-index: 6;
   opacity: 0; pointer-events: none; transition: opacity var(--t-fast); backdrop-filter: blur(10px);
 }
 .block-ai-bar.visible { opacity: 1; pointer-events: auto; }
 .block-ai-bar button { height: 20px; min-width: 22px; padding: 0 4px; border-radius: 5px; font-size: 10px; color: var(--text-2); display: inline-flex; align-items: center; gap: 3px; justify-content: center; }
-.block-ai-bar button:hover { background: var(--accent-soft); color: var(--accent); width: auto; padding: 0 6px; }
+.block-ai-bar button:hover { background: var(--accent-soft); color: var(--accent); }
 .block-ai-bar .ai-label { display: none; white-space: nowrap; }
-.block-ai-bar button:hover .ai-label { display: inline; }
 .block-ai-bar .ico { width: 11px; height: 11px; }
 
 /* inline math preview widget */

@@ -4,6 +4,7 @@
  */
 import { ctx } from './ctx.js';
 import { $, $$, icon, escapeHtml, toast, formatBytes, debounce } from './util.js';
+import { CODE_THEMES } from './code-themes.js';
 
 const PROVIDER_PRESETS = {
   deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-reasoner'] },
@@ -325,7 +326,7 @@ export function createSettingsUI() {
       ${group('代码外观')}
       <div class="setting-card">
         ${editorFontSelect()}
-        ${selectRow('appearance.codeTheme', '代码高亮主题', '预设配色；选「跟随日夜」时自动切换', [['auto', '跟随日夜（默认）'], ['one-dark', 'One Dark'], ['github', 'GitHub Dark'], ['monokai', 'Monokai'], ['solarized', 'Solarized Light'], ['github-light', 'GitHub Light'], ['one-light', 'One Light'], ['quiet-light', 'Quiet Light']])}
+        ${selectRow('appearance.codeTheme', '代码高亮主题', '也可在编辑区右上角直接切换；跟随日夜会自动切换', CODE_THEMES.map(([id, label]) => [id, label]))}
         ${textAreaRow('appearance.customCss', '自定义 CSS', '高级：覆盖界面或编辑器样式，保存后立即生效', 6)}
       </div>
       ${group('强调色')}

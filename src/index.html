@@ -89,6 +89,16 @@
         <symbol id="i-punct-half" viewBox="0 0 24 24"><text x="0" y="15" font-size="13" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">，</text><path d="M9 10.5h7m-2.2-2.2L16 10.5l-2.2 2.2"/><text x="17" y="18" font-size="11" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">.</text></symbol>
         <symbol id="i-punct-full" viewBox="0 0 24 24"><text x="1" y="18" font-size="11" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">.</text><path d="M6 10.5h7m-2.2-2.2L13 10.5l-2.2 2.2"/><text x="14" y="15" font-size="13" font-family="Segoe UI, sans-serif" fill="currentColor" stroke="none">，</text></symbol>
         <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+        <symbol id="i-compile" viewBox="0 0 24 24"><path d="M13 3.5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h5M13 3.5V9h6l-6-5.5ZM7.5 12h4M7.5 16h2"/><path d="m16 12-3 5h4l-1 4 5-6h-4l2-3"/></symbol>
+        <symbol id="i-section" viewBox="0 0 24 24"><path d="M6 4 4 20M14 4l-2 16M2.5 9h15M2 15h15M19 5h3M20.5 5v7M19 12h3"/></symbol>
+        <symbol id="i-line-spacing" viewBox="0 0 24 24"><path d="M10 5h11M10 12h8M10 19h11M4 4v16M1.5 6.5 4 4l2.5 2.5M1.5 17.5 4 20l2.5-2.5"/></symbol>
+        <symbol id="i-display-math" viewBox="0 0 24 24"><path d="M6 3H3v18h3M18 3h3v18h-3M16 7H8l4 5-4 5h8"/></symbol>
+        <symbol id="i-environment" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13l-2 2 2 2M16 13l2 2-2 2M13 12l-2 6"/></symbol>
+        <symbol id="i-auto-build" viewBox="0 0 24 24"><path d="M19.5 8A8 8 0 0 0 6 5L3.5 7.5M3.5 3.5v4h4M4.5 16A8 8 0 0 0 18 19l2.5-2.5M20.5 20.5v-4h-4M13 7l-5 6h4l-1 4 5-6h-4z"/></symbol>
+        <symbol id="i-assistant" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 3v3M8 11v2M16 11v2M9 16h6M1.5 11v4M22.5 11v4"/></symbol>
+        <symbol id="i-translate" viewBox="0 0 24 24"><path d="M3 5h11M8 3v2M5 5c0 5 3 8 8 10M12 5c0 5-3 8-8 10M13 21l4-10 4 10M14.5 17h5"/></symbol>
+        <symbol id="i-font-size" viewBox="0 0 24 24"><path d="m3 19 5-14 5 14M5 14h6M19 4v16M16.5 6.5 19 4l2.5 2.5M16.5 17.5 19 20l2.5-2.5"/></symbol>
+        <symbol id="i-functions" viewBox="0 0 24 24"><path d="M12 4h-1a3 3 0 0 0-3 3v10a3 3 0 0 1-3 3H4M4 10h9M15 11l6 8M21 11l-6 8"/></symbol>
       </defs>
     </svg>
 
@@ -136,13 +146,11 @@
           <div class="ribbon-group">
             <div class="ribbon-row">
               <div class="split-btn" id="buildBtnGroup">
-                <button class="btn btn-primary" data-cmd="build.run" title="编译 (Ctrl+Alt+B)">
-                  <svg class="ico"><use href="#i-play" /></svg><span>编译</span>
+                <button class="btn btn-primary compile-btn" id="btnBuild" data-cmd="build.run" title="编译项目 (Ctrl+Alt+B)">
+                  <svg class="ico"><use href="#i-compile" /></svg><span>编译</span>
                 </button>
+                <button class="btn btn-primary btn-caret" data-menu="build" title="编译选项" aria-label="编译选项"><svg class="ico"><use href="#i-chevron-down" /></svg></button>
               </div>
-              <button class="btn btn-icon" data-cmd="build.stop" title="停止编译">
-                <svg class="ico"><use href="#i-stop" /></svg>
-              </button>
               <button class="btn btn-icon" data-cmd="build.clean" title="清理过程文件">
                 <svg class="ico"><use href="#i-broom" /></svg>
               </button>
@@ -163,7 +171,7 @@
               <button class="btn btn-icon" data-format="emph" title="强调 \emph (Ctrl+E)"><svg class="ico"><use href="#i-emph" /></svg></button>
               <button class="btn btn-icon" data-format="texttt" title="等宽 \texttt"><svg class="ico"><use href="#i-tt" /></svg></button>
               <button class="btn btn-ghost size-btn" data-menu="size" id="sizeBtn" title="字号">
-                <span id="sizeLabel">字号</span><svg class="ico ico-caret"><use href="#i-chevron-down" /></svg>
+                <svg class="ico"><use href="#i-font-size" /></svg><span id="sizeLabel">字号</span><svg class="ico ico-caret"><use href="#i-chevron-down" /></svg>
               </button>
               <button class="btn btn-ghost font-btn" data-menu="font" id="fontBtn" title="字体（读取系统本地字体）">
                 <svg class="ico"><use href="#i-type" /></svg><span>字体</span>
@@ -176,8 +184,8 @@
             <div class="ribbon-row">
               <button class="btn btn-icon" data-menu="list" title="列表环境"><svg class="ico"><use href="#i-list-ul" /></svg></button>
               <button class="btn btn-icon" data-menu="align" title="对齐方式"><svg class="ico"><use href="#i-align-left" /></svg></button>
-              <button class="btn btn-icon" data-format="section" title="章节命令"><svg class="ico"><use href="#i-outline" /></svg></button>
-              <button class="btn btn-icon" data-menu="spacing" title="行距与段落"><svg class="ico"><use href="#i-layers" /></svg></button>
+              <button class="btn btn-icon" data-format="section" title="章节命令"><svg class="ico"><use href="#i-section" /></svg></button>
+              <button class="btn btn-icon" data-menu="spacing" title="行距与段落"><svg class="ico"><use href="#i-line-spacing" /></svg></button>
             </div>
             <div class="ribbon-label">段落</div>
           </div>
@@ -188,7 +196,7 @@
               <button class="btn btn-icon" data-cmd="insert.table" title="插入表格（三线表 / 长表格）"><svg class="ico"><use href="#i-table" /></svg></button>
               <button class="btn btn-icon" data-menu="math" title="数学符号面板"><svg class="ico"><use href="#i-sigma" /></svg></button>
               <button class="btn btn-icon" data-cmd="insert.cite" title="插入引用"><svg class="ico"><use href="#i-book" /></svg></button>
-              <button class="btn btn-icon" data-menu="env" title="插入环境"><svg class="ico"><use href="#i-code" /></svg></button>
+              <button class="btn btn-icon" data-menu="env" title="插入环境"><svg class="ico"><use href="#i-environment" /></svg></button>
             </div>
             <div class="ribbon-label">插入</div>
           </div>
@@ -197,7 +205,7 @@
             <div class="ribbon-row">
               <button class="btn btn-icon" data-cmd="format.punctHalf" title="中文标点 → 英文标点（自动补英文空格，保留顿号与引号）"><svg class="ico"><use href="#i-punct-half" /></svg></button>
               <button class="btn btn-icon" data-cmd="format.punctFull" title="英文标点 → 中文标点（自动去除多余空格，保留顿号与引号）"><svg class="ico"><use href="#i-punct-full" /></svg></button>
-              <button class="btn btn-icon" data-format="displaystyle" title="行间公式 \displaystyle 化"><svg class="ico"><use href="#i-sigma" /></svg></button>
+              <button class="btn btn-icon" data-format="displaystyle" title="行内公式 \displaystyle 化"><svg class="ico"><use href="#i-display-math" /></svg></button>
               <button class="btn btn-icon" data-cmd="view.toggleWordWrap" id="wrapBtn" title="自动换行 (Alt+Z)"><svg class="ico"><use href="#i-wrap" /></svg></button>
               <button class="btn btn-ghost" data-cmd="format.beautify" title="LaTeX 原稿格式整理">
                 <svg class="ico"><use href="#i-wand" /></svg><span>整理</span>
@@ -224,7 +232,7 @@
             <svg class="ico"><use href="#i-search" /></svg>
           </button>
           <button class="icon-btn" data-cmd="view.livePreview" id="liveBtn" title="自动编译">
-            <svg class="ico"><use href="#i-eye" /></svg>
+            <svg class="ico"><use href="#i-auto-build" /></svg>
           </button>
           <button class="icon-btn" data-cmd="view.toggleSidebar" id="toggleSidebarBtn" title="折叠侧边栏">
             <svg class="ico"><use href="#i-panel-left" /></svg>
@@ -239,13 +247,13 @@
         <nav class="activitybar" id="activitybar">
           <button class="act-btn active" data-panel="files" title="文件浏览器"><svg class="ico"><use href="#i-files" /></svg></button>
           <button class="act-btn" data-panel="outline" title="文档大纲"><svg class="ico"><use href="#i-outline" /></svg></button>
-          <button class="act-btn" data-panel="math" title="数学环境"><svg class="ico"><use href="#i-sigma" /></svg></button>
+          <button class="act-btn" data-panel="math" title="数学环境"><svg class="ico"><use href="#i-functions" /></svg></button>
           <button class="act-btn" data-panel="labels" title="标签与引用"><svg class="ico"><use href="#i-tags" /></svg></button>
           <button class="act-btn" data-panel="search" title="全局查找"><svg class="ico"><use href="#i-search" /></svg></button>
           <button class="act-btn" data-panel="history" title="本地历史"><svg class="ico"><use href="#i-history" /></svg></button>
           <button class="act-btn" data-panel="git" title="Git 版本控制"><svg class="ico"><use href="#i-git" /></svg></button>
           <span class="act-spacer"></span>
-          <button class="act-btn" data-panel="ai" title="AI 助手"><svg class="ico"><use href="#i-sparkles" /></svg></button>
+          <button class="act-btn" data-panel="ai" title="AI 助手"><svg class="ico"><use href="#i-assistant" /></svg></button>
         </nav>
 
         <aside class="sidebar" id="sidebar">
@@ -262,6 +270,7 @@
           <div class="tabstrip">
             <div class="tabs" id="tabs"></div>
             <div class="tabstrip-actions">
+              <button class="editor-theme-btn" data-menu="codeTheme" id="codeThemeBtn" title="更换代码高亮主题" aria-label="更换代码高亮主题"><svg class="ico"><use href="#i-palette" /></svg><span id="codeThemeLabel">代码主题</span><svg class="ico ico-caret"><use href="#i-chevron-down" /></svg></button>
               <button class="icon-btn sm" data-cmd="doc.new" title="新建文档"><svg class="ico"><use href="#i-plus" /></svg></button>
               <button class="icon-btn sm" data-cmd="build.toggleProblems" id="problemsToggle" title="问题面板"><svg class="ico"><use href="#i-alert" /></svg></button>
             </div>

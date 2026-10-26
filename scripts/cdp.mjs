@@ -47,11 +47,15 @@ const child = spawn(packagedApp || electronExe, [`--remote-debugging-port=${port
   stdio: ['ignore', logFd, logFd],
   windowsHide: true
 });
+let launchError;
+child.on('error', (err) => { launchError = err; });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function findPage() {
   for (let i = 0; i < 80; i++) {
+    if (launchError) throw launchError;
+    if (child.exitCode !== null) throw new Error(`Electron exited before CDP was ready (code ${child.exitCode})`);
     try {
       const list = await fetch(`http://127.0.0.1:${port}/json/list`).then((r) => r.json());
       const page = list.find((p) => p.type === 'page' && p.webSocketDebuggerUrl);
@@ -175,9 +179,12 @@ async function main() {
 }
 
 main()
-  .catch((err) => console.error('cdp error:', err.message))
+  .catch((err) => {
+    console.error('cdp error:', err.message);
+    process.exitCode = 1;
+  })
   .finally(() => {
     try { fs.closeSync(logFd); } catch {}
     try { spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
-    setTimeout(() => process.exit(0), 300);
+    setTimeout(() => process.exit(process.exitCode || 0), 300);
   });

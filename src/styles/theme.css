@@ -146,7 +146,7 @@ button { font-family: inherit; font-size: inherit; color: inherit; background: n
 input, select, textarea { font-family: inherit; font-size: inherit; color: var(--text); }
 svg { display: block; }
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.95; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .ico-caret { width: 12px; height: 12px; opacity: 0.7; stroke-width: 2; }
 .hidden { display: none !important; }
 .only-light { display: none; }

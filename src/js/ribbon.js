@@ -2,6 +2,7 @@
 import { ctx } from './ctx.js';
 import { $, $$, icon, escapeHtml, openMenu, toast, baseName } from './util.js';
 import { SIZE_OPTIONS, SYMBOL_GROUPS, toSnippet } from './symbols.js';
+import { CODE_THEMES } from './code-themes.js';
 
 export function createRibbon() {
   function init() {
@@ -89,7 +90,19 @@ export function createRibbon() {
         { label: '编译设置…', icon: 'sliders', onClick: () => ctx.cmd('settings.open', 'build') }
       ];
     },
-    engine: () => MENUS.build(),
+    engine: () => MENUS.build().slice(0, 5),
+    codeTheme: () => [
+      { group: '代码编辑区高亮主题' },
+      ...CODE_THEMES.map(([id, label, swatch]) => ({
+        label, swatch, checked: (ctx.state.settings.appearance.codeTheme || 'auto') === id,
+        onClick: async () => {
+          ctx.state.settings.appearance.codeTheme = id;
+          ctx.editor.applyTheme();
+          refresh();
+          await ctx.api.settings.set('appearance.codeTheme', id);
+        }
+      }))
+    ],
     size: () => [
       { group: '字号（应用于选区或插入命令）' },
       ...SIZE_OPTIONS.map(([size, label]) => ({
@@ -181,6 +194,21 @@ export function createRibbon() {
   function refresh() {
     const s = ctx.state.settings;
     if (!s) return;
+    const build = $('#btnBuild');
+    if (build) {
+      const running = !!ctx.state.build.running;
+      build.dataset.cmd = running ? 'build.stop' : 'build.run';
+      build.classList.toggle('busy', running);
+      build.disabled = !!ctx.state.build.stopping;
+      build.setAttribute('aria-busy', String(running));
+      build.title = running ? '停止当前编译' : '保存修改并编译项目 (Ctrl+Alt+B)';
+      build.innerHTML = `${icon(running ? 'stop' : 'compile')}<span>${ctx.state.build.stopping ? '停止中…' : running ? '停止编译' : ctx.state.build.state === 'error' ? '重试编译' : '编译'}</span>`;
+    }
+    const themeLabel = $('#codeThemeLabel');
+    const theme = CODE_THEMES.find(([id]) => id === (s.appearance.codeTheme || 'auto'));
+    if (themeLabel) themeLabel.textContent = theme?.[1] || '代码主题';
+    const themeBtn = $('#codeThemeBtn');
+    if (themeBtn) themeBtn.title = '更换代码高亮主题 · ' + (theme?.[1] || '跟随日夜');
     const engineLabel = { xelatex: 'XeLaTeX', pdflatex: 'pdfLaTeX', lualatex: 'LuaLaTeX', latexmk: 'latexmk' }[s.build.engine] || s.build.engine;
     const label = $('#engineLabel');
     if (label) label.textContent = engineLabel;

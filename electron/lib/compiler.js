@@ -258,6 +258,11 @@ class Compiler {
     const rootFile = this.resolveRootFile(options.file);
     if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, error: '未找到主文档（含 \\documentclass 的 .tex 文件）' };
     const engine = options.engine || this.store.get('build.engine', 'xelatex');
+    const token = { cancelled: false };
+    this._buildToken = token;
+    const checkCancelled = () => {
+      if (token.cancelled) throw Object.assign(new Error('编译已停止'), { code: 'TEXORA_CANCELLED' });
+    };
     this._preCache = null;
     this._snippetTier = null;
     const cache = await this.resolveCacheDir();
@@ -275,6 +280,7 @@ class Compiler {
     const runCwd = rootDir;
     const pdfPath = path.join(cache, jobname + '.pdf');
     const started = Date.now();
+    if (token.cancelled) return { ok: false, cancelled: true };
     this.running = true;
     this.startedAt = started;
     const before = fs.existsSync(pdfPath) ? fs.statSync(pdfPath).mtimeMs : 0;
@@ -296,6 +302,7 @@ class Compiler {
     let transcript = '';
 
     const exec = async (exe, args, cwd = this.root, passLabel = '') => {
+      checkCancelled();
       const outFile = path.join(cache, 'compile-console.log');
       const res = await run(exe, args, {
         cwd,
@@ -310,6 +317,7 @@ class Compiler {
       timedOut = res.timedOut;
       results.push({ exe: path.basename(exe), args, code: res.code, pass: passLabel });
       this.childPid = 0;
+      checkCancelled();
       return res;
     };
 
@@ -404,6 +412,7 @@ class Compiler {
       }
 
       const pages = ok ? await this.renderPages(pdfPath, previewDir) : await this.readExistingPages(previewDir);
+      checkCancelled();
       if (ok && pages.length) {
         try {
           const linkMap = await this.extractLinks(pdfPath, pages.length);
@@ -434,9 +443,11 @@ class Compiler {
       if (ok && this.history) {
         this.history.snapshot(rootFile, await fsp.readFile(rootFile, 'utf8').catch(() => ''), 'build');
       }
+      checkCancelled();
       this.send('build:done', result);
       return result;
     } catch (err) {
+      if (token.cancelled || err.code === 'TEXORA_CANCELLED') return { ok: false, cancelled: true };
       const result = {
         ok: false,
         engine,
@@ -678,13 +689,14 @@ class Compiler {
   }
 
   stop() {
+    if (this._buildToken) this._buildToken.cancelled = true;
     this._queue.length = 0;
     if (this.childPid) {
       killTree(this.childPid);
       this.childPid = 0;
       this.send('build:log', { chunk: '\n■ 已停止编译\n' });
     }
-    this.running = false;
+    // Keep the job busy until its child exits and build() reaches finally.
   }
 
   clean(includePdf = false) {

@@ -29,6 +29,7 @@ let problemsOpen = false;
 let lastPages = [];
 let buildStartedAt = 0;
 let dirtyStatusTimer = null;
+let buildPreparing = false;
 
 /* --------------------------------------------------------------------- boot */
 async function boot() {
@@ -503,7 +504,7 @@ function wireIpc() {
       if (ctx.state.build.state === 'running') ctx.state.build.state = 'idle';
       ctx.state.build.running = false;
       ctx.preview.setBusy(false);
-      if (ctx.state.build.state !== 'ok' && ctx.state.build.state !== 'error') setBuildStatus('idle', '空闲');
+      if (ctx.state.build.state !== 'ok' && ctx.state.build.state !== 'error') setBuildStatus('idle', ctx.state.build.stopping ? '已停止' : '空闲');
     }
   });
   api.build.onLog((payload) => {
@@ -1092,38 +1093,59 @@ async function checkUpdates(manual = false) {
 }
 
 async function runBuild(opts = {}) {
+  if (buildPreparing || ctx.state.build.running) return;
   if (!ctx.state.project.root) {
     toast({ type: 'warn', title: '请先打开项目', body: '编译需要一个包含主文档的项目文件夹' });
     return;
   }
-  if (!ctx.state.texInfo?.engines?.xelatex && !ctx.state.texInfo?.engines?.pdflatex) {
-    const res = await api.tex.refresh();
-    ctx.state.texInfo = res;
-    if (!res.engines?.xelatex && !res.engines?.pdflatex) {
-      return toast({ type: 'error', title: '未检测到 LaTeX 引擎', body: '请在设置 → 宏包与 TeX 环境中指定 TeX 发行版路径', timeout: 7000 });
-    }
-  }
   if (opts.live && !ctx.state.settings.build.livePreview) return;
-  buildStartedAt = Date.now();
-  const doc = ctx.state.docs.get(ctx.state.activePath);
-  if (doc?.dirty && ctx.state.settings.build.buildOnSave) await saveDocument(ctx.state.activePath, { silent: true });
-  ctx.state.build.state = 'running';
-  setBuildStatus('building', '编译中…');
-  ctx.preview.setBusy(true);
-  const res = await api.build.run({ file: ctx.state.activePath, live: !!opts.live });
-  if (res && res.error) {
-    ctx.state.build.running = false;
+  buildPreparing = true;
+  try {
+    if (!Object.values(ctx.state.texInfo?.engines || {}).some(Boolean)) {
+      const res = await api.tex.refresh();
+      ctx.state.texInfo = res;
+      if (!Object.values(res.engines || {}).some(Boolean)) {
+        return toast({ type: 'error', title: '未检测到 LaTeX 引擎', body: '请在设置 → 宏包与 TeX 环境中指定 TeX 发行版路径', timeout: 7000 });
+      }
+    }
+    // Compilation reads disk, including included files, regardless of build-on-save.
+    for (const [path, doc] of ctx.state.docs) {
+      if (doc.dirty && !(await saveDocument(path, { silent: true }))) return;
+    }
+    buildStartedAt = Date.now();
+    setBuildStatus('building', '编译中…');
+    ctx.preview.setBusy(true);
+    const res = await api.build.run({ file: ctx.state.activePath, live: !!opts.live });
+    if (res && res.error) {
+      ctx.state.build.running = false;
+      setBuildStatus('error', '编译失败');
+      ctx.preview.setBusy(false);
+      toast({ type: 'error', title: '无法启动编译', body: res.error });
+    }
+  } catch (err) {
     setBuildStatus('error', '编译失败');
     ctx.preview.setBusy(false);
-    toast({ type: 'error', title: '无法启动编译', body: res.error });
+    toast({ type: 'error', title: '无法启动编译', body: err.message });
+  } finally {
+    buildPreparing = false;
   }
 }
 
 async function stopBuild() {
-  await api.build.stop();
-  ctx.state.build.running = false;
-  setBuildStatus('idle', '已停止');
-  ctx.preview.setBusy(false);
+  if (ctx.state.build.stopping) return;
+  ctx.state.build.stopping = true;
+  ctx.ribbon.refresh();
+  try {
+    await api.build.stop();
+    if (!(await api.build.state()).running) {
+      setBuildStatus('idle', '已停止');
+      ctx.preview.setBusy(false);
+    }
+  } catch (err) {
+    ctx.state.build.stopping = false;
+    ctx.ribbon.refresh();
+    toast({ type: 'error', title: '停止编译失败', body: err.message });
+  }
 }
 
 async function cleanBuild(all = false) {
@@ -1133,6 +1155,10 @@ async function cleanBuild(all = false) {
 }
 
 function setBuildStatus(state, text) {
+  state = state === 'building' ? 'running' : state;
+  ctx.state.build.state = state;
+  ctx.state.build.running = state === 'running';
+  if (state !== 'running') ctx.state.build.stopping = false;
   const sb = $('#sbBuild');
   const dot = $('#sbDot');
   const label = $('#sbBuildText');
@@ -1142,8 +1168,7 @@ function setBuildStatus(state, text) {
   else if (state === 'ok') sb.classList.add('ok');
   else if (state === 'error') sb.classList.add('err');
   if (label) label.textContent = text || (state === 'ok' ? '编译成功' : state === 'error' ? '编译失败' : '空闲');
-  const btn = $('#btnBuild');
-  if (btn) btn.classList.toggle('busy', state === 'running');
+  ctx.emit('build:state', { state, text });
 }
 
 function handleBuildDone(result) {
@@ -1345,6 +1370,7 @@ function toggleSidebar() {
   ctx.state.settings.ui.showSidebar = !collapsed;
   api.settings.set('ui.showSidebar', !collapsed);
   ctx.ribbon.refresh();
+  ctx.sidebar.syncActivityButtons();
   ctx.editor.resize();
 }
 

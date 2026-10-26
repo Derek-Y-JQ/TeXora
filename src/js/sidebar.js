@@ -9,7 +9,7 @@ import { parseDocument } from './latex.js';
 const PANEL_META = {
   files: { title: '文件', icon: 'files' },
   outline: { title: '大纲', icon: 'outline' },
-  math: { title: '数学环境', icon: 'sigma' },
+  math: { title: '数学环境', icon: 'functions' },
   labels: { title: '标签与引用', icon: 'tags' },
   search: { title: '全局查找', icon: 'search' },
   history: { title: '本地历史', icon: 'history' },
@@ -37,7 +37,10 @@ export class Sidebar {
     for (const node of $$('.panel', this.body)) this.panels[node.dataset.panel] = node;
 
     for (const btn of $$('.act-btn[data-panel]')) {
-      btn.addEventListener('click', () => this.show(btn.dataset.panel));
+      btn.addEventListener('click', () => {
+        if (this.panel === btn.dataset.panel && !$('#sidebar').classList.contains('collapsed')) ctx.cmd('view.toggleSidebar');
+        else this.show(btn.dataset.panel);
+      });
     }
     this.buildFilesPanel();
     this.buildSearchPanel();
@@ -59,7 +62,7 @@ export class Sidebar {
     const changed = this.panel !== id;
     this.panel = id;
     for (const [key, node] of Object.entries(this.panels)) node.classList.toggle('active', key === id);
-    for (const btn of $$('.act-btn[data-panel]')) btn.classList.toggle('active', btn.dataset.panel === id);
+    this.syncActivityButtons();
     this.titleEl.textContent = PANEL_META[id].title;
     if (changed && !silent) ctx.api.settings.set('ui.sidebarTab', id);
     if (!silent) {
@@ -68,6 +71,15 @@ export class Sidebar {
     }
     this.refreshActions();
     this.refresh();
+  }
+
+  syncActivityButtons() {
+    const visible = !$('#sidebar').classList.contains('collapsed');
+    for (const btn of $$('.act-btn[data-panel]')) {
+      const active = visible && btn.dataset.panel === this.panel;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    }
   }
 
   refreshActions() {
