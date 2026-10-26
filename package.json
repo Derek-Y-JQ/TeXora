@@ -1,6 +1,6 @@
 {
   "name": "texora",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "TeXora — a modern local-first LaTeX editor for Windows with block editing, SyncTeX, local history and controlled AI assistance",
   "main": "electron/main.js",
   "author": "TeXora Studio",
