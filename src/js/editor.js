@@ -2145,7 +2145,7 @@ export class EditorController {
         if (item) await renderItem(item);
       }
     };
-    await Promise.all([worker(), worker(), worker()]);
+    await Promise.all([worker(), worker(), worker(), worker(), worker()]);
     if (gen !== this.zoneGen) return;
     window.__zoneDebug = debug;
     if (!debug.ok && debug.candidates && (!this._zoneRetry || this._zoneRetry < 2)) {
