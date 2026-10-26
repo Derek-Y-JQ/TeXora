@@ -192,10 +192,12 @@
 .label-stat .n { font-size: 16px; font-weight: 680; font-family: var(--font-display); }
 .label-stat .k { font-size: 10px; color: var(--text-3); margin-top: 1px; letter-spacing: 0.3px; }
 .label-group { padding: 2px 6px 8px; }
-.label-row { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.label-row { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4px 7px; min-height: 26px; height: auto; padding: 5px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .label-row:hover { background: var(--hover); }
-.label-row .l-name { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
-.label-row .l-line { margin-left: auto; font-size: 10px; color: var(--text-4); font-family: var(--font-mono); }
+.label-row .l-name { flex: 1 1 calc(100% - 48px); min-width: 0; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; color: var(--text); white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+.label-row .l-line { margin-left: auto; flex: none; font-size: 10px; line-height: 1.5; color: var(--text-4); font-family: var(--font-mono); }
+.label-row .l-dot { margin-top: 4px; }
+.label-row .chip { flex: none; max-width: 100%; }
 .label-row .l-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); flex: none; }
 .label-row .l-dot.orphan { background: var(--warn); }
 .label-row .l-dot.broken { background: var(--danger); }
