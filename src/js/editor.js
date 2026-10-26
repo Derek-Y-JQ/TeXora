@@ -2070,7 +2070,7 @@ export class EditorController {
         i = j;
       }
     }
-    const capped = candidates.slice(0, 64);
+    const capped = candidates;
     const debug = { candidates: candidates.length, ok: 0, fail: 0, errors: [] };
     this.clearMathZones();
     if (!capped.length) return;
@@ -2106,14 +2106,13 @@ export class EditorController {
       return { cand, dom, id };
     });
 
-    for (const item of placeholders) {
+    const renderItem = async (item) => {
       if (gen !== this.zoneGen) return;
       const cand = item.cand;
-      if (!cand.code || cand.code.length > 1200) {
+      if (!cand.code) {
         item.dom.className = 'math-zone failed';
-        item.dom.dataset.line = String(cand.afterLine);
-        item.dom.textContent = '无法加载预览：内容过长或为空';
-        continue;
+        item.dom.textContent = '无法加载预览：内容为空';
+        return;
       }
       const rendered = await renderMath(cand.code, true, cand.kind || 'math');
       if (gen !== this.zoneGen) return;
@@ -2123,20 +2122,30 @@ export class EditorController {
         debug.errors.push(reason);
         removeZone(item.id);
         item.dom.className = 'math-zone failed';
+        item.dom.dataset.line = String(cand.afterLine);
         item.dom.innerHTML = '<span class="mz-err-title">无法加载预览：</span><span class="mz-err-reason">' + escapeHtml(reason) + '</span>';
         item.id = addZone(cand.afterLine, 62, item.dom);
-        continue;
+        return;
       }
       debug.ok++;
       const cssPx = rendered.dpi ? (rendered.height * 96) / rendered.dpi : rendered.height / 6;
-      const cssHeight = Math.min(220, Math.max(34, Math.round(cssPx) + 14));
+      const cssHeight = Math.min(260, Math.max(34, Math.round(cssPx) + 14));
       removeZone(item.id);
       const imgDom = document.createElement('div');
       imgDom.className = 'math-zone';
       imgDom.dataset.line = String(cand.afterLine);
       imgDom.innerHTML = '<img src="' + rendered.url + '" style="max-height:' + (cssHeight - 14) + 'px" />';
       item.id = addZone(cand.afterLine, cssHeight, imgDom);
-    }
+    };
+
+    const queue = placeholders.slice();
+    const worker = async () => {
+      while (queue.length && gen === this.zoneGen) {
+        const item = queue.shift();
+        if (item) await renderItem(item);
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
     if (gen !== this.zoneGen) return;
     window.__zoneDebug = debug;
     if (!debug.ok && debug.candidates && (!this._zoneRetry || this._zoneRetry < 2)) {
