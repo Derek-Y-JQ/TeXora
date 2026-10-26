@@ -213,7 +213,7 @@ export function detectBlocks(text) {
   const innerDepth = () => stack.reduce((n, e) => n + (transparent(e) ? 0 : 1), 0);
   const flush = () => {
     if (cur && cur.endLine >= cur.startLine) {
-      cur.text = lines.slice(cur.startLine, cur.endLine + 1).join('\n');
+      cur.text = lines.slice(cur.startLine - 1, cur.endLine).join('\n');
       blocks.push(cur);
     }
     cur = null;
