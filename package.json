@@ -41,7 +41,12 @@
       "samples/**/*",
       "skills/**/*",
       "build/icon.ico",
-      "build/icon.png"
+      "build/icon.png",
+      "!samples/**/.latex_cache/**",
+      "!samples/**/*.pdf",
+      "!samples/**/*.aux",
+      "!samples/**/*.log",
+      "!samples/**/*.synctex.gz"
     ],
     "asar": false,
     "npmRebuild": false,
