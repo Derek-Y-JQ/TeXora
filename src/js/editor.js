@@ -1158,12 +1158,6 @@ export class EditorController {
       this.onMouseMove(e);
       this.scheduleHover(e);
     });
-    this.editor.onDidBlurEditorWidget(() => {
-      if (this.editor.getSelection()?.isEmpty()) {
-        this.hoveredBlock = null;
-        this.hideAiBar();
-      }
-    });
     this.editor.onMouseLeave(() => {
       this.renderRail();
       this.scheduleHideAiBar(320);
@@ -1227,6 +1221,8 @@ export class EditorController {
       lineNumbersMinChars: 3,
       minimap: { enabled: !!ed.minimap, renderCharacters: false, maxColumn: 70 },
       wordWrap: ed.wordWrap ? 'on' : 'off',
+      wordWrapBreakAfterCharacters: ' \\t})]?|/&.,;¢°′″‰℃、。｡､￠，．：；？！％・･ゝゞヽヾーァィゥェォッャュョヮヵヶぁぃぅぇぉっゃゅょゎゕゖㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿ々〻ｧｨｩｪｫｬｭｮｯｰ”〉》」』】〕）］｝｣\\$',
+      scrollBeyondLastColumn: ed.wordWrap ? 0 : 5,
       renderWhitespace: 'selection',
       renderControlCharacters: false,
       smoothScrolling: true,
@@ -1265,7 +1261,13 @@ export class EditorController {
       overviewRulerLanes: 0,
       hideCursorInOverviewRuler: true,
       overviewRulerBorder: false,
-      scrollbar: { verticalScrollbarSize: 11, horizontalScrollbarSize: 11, useShadows: false, alwaysConsumeMouseWheel: false },
+      scrollbar: {
+        verticalScrollbarSize: 11,
+        horizontalScrollbarSize: 11,
+        horizontal: ed.wordWrap ? 'hidden' : 'auto',
+        useShadows: false,
+        alwaysConsumeMouseWheel: false
+      },
       glyphMargin: false,
       links: true,
       colorDecorators: true,
@@ -1728,6 +1730,7 @@ export class EditorController {
 
   onMouseMove(e) {
     if (!this.editor) return;
+    if (this.aiBar?.classList.contains('visible') && this.aiBar.matches(':hover')) return;
     const pos = e.target.position;
     if (!pos) {
       if (this.hoveredBlock) {
@@ -1770,14 +1773,16 @@ export class EditorController {
         )
         .join('') + `<button data-action="custom" title="自定义指令">${icon('sparkles')}<span class="ai-label">自定义</span></button>`;
     this.aiBar.classList.add('visible');
+    this.aiBarBlock = block;
     this.hoverDecoration?.set([
       { range: new monaco.Range(block.startLine, 1, block.endLine, 1), options: { isWholeLine: true, className: 'block-hover-line' } }
     ]);
+    const targetBlock = this.aiBarBlock || block;
     for (const btn of Array.from(this.aiBar.children)) {
       btn.onclick = (e) => {
         e.stopPropagation();
         const actionId = btn.dataset.action;
-        ctx.cmd(actionId === 'custom' ? 'ai.custom' : 'ai.blockAction', { actionId, block });
+        ctx.cmd(actionId === 'custom' ? 'ai.custom' : 'ai.blockAction', { actionId, block: targetBlock });
       };
     }
     this.positionAiBar(block);
@@ -1786,9 +1791,8 @@ export class EditorController {
   positionAiBar(block) {
     if (!this.aiBar || !this.editor) return;
     const top = this.editor.getTopForLineNumber(block.startLine) - this.editor.getScrollTop();
-    const hostRect = this.editor.getDomNode().getBoundingClientRect();
     const barH = 20;
-    const localTop = Math.max(0, Math.min(this.editor.getLayoutInfo().height - barH - 2, top - barH - 2));
+    const localTop = Math.max(0, Math.min(this.editor.getLayoutInfo().height - barH - 2, top + 2));
     this.aiBar.style.top = localTop + 'px';
     this.aiBar.style.right = '14px';
   }
@@ -1807,6 +1811,7 @@ export class EditorController {
     clearTimeout(this._aiHideTimer);
     this.aiBar?.classList.remove('visible');
     this.hoverDecoration?.set([]);
+    this.aiBarBlock = null;
     this.hoveredBlock = null;
   }
 
@@ -1843,7 +1848,6 @@ export class EditorController {
       host.appendChild(this.hoverEl);
     }
     this.hoverState = { line: pos.lineNumber, col: pos.column };
-    this.hideAiBar();
     this.hoverEl.innerHTML = html;
     this.hoverEl.style.display = 'block';
     const hostRect = host.getBoundingClientRect();
