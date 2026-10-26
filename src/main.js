@@ -1364,7 +1364,11 @@ function toggleWordWrap() {
   const next = !ctx.state.settings.editor.wordWrap;
   ctx.state.settings.editor.wordWrap = next;
   api.settings.set('editor.wordWrap', next);
-  ctx.editor?.editor?.updateOptions({ wordWrap: next ? 'on' : 'off' });
+  ctx.editor?.editor?.updateOptions({
+    wordWrap: next ? 'on' : 'off',
+    scrollBeyondLastColumn: next ? 0 : 5,
+    scrollbar: { horizontal: next ? 'hidden' : 'auto' }
+  });
   ctx.ribbon.refresh();
   toast({ type: 'info', title: next ? '自动换行已开启' : '自动换行已关闭', timeout: 1500 });
 }
