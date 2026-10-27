@@ -5,7 +5,7 @@ export default async function ({evalJs,click,sleep,shot,send}) {
   await send('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
   async function waitFor(expression,label=expression){for(let i=0;i<200;i++){if(await evalJs(expression))return;await sleep(200);}throw Error('Timed out: '+label+' '+await evalJs("document.querySelector('#codeDependency')?.textContent||''"));}
   await waitFor('!!window.__texora?.editor.model');
-  assert.equal(await evalJs('(async()=>(await window.texora.info()).version)()'),'1.3.3');
+  assert.equal(await evalJs('(async()=>(await window.texora.info()).version)()'),JSON.parse(fs.readFileSync('package.json','utf8')).version);
   await evalJs("window.__texora.state.settings.general.autoCheckUpdates=false;window.__texora.state.settings.build.livePreview=false;window.__texora.state.settings.editor.autosave=false;");
   assert.equal(await evalJs('document.documentElement.dataset.accent'),'blue');
   await evalJs("(()=>{const c=window.__texora,p=c.editor.model.getPositionAt(c.editor.model.getValue().indexOf('\\\\end{document}'));c.editor.editor.setPosition(p);})()");

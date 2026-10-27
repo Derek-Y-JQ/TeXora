@@ -3,6 +3,7 @@ import { icon, escapeHtml, toast, copyText, baseName } from './util.js';
 import { buildAIContext, contextPolicy, responseModeFor } from './ai-context.js';
 import { diffHtml } from './text-diff.js';
 import { renderMarkdown } from './markdown.js';
+import { EDIT_OUTPUT_CONTRACT, extractReplacement } from './edit-output.js';
 
 const samePath = (a, b) => String(a || '').replace(/\\/g, '/').toLowerCase() === String(b || '').replace(/\\/g, '/').toLowerCase();
 const time = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -99,6 +100,7 @@ export function createAI() {
   }
 
   async function request(options = {}) {
+    if (options.target === 'block') { ctx.sidebar.show('ai'); ctx.sidebar.scrollAiToLatest(); }
     if (active) { toast({ type: 'info', title: 'AI 正在处理上一条请求', body: '完成或取消后可再次发送' }); return null; }
     if (!ensureConfigured()) return null;
     const action = ctx.state.settings.ai.blockActions?.find(a => a.id === options.actionId);
@@ -120,15 +122,15 @@ export function createAI() {
       const userPrompt = [built.prompt, `任务（用户指令）：\n${instruction}`].filter(Boolean).join('\n\n');
       const images = options.images || [];
       const messages = [{ role: 'user', content: images.length ? [{ type: 'text', text: userPrompt }, ...images.map(dataUrl => ({ type: 'image', dataUrl }))] : userPrompt }];
-      const res = await ctx.api.ai.chat({ requestId: id, messages, skillIds: built.skillIds, model: options.model, maxTokens: ctx.state.settings.ai.maxTokens });
+      const responseMode = responseModeFor(instruction, options.responseMode || action?.mode);
+      const res = await ctx.api.ai.chat({ requestId: id, messages, system: responseMode === 'edit' ? EDIT_OUTPUT_CONTRACT : '', skillIds: built.skillIds, model: options.model, maxTokens: ctx.state.settings.ai.maxTokens });
       if (!samePath(projectRoot, ctx.state.project.root) || active?.cancelled || res.code === 'CANCELLED') return null;
       if (!res.ok) throw new Error(res.error || 'AI 请求失败');
       // Strip only a single complete enclosing code fence; never cut mixed prose/code.
-      let suggestion = String(res.text || '').trim();
+      let suggestion = responseMode === 'edit' ? extractReplacement(res.text, original) : String(res.text || '').trim();
       const fenced = suggestion.match(/^```(?:latex|tex)?\s*\r?\n([\s\S]*?)\r?\n```$/i);
       if (fenced) suggestion = fenced[1];
       if (!suggestion.trim()) throw new Error('AI 返回了空内容，请重试');
-      const responseMode = responseModeFor(instruction, options.responseMode || action?.mode);
       const record = {
         responseMode,
         id, projectRoot, sourcePath, title: options.title || action?.label || (responseMode === 'answer' ? 'AI 回答' : 'AI 建议'), instruction, original, suggestion,

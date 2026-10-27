@@ -6,7 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { SYSTEM_PROMPT, BLOCK_ACTIONS, migratePrompts } = require('./ai-defaults');
+const { SYSTEM_PROMPT, BLOCK_ACTIONS, migratePrompts, migrateEditPrompts } = require('./ai-defaults');
 
 const DEFAULT_SETTINGS = {
   version: 2,
@@ -182,6 +182,11 @@ class Store extends EventEmitter {
     if (!this.data.migrations?.prompts133) {
       migratePrompts(this.data.ai);
       this.data.migrations = { ...this.data.migrations, prompts133: true };
+      migrated = true;
+    }
+    if (!this.data.migrations?.editOutputs134) {
+      migrateEditPrompts(this.data.ai);
+      this.data.migrations = { ...this.data.migrations, editOutputs134: true };
       migrated = true;
     }
     if (!this.data.migrations?.maxTokens10000) {

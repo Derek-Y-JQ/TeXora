@@ -4,8 +4,8 @@
  */
 import { ctx } from './ctx.js';
 import { $, $$, el, icon, escapeHtml, baseName, relPath, fileIcon, extOf, debounce, formatBytes, timeAgo, timeOfDay, toast, openMenu, openPopover, closeMenu, copyText } from './util.js';
-import { parseDocument } from './latex.js';
 import { contextPolicy } from './ai-context.js';
+import { buildStructureIndex, readStructureDocuments, sameSource } from './structure-index.js';
 
 const PANEL_META = {
   files: { title: '文件', icon: 'files' },
@@ -27,6 +27,9 @@ export class Sidebar {
     this.historyItems = [];
     this.aiThread = [];
     this.aiContext = { selection: true, file: true, skillIds: null, files: new Set() };
+    this.structureScopes = { math:ctx.state.settings?.ui?.mathScope || 'file', labels:ctx.state.settings?.ui?.labelsScope || 'file' };
+    this.structureGeneration = { math:0, labels:0 };
+    this.structureCache = new Map();
     this.ready = false;
   }
 
@@ -51,9 +54,12 @@ export class Sidebar {
     this.ready = true;
 
     ctx.on('doc:parsed', () => this.refreshLive());
+    ctx.api.project.onFsChange(debounce(() => { if (['math','labels'].includes(this.panel)) this.refreshLive(); }, 350));
     ctx.on('doc:changed', () => this.refreshFilesDirty());
     ctx.on('project:changed', () => {
       this.expanded.clear();
+      this.structureCache.clear();
+      this.structureGeneration.math++; this.structureGeneration.labels++;
       this.refreshAll(true);
     });
     ctx.on('settings:changed', () => { this.refreshAiStatus(); this.refreshAiContext(); });
@@ -468,118 +474,68 @@ export class Sidebar {
     }
   }
 
-  /* ------------------------------------------------------------------- math */
-  renderMathPanel() {
-    const parsed = ctx.state.parsed;
-    const panel = this.panels.math;
-    if (!parsed) {
-      panel.innerHTML = `<div class="empty-hint">打开一个 LaTeX 文件后自动检索数学环境</div>`;
-      return;
-    }
-    const envs = parsed.environments.filter((e) => e.env && e.depth >= 0 && (isMathLike(e.env) || isTheoremLike(e.env)));
-    if (!envs.length) {
-      panel.innerHTML = `<div class="empty-hint">${icon('sigma')}<br/>未检索到数学环境<br/><span class="muted">支持 theorem / definition / equation / align 等</span></div>`;
-      return;
-    }
-    const groups = { 定理类: [], 公式类: [] };
-    for (const e of envs) (isTheoremLike(e.env) ? groups['定理类'] : groups['公式类']).push(e);
-    const model = ctx.state.docs.get(ctx.state.activePath)?.model;
-    const lines = model ? model.getLinesContent() : [];
-    const renderGroup = (label, list) =>
-      list.length
-        ? `<div class="section-label">${label} · ${list.length}</div><div class="math-env-list">${list
-            .map((e) => {
-              const body = lines.slice(e.line, Math.min(lines.length, (e.endLine || e.line))).join(' ').replace(/\\begin\{[^}]+\}|\\end\{[^}]+\}/g, '').trim();
-              const caption = e.caption || (isTheoremLike(e.env) ? '' : body.slice(0, 46));
-              return `<div class="math-env" data-line="${e.line}" data-end="${e.endLine || e.line}">
-                <div class="math-env-head">
-                  <span class="math-env-kind">${escapeHtml(e.env)}</span>
-                  <span class="badge">${e.endLine ? e.endLine - e.line + 1 : 1} 行</span>
-                  <span class="math-env-line">L${e.line}</span>
-                </div>
-                ${caption ? `<div class="math-env-title">${escapeHtml(caption)}</div>` : ''}
-                <div class="math-env-snippet">${escapeHtml(body.slice(0, 90) || '（空环境）')}</div>
-              </div>`;
-            })
-            .join('')}</div>`
-        : '';
-    panel.innerHTML = renderGroup('定理类', groups['定理类']) + renderGroup('公式类', groups['公式类']);
-    for (const card of $$('.math-env', panel)) {
-      card.addEventListener('click', () => {
-        ctx.cmd('editor.goto', { line: Number(card.dataset.line), flash: true });
-      });
-    }
+  /* ------------------------------------------------------ scoped structures */
+  structureView(type) {
+    const panel=this.panels[type],scope=this.structureScopes[type],scroll=panel.dataset.structureScope===scope?this.body.scrollTop:0;
+    const active=scope==='file'?ctx.state.activePath:'';
+    const reuse=panel.dataset.structureScope===scope && panel.dataset.structureRoot===ctx.state.project.root && panel.dataset.structureActive===active && panel.querySelector('.structure-content');
+    panel.dataset.structureScope=scope;panel.dataset.structureRoot=ctx.state.project.root;panel.dataset.structureActive=active;
+    if(!reuse)panel.innerHTML=`<div class="structure-tabs" role="tablist" aria-label="${type==='math'?'数学环境':'标签引用'}范围">
+      ${[['file','本文件'],['project','整个项目']].map(([id,label])=>`<button type="button" role="tab" data-structure-panel="${type}" data-structure-scope="${id}" aria-selected="${scope===id}" class="${scope===id?'active':''}">${label}</button>`).join('')}</div><div class="structure-content"><div class="empty-hint">正在解析${scope==='file'?'当前文件':'整个项目'}…</div></div>`;
+    for(const button of panel.querySelectorAll('[data-structure-scope]'))button.onclick=()=>{
+      this.structureScopes[type]=button.dataset.structureScope;
+      ctx.api.settings.set(`ui.${type}Scope`,button.dataset.structureScope);
+      if(type==='math')this.renderMathPanel();else this.renderLabels();
+    };
+    return {panel,scope,scroll,content:panel.querySelector('.structure-content'),generation:++this.structureGeneration[type],root:ctx.state.project.root};
   }
 
-  /* ----------------------------------------------------------------- labels */
-  renderLabels() {
-    const parsed = ctx.state.parsed;
-    const panel = this.panels.labels;
-    if (!parsed) {
-      panel.innerHTML = `<div class="empty-hint">打开文档后统计标签、引用与文献</div>`;
-      return;
-    }
-    const labelNames = new Set(parsed.labels.map((l) => l.name));
-    const refNames = new Set(parsed.refs.map((r) => r.name));
-    const cited = new Set(parsed.cites.map((c) => c.key));
-    const bibKeys = new Set((ctx.state.bibEntries || []).map((b) => b.key));
-    const orphan = parsed.labels.filter((l) => !refNames.has(l.name));
-    const broken = parsed.refs.filter((r) => !labelNames.has(r.name));
-    const missingCites = Array.from(cited).filter((k) => bibKeys.size > 0 && !bibKeys.has(k));
-    const unusedCites = Array.from(bibKeys).filter((k) => !cited.has(k));
+  async structureData() {
+    return readStructureDocuments({root:ctx.state.project.root,rootFile:ctx.state.project.rootFile,activePath:ctx.state.activePath,assets:ctx.state.assets.tex,outline:ctx.state.projectOutline,docs:ctx.state.docs,readFile:file=>ctx.api.fs.read(file),parseCache:this.structureCache});
+  }
 
-    panel.innerHTML = `
-      <div class="label-summary">
-        <div class="label-stat"><div class="n">${parsed.labels.length}</div><div class="k">标签</div></div>
-        <div class="label-stat"><div class="n">${parsed.refs.length}</div><div class="k">引用</div></div>
-        <div class="label-stat"><div class="n">${parsed.cites.length}</div><div class="k">文献引用</div></div>
-      </div>
-      <div class="section-label">全部标签</div>
-      <div class="label-group">${parsed.labels
-        .map(
-          (l) => `<div class="label-row" data-line="${l.line}" data-name="${escapeHtml(l.name)}">
-          <span class="l-dot ${!refNames.has(l.name) ? 'orphan' : ''}"></span>
-          <span class="l-name">${escapeHtml(l.name)}</span>
-          ${l.env ? `<span class="chip">${escapeHtml(l.env)}</span>` : ''}
-          <span class="l-line">L${l.line}</span>
-        </div>`
-        )
-        .join('') || '<div class="empty-hint">暂无标签</div>'}</div>
-      ${
-        broken.length
-          ? `<div class="section-label">未定义的引用 · ${broken.length}</div><div class="label-group">${broken
-              .map((r) => `<div class="label-row" data-line="${r.line}"><span class="l-dot broken"></span><span class="l-name">${escapeHtml(r.name)}</span><span class="chip">\\${escapeHtml(r.cmd)}</span><span class="l-line">L${r.line}</span></div>`)
-              .join('')}</div>`
-          : ''
-      }
-      ${
-        orphan.length
-          ? `<div class="section-label">孤立标签（未被引用） · ${orphan.length}</div><div class="label-group">${orphan
-              .map((l) => `<div class="label-row" data-line="${l.line}"><span class="l-dot unused"></span><span class="l-name">${escapeHtml(l.name)}</span><span class="l-line">L${l.line}</span></div>`)
-              .join('')}</div>`
-          : ''
-      }
-      ${
-        missingCites.length
-          ? `<div class="section-label">文献库中缺失的引用 · ${missingCites.length}</div><div class="label-group">${missingCites
-              .map((k) => `<div class="label-row" data-cite="${escapeHtml(k)}"><span class="l-dot broken"></span><span class="l-name">${escapeHtml(k)}</span></div>`)
-              .join('')}</div>`
-          : ''
-      }
-      ${
-        unusedCites.length
-          ? `<div class="section-label">未引用的文献条目 · ${unusedCites.length}</div><div class="label-group">${unusedCites
-              .slice(0, 100)
-              .map((k) => `<div class="label-row" data-cite="${escapeHtml(k)}"><span class="l-dot unused"></span><span class="l-name">${escapeHtml(k)}</span><span class="l-line">BibTeX</span></div>`)
-              .join('')}</div>`
-          : ''
-      }`;
-    for (const row of $$('.label-row', panel)) {
-      row.addEventListener('click', () => {
-        if (row.dataset.line) ctx.cmd('editor.goto', { line: Number(row.dataset.line), flash: true });
-        else if (row.dataset.cite) ctx.cmd('insert.cite', row.dataset.cite);
-      });
-    }
+  structureSource(item, scope) {
+    return scope==='project'?`<span class="structure-source" title="${escapeHtml(item.file)}">${escapeHtml(item.rel || baseName(item.file))}</span>`:'';
+  }
+
+  bindStructureLocations(content) {
+    for(const item of content.querySelectorAll('[data-source-file]'))item.onclick=()=>ctx.cmd('editor.goto',{file:item.dataset.sourceFile,line:Number(item.dataset.line),flash:true});
+    for(const item of content.querySelectorAll('[data-cite]'))item.onclick=()=>ctx.cmd('insert.cite',item.dataset.cite);
+  }
+
+  async renderMathPanel() {
+    const view=this.structureView('math');
+    try {
+      const {documents,errors}=await this.structureData();
+      if(view.generation!==this.structureGeneration.math || view.root!==ctx.state.project.root)return;
+      const index=buildStructureIndex(documents),items=index.math.filter(item=>view.scope==='project'||sameSource(item.file,ctx.state.activePath));
+      const group=(title,list)=>!list.length?'':`<div class="section-label">${title} · ${list.length}</div><div class="math-env-list">${list.map(item=>`<div class="math-env" data-source-file="${escapeHtml(item.file)}" data-file="${escapeHtml(item.file)}" data-line="${item.line}" data-end="${item.endLine||item.line}">
+        <div class="math-env-head"><span class="math-env-kind">${escapeHtml(item.env)}</span><span class="badge">${(item.endLine||item.line)-item.line+1} 行</span><span class="math-env-line">L${item.line}</span></div>
+        ${this.structureSource(item,view.scope)}${item.caption?`<div class="math-env-title">${escapeHtml(item.caption)}</div>`:''}<div class="math-env-snippet">${escapeHtml(item.body.slice(0,100)||'（空环境）')}</div></div>`).join('')}</div>`;
+      view.content.innerHTML=(errors.length?`<div class="structure-warning">${errors.length} 个项目文件无法读取，结果可能不完整</div>`:'')+group('定理类',items.filter(item=>item.theorem))+group('公式类',items.filter(item=>!item.theorem))+(items.length?'':`<div class="empty-hint">${icon('sigma')}<br/>${view.scope==='file'?'本文件':'项目中'}暂无数学环境</div>`);
+      this.bindStructureLocations(view.content);if(this.panel==='math')this.body.scrollTop=view.scroll;
+    }catch(error){if(view.generation===this.structureGeneration.math)view.content.innerHTML=`<div class="empty-hint">${escapeHtml(error.message)}</div>`;}
+  }
+
+  async renderLabels() {
+    const view=this.structureView('labels');
+    try {
+      const {documents,errors}=await this.structureData();
+      if(view.generation!==this.structureGeneration.labels || view.root!==ctx.state.project.root)return;
+      const all=buildStructureIndex(documents),visible=items=>items.filter(item=>view.scope==='project'||sameSource(item.file,ctx.state.activePath));
+      const labels=visible(all.labels),refs=visible(all.refs),cites=visible(all.cites),labelNames=new Set(all.labels.map(item=>item.name)),refNames=new Set(all.refs.map(item=>item.name));
+      const cited=new Set(cites.map(item=>item.key)),projectCited=new Set(all.cites.map(item=>item.key)),bibKeys=new Set((ctx.state.bibEntries||[]).map(item=>item.key));
+      // A current-file reference can point to another file. Validate against the project.
+      const orphan=errors.length?[]:labels.filter(item=>!refNames.has(item.name)),broken=errors.length?[]:refs.filter(item=>!labelNames.has(item.name));
+      const missingCites=[...cited].filter(key=>bibKeys.size&&!bibKeys.has(key)),unusedCites=errors.length?[]:[...bibKeys].filter(key=>!projectCited.has(key));
+      const row=(item,type='label')=>`<div class="label-row" data-source-file="${escapeHtml(item.file)}" data-file="${escapeHtml(item.file)}" data-line="${item.line}" ${item.name?`data-name="${escapeHtml(item.name)}"`:''}><span class="l-dot ${type==='broken'?'broken':type==='orphan'?'unused':''}"></span><div class="structure-label"><span class="l-name">${escapeHtml(item.name||item.key)}</span>${this.structureSource(item,view.scope)}</div>${item.env?`<span class="chip">${escapeHtml(item.env)}</span>`:item.cmd?`<span class="chip">\\${escapeHtml(item.cmd)}</span>`:''}<span class="l-line">L${item.line}</span></div>`;
+      const group=(title,items,type)=>items.length?`<div class="section-label">${title} · ${items.length}</div><div class="label-group">${items.map(item=>row(item,type)).join('')}</div>`:'';
+      const bibGroup=(title,items)=>items.length?`<div class="section-label">${title} · ${items.length}</div><div class="label-group">${items.map(key=>`<div class="label-row" data-cite="${escapeHtml(key)}"><span class="l-name">${escapeHtml(key)}</span><span class="l-line">BibTeX</span></div>`).join('')}</div>`:'';
+      view.content.innerHTML=`${errors.length?`<div class="structure-warning">${errors.length} 个文件无法读取，已暂停未定义引用判断</div>`:''}<div class="label-summary">
+        <div class="label-stat"><div class="n">${labels.length}</div><div class="k">标签</div></div><div class="label-stat"><div class="n">${refs.length}</div><div class="k">引用</div></div><div class="label-stat"><div class="n">${cites.length}</div><div class="k">文献引用</div></div></div>
+        ${group('全部标签',labels)||'<div class="empty-hint">暂无标签</div>'}${group('全部引用',refs)}${group('文献引用位置',cites)}${group('未定义的引用',broken,'broken')}${group('孤立标签（项目中未被引用）',orphan,'orphan')}${bibGroup('文献库中缺失的引用',missingCites)}${bibGroup('项目未引用的文献条目',unusedCites)}`;
+      this.bindStructureLocations(view.content);if(this.panel==='labels')this.body.scrollTop=view.scroll;
+    }catch(error){if(view.generation===this.structureGeneration.labels)view.content.innerHTML=`<div class="empty-hint">${escapeHtml(error.message)}</div>`;}
   }
 
   /* ----------------------------------------------------------------- search */
@@ -992,7 +948,13 @@ export class Sidebar {
       message.onclick = () => ctx.ai.resultAction({ id: message.dataset.resultId });
       message.onkeydown = e => { if (e.target === message && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); message.click(); } };
     }
-    box.scrollTop = box.scrollHeight;
+    this.scrollAiToLatest();
+  }
+
+  scrollAiToLatest() {
+    const scroll = () => { if (this.panel === 'ai' && this.body) this.body.scrollTop = this.body.scrollHeight; };
+    scroll();
+    requestAnimationFrame(scroll);
   }
 
   async aiSend() {
@@ -1081,9 +1043,3 @@ export class Sidebar {
   }
 }
 
-function isTheoremLike(env) {
-  return ['theorem', 'lemma', 'proposition', 'corollary', 'definition', 'proof', 'remark', 'example', 'assumption', 'axiom', 'conjecture', 'claim', 'exercise', 'problem', 'solution', 'note'].includes(env);
-}
-function isMathLike(env) {
-  return ['equation', 'equation*', 'align', 'align*', 'gather', 'gather*', 'multline', 'multline*', 'eqnarray', 'displaymath', 'math'].includes(env);
-}

@@ -1,4 +1,4 @@
-# TeXora 1.3.3 · 本地优先的 LaTeX 写作工作台
+# TeXora 1.3.4 · 本地优先的 LaTeX 写作工作台
 
 TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
@@ -27,7 +27,7 @@ TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结
 
 侧栏提供选中内容、当前文件、Skills、其他文件四个上下文入口，读取范围受设置约束，不会自动发送整个项目。Block 提供润色、检查、翻译、解释四个默认动作，名称与提示词均可自定义、恢复默认。
 
-改写与翻译展示逐处差异，可切换 Diff 高亮；确认后才替换或插入。检查与解释展示独立回答，不提供覆盖正文按钮。全局提示词不再把 AI 限定为排版助手，允许数学纠错、论证检查、翻译和一般问答。历史结果可重新打开，已应用的结果显示“已修改”。
+点击 Block AI 动作会立即展开 AI 侧栏并定位到最新消息。改写结果只提取可替换正文；附带说明或含糊的多代码块结果不会直接混入文稿。改写与翻译展示逐处差异，可切换 Diff 高亮；确认后才替换或插入。检查与解释展示独立回答，不提供覆盖正文按钮。全局提示词不再把 AI 限定为排版助手，允许数学纠错、论证检查、翻译和一般问答。历史结果可重新打开，已应用的结果显示“已修改”。
 
 ![受控 AI 改写与差异确认](docs/screenshots/133-ai.png)
 
@@ -69,7 +69,14 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ### 双向 SyncTeX 与数学结构导航
 
-双击源码行号可定位 PDF；双击 PDF 可回到源码。标签与引用面板便于查看目标，定理、定义、引理、证明和数学环境集中在数学面板，大纲按主文档 `input / include` 的实际顺序展开。
+双击源码行号可定位 PDF；双击 PDF 可回到源码。标签与引用面板便于查看目标，定理、定义、引理、证明和数学环境集中在数学面板，大纲按主文档 `input / include` 的实际顺序展开。数学环境和标签引用各自提供“本文件 / 整个项目”两个标签页，项目视图显示来源并可跨文件跳转，尚未保存的编辑也会纳入索引。跨文件引用按项目范围检查，避免误报未定义。
+
+<details><summary>本文件与整个项目范围</summary>
+
+![项目数学环境](docs/screenshots/134-math-project.png)
+![项目标签与引用](docs/screenshots/134-labels-project.png)
+
+</details>
 
 ![源码到 PDF 的实际定位](docs/screenshots/133-synctex.png)
 ![数学环境一览](docs/screenshots/133-math.png)
@@ -103,6 +110,13 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ![主题与配色](docs/screenshots/133-theme.png)
 
+## 1.3.4 更新
+
+- 点击 Block AI 动作立即展开左侧 AI 助手，滚动到最新请求 / 消息。
+- 改写与翻译增加替换正文格式约束和解包校验，清理兼容回复中的围栏说明，无法可靠分离时阻止进入 Diff；检查与解释仍保留自然语言回答。
+- 更新默认润色提示词，移除“另附问题说明”的冲突要求，仅迁移旧默认值，保留自定义提示词。
+- 数学环境、标签与引用新增本文件 / 整个项目标签页，支持未保存内容、来源路径、跨文件定位及项目引用校验。
+
 ## 1.3.3 更新
 
 - 新增代码块与伪代码块弹窗、快捷栏入口、依赖检测安装、试编译验证与主文档宏包去重补齐。
@@ -114,7 +128,7 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-1.3.3.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-1.3.4.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。
@@ -136,10 +150,10 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 npm install
 npm run build
 npm test
-npm run verify:133
+npm run verify:134
 npm run dist
 ```
 
-`verify:133` 在隔离项目中实际插入 listings、minted 与算法，验证宏包位置、完整 PDF 编译、提示词恢复及主题，并截取功能图片。首次运行可联网补齐代码高亮依赖。更多检查包括 `npm run verify:131`（本地模拟 AI，不调用付费模型）、`node scripts/verify-preview.cjs` 与 `node scripts/verify-code-tools.cjs`。
+`verify:134` 在隔离项目和本地模拟 AI 服务中验证新标签页、跨文件定位、最新消息滚动和改写正文校验，不调用付费模型。`verify:133` 在隔离项目中实际插入 listings、minted 与算法，验证宏包位置、完整 PDF 编译、提示词恢复及主题，并截取功能图片。首次运行可联网补齐代码高亮依赖。更多检查包括 `npm run verify:131`（本地模拟 AI，不调用付费模型）、`node scripts/verify-preview.cjs` 与 `node scripts/verify-code-tools.cjs`。
 
 MIT License。依赖许可与致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

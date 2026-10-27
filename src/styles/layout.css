@@ -138,6 +138,13 @@
 .sidebar-body { flex: 1; min-height: 0; overflow: auto; position: relative; }
 .panel { display: none; flex-direction: column; min-height: 100%; }
 .panel.active { display: flex; }
+.structure-tabs { display:flex; position:sticky; top:0; z-index:2; padding:8px; gap:5px; background:var(--surface-1); border-bottom:1px solid var(--border); }
+.structure-tabs button { flex:1; padding:7px; border:1px solid transparent; border-radius:6px; font-size:11px; color:var(--text-3); }
+.structure-tabs button.active { color:var(--accent); border-color:var(--accent-border); background:var(--accent-soft); }
+.structure-source { display:block; font-size:10px; color:var(--text-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.structure-label { flex:1; min-width:0; }
+.structure-label .l-name { display:block; }
+.structure-warning { padding:9px; color:var(--warn); font-size:11px; }
 .panel-toolbar { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border-soft); }
 
 /* file tree */

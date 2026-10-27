@@ -1,6 +1,6 @@
 {
   "name": "texora",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "TeXora — a modern local-first LaTeX editor for Windows with block editing, SyncTeX, local history and controlled AI assistance",
   "main": "electron/main.js",
   "author": "TeXora Studio",
@@ -10,7 +10,8 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "dev": "vite",
-    "test": "node scripts/test-punctuation.mjs && node scripts/test-131.mjs && node scripts/test-external-links.mjs && node scripts/test-current-fixes.mjs && node scripts/test-133.mjs",
+    "test": "node scripts/test-punctuation.mjs && node scripts/test-131.mjs && node scripts/test-external-links.mjs && node scripts/test-current-fixes.mjs && node scripts/test-133.mjs && node scripts/test-134.mjs",
+    "verify:134": "node scripts/run-verify-134.mjs",
     "verify:133": "node scripts/run-verify-133.mjs",
     "verify:131": "node scripts/run-verify-131.mjs",
     "verify:130": "node scripts/run-verify-130.mjs",
