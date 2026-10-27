@@ -3,7 +3,8 @@
  */
 import { ctx } from './js/ctx.js';
 import { openUpdateDownload } from './js/external-links.js';
-import { EditorController, monaco } from './js/editor.js';
+import { projectOutline } from './js/project-outline.js';
+import { EditorController, monaco, clearMathPreviewCache } from './js/editor.js';
 import { PreviewController } from './js/preview.js';
 import { Sidebar } from './js/sidebar.js';
 import { createCommands } from './js/commands.js';
@@ -111,7 +112,7 @@ function applyAppearance({ initial = false } = {}) {
   const theme = resolveTheme(s.appearance.theme);
   ctx.state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
-  document.documentElement.setAttribute('data-accent', s.appearance.accent || 'violet');
+  document.documentElement.setAttribute('data-accent', s.appearance.accent || 'blue');
   document.documentElement.toggleAttribute('data-compact', !!s.appearance.compact);
   document.documentElement.setAttribute('data-reduce-motion', s.appearance.reduceMotion ? '1' : '0');
   document.documentElement.style.setProperty('--sidebar-w', (s.ui.sidebarWidth || 292) + 'px');
@@ -582,19 +583,12 @@ async function refreshEnvDefs() {
       }
     }
     ctx.state.labelIndex = labelIndex;
-    const outline = [];
-    const levelMap = { part: 0, chapter: 1, section: 2, subsection: 3, subsubsection: 4 };
-    for (const ft of fileTexts) {
-      const rel = ft.file.startsWith(ctx.state.project.root)
-        ? ft.file.slice(ctx.state.project.root.length + 1).split('\\').join('/')
-        : ft.file;
-      const ls = ft.text.split(/\r?\n/);
-      for (let i = 0; i < ls.length; i++) {
-        const mm = ls[i].match(/^\s*\\(part|chapter|section|subsection|subsubsection)\*?\{([^}]*)\}/);
-        if (mm) outline.push({ file: ft.file, rel, line: i + 1, level: levelMap[mm[1]], title: mm[2].trim() });
-      }
-    }
-    ctx.state.projectOutline = outline;
+    ctx.state.projectOutline = await projectOutline(rootFile, async file => {
+      const entry = [...ctx.state.docs].find(([p]) => p.replace(/\\/g, '/').toLowerCase() === file.toLowerCase());
+      if (entry?.[1]?.model) return entry[1].model.getValue();
+      const res = await api.fs.read(file);
+      return res.ok ? res.text : '';
+    });
     const cls = (joined.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]+)\}/) || [])[1] || '';
     const packages = [];
     for (const mm of joined.matchAll(/\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/g)) {
@@ -614,7 +608,22 @@ async function refreshEnvDefs() {
   if (ctx.sidebar?.panel === 'outline') ctx.sidebar.renderOutline();
 }
 
+const refreshOutlineSoon = debounce(async () => {
+  const rootFile = ctx.state.project.rootFile;
+  if (!rootFile) return;
+  const outline = await projectOutline(rootFile, async file => {
+    const doc = [...ctx.state.docs].find(([p]) => p.replace(/\\/g, '/').toLowerCase() === file.toLowerCase())?.[1];
+    if (doc?.model) return doc.model.getValue();
+    const result = await api.fs.read(file);
+    return result.ok ? result.text : '';
+  });
+  if (rootFile !== ctx.state.project.rootFile) return;
+  ctx.state.projectOutline = outline;
+  if (ctx.sidebar?.panel === 'outline') ctx.sidebar.renderOutline();
+}, 350);
+
 async function onProjectOpened(proj, { openRoot = true, silent = false } = {}) {
+  clearMathPreviewCache();
   ctx.state.project = { ...proj };
   $('#projectName').textContent = proj.name || baseName(proj.root);
   document.title = `TeXora — ${proj.name || ''}`;
@@ -783,6 +792,7 @@ async function openDocument(path, opts = {}) {
       doc.dirty = doc.model.getValue() !== doc.savedText;
       scheduleAutosave(doc);
       scheduleLivePreview();
+      refreshOutlineSoon();
       renderTabs();
       updateStats();
     });
@@ -1729,6 +1739,8 @@ function restorePdfPane() {
 
 /* --------------------------------------------------------------- external fs */
 const onExternalChange = debounce(async (payload) => {
+  clearMathPreviewCache();
+  refreshOutlineSoon();
   if (!ctx.state.project.root) return;
   await ctx.sidebar.refreshFiles();
   await refreshAssets();

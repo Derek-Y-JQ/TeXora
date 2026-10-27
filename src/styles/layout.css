@@ -597,8 +597,11 @@
 .diff-pane { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
 .diff-pane-head { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 11px; color: var(--text-3); background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .diff-pane pre { margin: 0; padding: 10px; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; overflow: auto; max-height: 340px; white-space: pre-wrap; user-select: text; }
-.diff-pane.added pre { background: color-mix(in srgb, var(--success) 6%, var(--surface-1)); }
-.diff-pane.removed pre { background: color-mix(in srgb, var(--danger) 6%, var(--surface-1)); }
+.diff-delete { background: color-mix(in srgb, var(--danger) 23%, transparent); }
+.diff-insert { background: color-mix(in srgb, var(--success) 23%, transparent); }
+.diff-highlights-off .diff-delete, .diff-highlights-off .diff-insert { background: transparent; }
+.diff-modal .monaco-diff-editor .line-insert, .diff-modal .monaco-diff-editor .line-delete { background: transparent !important; }
+.diff-highlights-off .monaco-diff-editor .char-insert, .diff-highlights-off .monaco-diff-editor .char-delete { background: transparent !important; border-color: transparent !important; }
 .symbol-grid { display: flex; flex-direction: column; gap: 12px; }
 .symbol-cat-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-4); margin-bottom: 5px; }
 .symbol-buttons { display: flex; flex-wrap: wrap; gap: 3px; }

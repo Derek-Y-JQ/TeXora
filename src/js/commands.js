@@ -115,6 +115,8 @@ export function createCommands() {
   register({ id: 'insert.image', title: '插入图片', group: '插入', icon: 'image', run: () => ctx.dialogs.openImageDialog() });
   register({ id: 'insert.imageData', title: '插入剪贴板图片', group: '插入', icon: 'image', hidden: true, run: (dataUrl, source) => ctx.dialogs.openImageDialog({ dataUrl, source }) });
   register({ id: 'insert.table', title: '插入表格', group: '插入', icon: 'table', run: () => ctx.dialogs.openTableWizard() });
+    register({ id: 'insert.code', title: '插入代码块', group: '插入', icon: 'code', run: () => ctx.dialogs.openCodeDialog('code') });
+    register({ id: 'insert.algorithm', title: '插入伪代码块', group: '插入', icon: 'algorithm', run: () => ctx.dialogs.openCodeDialog('algorithm') });
   register({ id: 'insert.cite', title: '插入文献引用', group: '插入', icon: 'book', keys: 'Ctrl+Shift+C', run: (key) => ctx.dialogs.openCitePicker(key) });
   register({ id: 'insert.symbols', title: '数学符号面板', group: '插入', icon: 'sigma', run: () => ctx.dialogs.openSymbols() });
   register({ id: 'insert.environment', title: '插入环境', group: '插入', icon: 'code', run: () => ctx.dialogs.openEnvironmentPicker() });

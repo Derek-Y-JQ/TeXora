@@ -7,7 +7,7 @@ export default async function verify({evalJs,click,sleep,shot,send}) {
   const calls=()=>JSON.parse(fs.readFileSync('.capture/verify131-http.json','utf8'));
   async function waitFor(expression,label){for(let i=0;i<160;i++){if(await evalJs(expression))return;await sleep(150);}throw new Error('Timed out: '+label);}
   await waitFor('!!window.__texora?.ai','app startup');
-  assert.equal(await evalJs('(async()=>(await window.texora.info()).version)()'),'1.3.1');
+  assert.equal(await evalJs('(async()=>(await window.texora.info()).version)()'),JSON.parse(fs.readFileSync('package.json','utf8')).version);
   assert.equal(await evalJs('window.__texora.state.settings.ai.model'),'deepseek-flash');
   assert.ok((await evalJs('window.__texora.state.project.root')).replaceAll('\\','/').endsWith('/.capture/verify131-project'));
   const skills=[{id:'rule-a',name:'Rule A',enabled:true,path:path.join(fixture,'rule-a.md')},{id:'rule-b',name:'Rule B',enabled:false,path:path.join(fixture,'rule-b.md')}];
@@ -25,10 +25,15 @@ export default async function verify({evalJs,click,sleep,shot,send}) {
 
   async function select(text){await evalJs(`(()=>{const e=window.__texora.editor,m=e.model,v=m.getValue(),i=v.indexOf(${JSON.stringify(text)});if(i<0)throw new Error('selection missing');const a=m.getPositionAt(i),b=m.getPositionAt(i+${text.length});e.editor.setSelection({startLineNumber:a.lineNumber,startColumn:a.column,endLineNumber:b.lineNumber,endColumn:b.column});})()`);}
   async function ask(prompt){await evalJs(`(async()=>{const input=document.querySelector('#aiPrompt');input.value=${JSON.stringify(prompt)};await window.__texora.sidebar.aiSend();})()`);}
-  async function close(){await evalJs("document.querySelector('.modal [data-btn=close]')?.click()");}
+  async function close(){await evalJs("document.querySelector('.modal [data-btn=close],.modal [data-answer-close]')?.click()");}
   await select('Original target.');
   await ask('[CASE:SELECT] rewrite selected text');
   const firstId=await evalJs("document.querySelector('.ai-result').dataset.resultId");
+  assert.ok(await evalJs("!!document.querySelector('.ai-result .diff-delete') && !!document.querySelector('.ai-result .diff-insert')"));
+  await evalJs("document.querySelector('[data-btn=diffHighlight]').click()");
+  assert.equal(await evalJs("document.querySelector('.modal').classList.contains('diff-highlights-off')"),true);
+  await evalJs("document.querySelector('[data-btn=diffHighlight]').click()");
+  assert.equal(await evalJs("document.querySelector('.modal').classList.contains('diff-highlights-off')"),false);
   assert.ok(!calls().at(-1).messages.at(-1).content.includes('CURRENT_FILE_ONLY'),'selection scope never sends full file');
   assert.equal(calls().at(-1).model,'deepseek-flash');
   assert.equal(await evalJs("document.querySelectorAll('.diff-pane').length"),2);
@@ -60,7 +65,7 @@ export default async function verify({evalJs,click,sleep,shot,send}) {
   assert.equal(await evalJs("document.querySelector('#menuLayer').classList.contains('open')"),false,'multiselect closes on outside click');
   await click('[data-ctx=files]');
   await evalJs("for(const name of ['helper-a.tex','helper-b.md'])[...document.querySelectorAll('.ai-picker-option')].find(x=>x.textContent.includes(name)).querySelector('input').click();document.querySelector('[data-done]').click()");
-  await select('Rewritten target.');await ask('[CASE:SKILLS] use selected context');
+  await select('Rewritten target.');await ask('[CASE:SKILLS] rewrite using selected context');
   const secondId=await evalJs("document.querySelector('.ai-result').dataset.resultId");
   const body=calls().at(-1),user=body.messages.find(m=>m.role==='user').content,system=body.messages.find(m=>m.role==='system').content;
   assert.ok(user.includes('OTHER_A_ONLY')&&user.includes('OTHER_B_ONLY')&&user.includes('CURRENT_FILE_ONLY'));
@@ -89,7 +94,7 @@ export default async function verify({evalJs,click,sleep,shot,send}) {
   assert.ok(await evalJs("window.__texora.sidebar.aiThread.at(-1).error"));
   assert.equal(await evalJs("document.querySelector('#aiPrompt').value"),'[CASE:EMPTY] empty','failed prompt is retained');
   await ask('[CASE:FAIL] fail');assert.ok(await evalJs("window.__texora.sidebar.aiThread.at(-1).error"));
-  await ask('[CASE:TRUNC] partial');
+  await ask('[CASE:TRUNC] rewrite partial');
   assert.ok(await evalJs("!!document.querySelector('.ai-result-warning')"));
   assert.ok(await evalJs("[...document.querySelectorAll('[data-btn=insert],[data-btn=replace]')].every(b=>b.disabled)"));await close();
   const count=calls().length;

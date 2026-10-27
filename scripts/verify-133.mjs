@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+export default async function ({evalJs,click,sleep,shot,send}) {
+  await send('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
+  async function waitFor(expression,label=expression){for(let i=0;i<200;i++){if(await evalJs(expression))return;await sleep(200);}throw Error('Timed out: '+label+' '+await evalJs("document.querySelector('#codeDependency')?.textContent||''"));}
+  await waitFor('!!window.__texora?.editor.model');
+  assert.equal(await evalJs('(async()=>(await window.texora.info()).version)()'),'1.3.3');
+  await evalJs("window.__texora.state.settings.general.autoCheckUpdates=false;window.__texora.state.settings.build.livePreview=false;window.__texora.state.settings.editor.autosave=false;");
+  assert.equal(await evalJs('document.documentElement.dataset.accent'),'blue');
+  await evalJs("(()=>{const c=window.__texora,p=c.editor.model.getPositionAt(c.editor.model.getValue().indexOf('\\\\end{document}'));c.editor.editor.setPosition(p);})()");
+  await click('[data-cmd="insert.code"]');
+  await waitFor("document.querySelector('#codeGenerated')?.textContent.includes('lstlisting')");
+  await evalJs("document.querySelector('#codeCaption').value='Computing a mean';document.querySelector('#codeCaption').dispatchEvent(new Event('input'))");
+  await shot('docs/screenshots/133-code.png');
+  await click('#codeInsert');await waitFor("!document.querySelector('.code-block-modal')",'listings insertion');
+  assert.equal(await evalJs("(window.__texora.editor.model.getValue().match(/\\\\usepackage\\{listings\\}/g)||[]).length"),1);
+  await evalJs("(()=>{const c=window.__texora,p=c.editor.model.getPositionAt(c.editor.model.getValue().indexOf('\\\\end{document}'));c.editor.editor.setPosition(p);})()");
+  await click('[data-cmd="insert.algorithm"]');
+  await click('[data-algorithm-part="6"]');
+  assert.ok(await evalJs("document.querySelector('#codeContent').value.includes('\\\\Else')"));
+  await evalJs("document.querySelector('#codeCaption').value='Summation algorithm';document.querySelector('#codeCaption').dispatchEvent(new Event('input'))");
+  await shot('docs/screenshots/133-algorithm.png');
+  await click('#codeInsert');await waitFor("!document.querySelector('.code-block-modal')",'algorithm insertion');
+  assert.ok(await evalJs("window.__texora.editor.model.getValue().includes('\\\\usepackage{algpseudocode}')"));
+  const fragment=path.resolve('.capture/verify133-project/fragment.tex');
+  await evalJs(`(async()=>{await window.__texora.app.openDocument(${JSON.stringify(fragment)});const e=window.__texora.editor;e.editor.setPosition(e.model.getPositionAt(e.model.getValueLength()));return true;})()`);
+  await click('[data-cmd="insert.code"]');
+  await evalJs("const backend=document.querySelector('#codeBackend');backend.value='minted';backend.dispatchEvent(new Event('change'));document.querySelector('#codeLanguage').value='python'");
+  await shot('docs/screenshots/133-minted.png');
+  await click('#codeInsert');await waitFor("!document.querySelector('.code-block-modal')",'minted insertion');
+  assert.ok(await evalJs("window.__texora.editor.model.getValue().includes('\\\\begin{minted}')"));
+  assert.equal(await evalJs("window.__texora.editor.model.getValue().includes('\\\\usepackage')"),false,'packages go into main document');
+  await evalJs('window.__texora.app.runBuild()');await waitFor("!window.__texora.state.build.running && ['ok','error'].includes(window.__texora.state.build.state)",'compile inserted code');
+  assert.equal(await evalJs('window.__texora.state.build.state'),'ok',await evalJs('window.__texora.state.log.slice(-1800)'));
+  await evalJs("window.__texora.ai.showResult({id:'qa-answer',responseMode:'answer',title:'检查',suggestion:'这里的等式仅在 $x=0$ 时成立。',snapshot:{}})");
+  assert.ok(await evalJs("!!document.querySelector('.ai-answer')"));assert.equal(await evalJs("!!document.querySelector('[data-btn=replace]')"),false);
+  await evalJs("document.querySelector('[data-answer-close]').click();window.__texora.settingsUI.open('ai')");
+  await waitFor("!!document.querySelector('#resetSystemPrompt')");
+  await evalJs("window.texora.settings.set('ai.systemPrompt','temporary test custom prompt')");
+  await click('#resetSystemPrompt');await waitFor("document.querySelector('[data-setting=\"ai.systemPrompt\"]').value.includes('协助用户思考')");
+  await click('#resetBlockPrompts');await waitFor("document.querySelectorAll('[data-action-label]').length===4");
+  assert.deepEqual(await evalJs("[...document.querySelectorAll('[data-action-label]')].map(x=>x.value)"),['润色','检查','翻译','解释']);
+  await evalJs("document.querySelector('#blockActions').scrollIntoView({block:'center'})");await sleep(350);await shot('docs/screenshots/133-ai-settings.png');
+  await evalJs("document.querySelector('.settings-modal .modal-close').click();window.__texora.settingsUI.open('appearance')");
+  for(const accent of ['tea','sky','solar']) {await click(`[data-accent-choice="${accent}"]`);await sleep(180);assert.equal(await evalJs('document.documentElement.dataset.accent'),accent);}
+  await evalJs("document.querySelector('.accent-row').scrollIntoView({block:'center'})");await sleep(350);await shot('docs/screenshots/133-theme.png');
+  await click('[data-accent-choice="blue"]');
+  await evalJs("document.querySelector('.settings-modal .modal-close').click()");
+  console.log('PASS 1.3.3 UI: listings/algorithm/minted dialogs, components, root preamble injection, full PDF compilation, answer-only checks, prompt reset, three accent themes.');
+}

@@ -212,7 +212,7 @@
 .skill-name { font-size: 12px; color: var(--text); }
 .skill-path { font-size: 10px; color: var(--text-4); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .block-actions { display: flex; flex-direction: column; gap: 5px; }
-.block-action-row { display: grid; grid-template-columns: 130px 1fr 26px; gap: 6px; align-items: center; }
+.block-action-row { display: grid; grid-template-columns: 90px minmax(0,1fr) 110px 26px; gap: 6px; align-items: center; }
 .pkg-result { max-height: 210px; overflow: auto; }
 .pkg-list { display: flex; flex-wrap: wrap; gap: 4px; }
 .pkg-item { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; background: var(--surface-3); font-size: 11px; }
@@ -231,6 +231,15 @@
 .ai-result .diff-pane pre { max-height: none; flex: 1; }
 .diff-labels { margin-left: auto; display: flex; gap: 6px; margin-right: 10px; }
 .diff-editor-host { height: 100%; }
+.code-block-dialog { display:flex; flex-direction:column; gap:14px; height:100%; }
+.code-options { display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
+.code-options label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-2); flex:1; min-width:125px; }
+.code-options label.row { flex-direction:row; align-items:center; flex:0; min-width:95px; padding-bottom:8px; }
+.code-edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; flex:1; min-height:250px; }
+.code-edit-grid>label { display:flex; flex-direction:column; gap:8px; min-width:0; min-height:0; color:var(--text-2); font-size:12px; }
+.code-edit-grid textarea,.code-edit-grid pre { flex:1; min-height:230px; resize:none; margin:0; padding:14px; overflow:auto; font:12px/1.7 var(--font-mono); white-space:pre-wrap; tab-size:2; }
+.algorithm-parts { display:flex; flex-wrap:wrap; gap:6px; }
+.ai-answer { user-select:text; line-height:1.8; overflow-wrap:anywhere; }
 
 /* ----------------------------------------------------------- compact layout */
 [data-compact] .ribbon { height: 54px; }

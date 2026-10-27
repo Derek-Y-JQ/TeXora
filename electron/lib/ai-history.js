@@ -18,6 +18,7 @@ class AiHistory {
       clean[key] = String(record[key] || '').slice(0, 1000000);
     }
     clean.applied = !!record.applied;
+    clean.responseMode = record.responseMode === 'answer' ? 'answer' : 'edit';
     clean.incomplete = !!record.incomplete;
     clean.snapshot = { ...record.snapshot };
     clean.request = { actionId: record.request?.actionId, target: record.request?.target, attachments: record.request?.attachments, hasImages: !!record.request?.hasImages, model: record.request?.model };

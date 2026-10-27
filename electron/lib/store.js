@@ -6,6 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
+const { SYSTEM_PROMPT, BLOCK_ACTIONS, migratePrompts } = require('./ai-defaults');
 
 const DEFAULT_SETTINGS = {
   version: 2,
@@ -19,7 +20,7 @@ const DEFAULT_SETTINGS = {
   },
   appearance: {
     theme: 'dark',
-    accent: 'violet',
+    accent: 'blue',
     codeTheme: 'auto',
     customCss: '',
     uiScale: 100,
@@ -106,18 +107,13 @@ const DEFAULT_SETTINGS = {
     apiKey: '',
     model: 'deepseek-flash',
     temperature: 0.4,
-    maxTokens: 2048,
+    maxTokens: 10000,
     timeout: 90,
-    systemPrompt:
-      '你是资深学术写作与 LaTeX 排版专家。保持学术语气，绝不改动公式符号定义、\\cite/\\ref 标签与命令语义。默认只输出 LaTeX 源码，不要使用 Markdown 代码围栏。',
+    systemPrompt: SYSTEM_PROMPT,
     contextScope: 'file-with-preamble',
     crossFile: true,
     includePreamble: true,
-    blockActions: [
-      { id: 'polish', label: '润色', prompt: '请对下面这段 LaTeX 源码做学术化润色：修正语法，精简冗长表达，使语言地道，保持公式、引用与标签不变。' },
-      { id: 'ask', label: '解释', prompt: '请解释下面这段 LaTeX 源码 / 公式的含义与作用，并指出潜在问题。' },
-      { id: 'translate', label: '翻译', prompt: '请将下面这段 LaTeX 源码翻译为地道的学术英文，完整保留所有命令、公式、标签与引用。' }
-    ],
+    blockActions: BLOCK_ACTIONS,
     skills: [],
     ocrModel: ''
   },
@@ -163,14 +159,14 @@ class Store extends EventEmitter {
   constructor(dir) {
     super();
     this.file = path.join(dir, 'settings.json');
-    this.data = DEFAULT_SETTINGS;
+    this.data = structuredClone(DEFAULT_SETTINGS);
     this._load();
   }
 
   _load() {
     const read = (file) => {
       const raw = fs.readFileSync(file, 'utf8');
-      return deepMerge(DEFAULT_SETTINGS, JSON.parse(raw));
+      return deepMerge(structuredClone(DEFAULT_SETTINGS), JSON.parse(raw));
     };
     try {
       this.data = read(this.file);
@@ -182,14 +178,26 @@ class Store extends EventEmitter {
       }
     }
     const actions = this.data.ai?.blockActions;
+    let migrated = false;
+    if (!this.data.migrations?.prompts133) {
+      migratePrompts(this.data.ai);
+      this.data.migrations = { ...this.data.migrations, prompts133: true };
+      migrated = true;
+    }
+    if (!this.data.migrations?.maxTokens10000) {
+      if (this.data.ai?.maxTokens === 2048) this.data.ai.maxTokens = 10000;
+      this.data.migrations = { ...this.data.migrations, maxTokens10000: true };
+      migrated = true;
+    }
     if (!this.data.migrations?.deepseekFlash131) {
       if (this.data.ai?.provider === 'deepseek' && this.data.ai.model === 'deepseek-chat' && /^https:\/\/api\.deepseek\.com\/?(?:v1\/?)?$/.test(this.data.ai.baseUrl || 'https://api.deepseek.com/v1')) this.data.ai.model = 'deepseek-flash';
       this.data.migrations = { ...this.data.migrations, deepseekFlash131: true };
-      this._save();
+      migrated = true;
     }
     if (Array.isArray(actions)) {
       for (const a of actions) if (a.id === 'ask' && a.label === '提问') a.label = '解释';
     }
+    if (migrated) this._save();
   }
 
   _save() {

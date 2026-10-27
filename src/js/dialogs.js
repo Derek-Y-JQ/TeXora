@@ -5,6 +5,7 @@
  */
 import { ctx } from './ctx.js';
 import { PROJECT_HOME, openExternalLink } from './external-links.js';
+import { openCodeDialog } from './code-dialog.js';
 import { monaco } from './editor.js';
 import {
   $, $$, el, icon, escapeHtml, openMenu, toast, copyText, baseName, extOf, formatBytes, timeAgo, debounce
@@ -193,6 +194,15 @@ export function createDialogs() {
           ignoreTrimWhitespace: false
         });
         diffEditor.setModel({ original: leftModel, modified: rightModel });
+        const toggle = document.createElement('button');
+        toggle.className = 'btn btn-sm'; toggle.textContent = '关闭 Diff 高亮'; toggle.setAttribute('aria-pressed', 'true');
+        root.querySelector('.modal-foot').prepend(toggle);
+        toggle.addEventListener('click', () => {
+          const off = root.classList.toggle('diff-highlights-off');
+          diffEditor.updateOptions({ renderIndicators: !off, renderMarginRevertIcon: false });
+          toggle.textContent = off ? '开启 Diff 高亮' : '关闭 Diff 高亮';
+          toggle.setAttribute('aria-pressed', String(!off));
+        });
         const head = root.querySelector('.modal-head');
         head.insertAdjacentHTML('beforeend', `<div class="diff-labels"><span class="chip">${escapeHtml(leftLabel)}</span><span class="chip accent">${escapeHtml(rightLabel)}</span></div>`);
         root.querySelector('[data-dialog-btn]').addEventListener('click', close);
@@ -1247,6 +1257,7 @@ export function createDialogs() {
     openNewProject,
     openTableWizard,
     openImageDialog,
+    openCodeDialog,
     openCitePicker,
     openSymbols,
     openEnvironmentPicker,

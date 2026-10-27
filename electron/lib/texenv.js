@@ -263,7 +263,8 @@ class TexEnv {
     if (this.tools.mpm) {
       exe = this.tools.mpm;
       args = ['--install', pkg];
-      if (mirror) args.push('--repository', mirror);
+      // A CTAN root is not an MPM package repository. Keep MiKTeX's own mirror in that case.
+      if (mirror && /miktex\/tm\/packages/i.test(mirror)) args.push('--repository', mirror);
       if (policy === 'never') return { ok: false, error: '当前设置为“仅提示不安装”' };
     } else {
       exe = this.tools.tlmgr;

@@ -8,6 +8,12 @@ export function contextPolicy(ai = {}) {
   };
 }
 
+export function responseModeFor(instruction, preferred) {
+  if (preferred === 'answer' || preferred === 'edit') return preferred;
+  if (/^(?:请|帮我|能否|可以)?\s*(?:检查|解释|分析|诊断|为什么|如何|是否|怎么)|\b(?:why|how|explain|check|diagnose)\b/i.test(instruction)) return 'answer';
+  return /翻译|润色|改写|重写|生成|修改|修正|补全|重构|translate|rewrite|polish|modify|insert|add |generate|fix /i.test(instruction) ? 'edit' : 'answer';
+}
+
 /** Shared by sidebar, block and selection requests. Settings are an upper bound. */
 export async function buildAIContext({ ai, fileName = '', fileText = '', preamble = '', targetText = '', attachments, readFile = async () => '', skills = [], actionId }) {
   const policy = contextPolicy(ai);

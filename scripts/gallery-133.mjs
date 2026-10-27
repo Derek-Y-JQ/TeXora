@@ -1,0 +1,48 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+export default async function ({evalJs,shot,sleep,send,click}) {
+  async function waitFor(expression,label=expression){for(let i=0;i<240;i++){if(await evalJs(expression))return;await sleep(250);}throw Error('Timed out: '+label);}
+  await send('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
+  await waitFor('!!window.__texora?.editor.model');
+  await evalJs("(async()=>{const c=window.__texora;await c.api.settings.set('general.autoCheckUpdates',false);await c.api.settings.set('build.livePreview',false);await c.api.settings.set('editor.wordWrap',true);await c.api.settings.set('appearance.accent','blue');await c.api.settings.set('appearance.reduceMotion',true);c.sidebar.show('outline');return true;})()");
+  await evalJs('window.__texora.app.runBuild()');
+  assert.equal(await evalJs('window.__texora.state.build.state'),'ok',await evalJs('window.__texora.state.log.slice(-1600)'));
+  await waitFor("document.querySelectorAll('.pdf-page').length>0");
+  await evalJs('window.__texora.editor.refreshMathZones()');
+  await evalJs('window.__texora.editor.revealLine(53,1);window.__texora.preview.scrollToPage(2)');await sleep(3000);
+  await shot('docs/screenshots/133-workspace.png');
+  await evalJs("window.__texora.sidebar.show('math');window.__texora.editor.revealLine(77,1)");await sleep(900);
+  await shot('docs/screenshots/133-math.png');
+  const forward=await evalJs("window.texora.tex.synctexForward(window.__texora.state.activePath,54,1)");assert.ok(forward.ok,JSON.stringify(forward));
+  const inverse=await evalJs(`window.texora.tex.synctexInverse(${forward.page},${forward.x},${forward.y})`);assert.ok(inverse.ok,JSON.stringify(inverse));
+  await evalJs(`window.__texora.sidebar.show('labels');window.__texora.preview.flashAt(${forward.page},${forward.x},${forward.y},${forward.height||12},${forward.width||160})`);await sleep(200);
+  await shot('docs/screenshots/133-synctex.png');
+  await sleep(1800);await evalJs("window.__texora.sidebar.show('files');window.__texora.editor.revealLine(143,1)");
+  await waitFor("document.querySelectorAll('.math-zone img').length>0",'inline previews');await sleep(800);
+  await shot('docs/screenshots/133-preview.png');
+  const image='data:image/png;base64,'+fs.readFileSync('samples/demo/figures/spectrum.png').toString('base64');
+  await evalJs(`void window.__texora.dialogs.openImageDialog({dataUrl:${JSON.stringify(image)},source:'示例图片'})`);await sleep(600);
+  await shot('docs/screenshots/133-image.png');await evalJs('window.__texora.dialogs.close()');
+  await evalJs('window.__texora.dialogs.openTableWizard()');await sleep(350);
+  await evalJs("document.querySelector('#twCsv').value='N,Error,Rate\\n16,0.00321,—\\n32,0.000802,2.00\\n64,0.000201,2.00';document.querySelector('#twParseCsv').click()");await sleep(400);
+  await shot('docs/screenshots/133-table.png');await evalJs('window.__texora.dialogs.close()');
+  await evalJs("window.__texora.sidebar.show('ai');window.__texora.ai.showResult({id:'gallery-ai',title:'润色',instruction:'润色这段论文文字，保持原意',original:'研究结果表明，该方法具有良好稳定性。',suggestion:'数值结果表明，该方法具有良好的稳定性。',projectRoot:window.__texora.state.project.root,sourcePath:window.__texora.state.activePath,snapshot:{range:{}},responseMode:'edit'})");await sleep(500);
+  await shot('docs/screenshots/133-ai.png');await evalJs('window.__texora.dialogs.close()');
+  await evalJs("window.__texora.ai.showResult({id:'gallery-check',title:'检查',responseMode:'answer',suggestion:'## 检查示例\\n\\n对于 $\\\\sqrt{x^2}=x$，需补充条件 $x\\\\ge 0$。在实数范围内，一般结论是 $\\\\sqrt{x^2}=|x|$。\\n\\n这是结果展示示例；检查回答不会直接替换原文。'})");await sleep(500);
+  await shot('docs/screenshots/133-check.png');await evalJs('window.__texora.dialogs.close()');
+  await evalJs("window.__texora.settingsUI.open('editor')");await sleep(600);
+  await evalJs("document.querySelector('[data-setting=\"editor.formatter.mergeParagraphLines\"]').scrollIntoView({block:'center'})");await sleep(300);
+  await shot('docs/screenshots/133-format.png');await evalJs("document.querySelector('.settings-modal .modal-close').click()");
+  await evalJs("window.__texora.settingsUI.open('build')");await sleep(500);
+  await evalJs("document.querySelector('[data-setting=\"build.cacheDir\"]').scrollIntoView({block:'center'})");await sleep(250);
+  await shot('docs/screenshots/133-cache.png');await evalJs("document.querySelector('.settings-modal .modal-close').click()");
+  await evalJs("(async()=>{const c=window.__texora;await c.api.history.snapshot(c.state.activePath,c.editor.model.getValue(),'manual');c.sidebar.show('history');return true;})()");await sleep(600);
+  await shot('docs/screenshots/133-history.png');
+  await evalJs("window.__texora.sidebar.show('git')");await sleep(700);
+  await shot('docs/screenshots/133-git.png');
+  await evalJs("void window.__texora.dialogs.openFontPicker('cjk')");await waitFor("!!document.querySelector('#fontSearch')");await sleep(400);
+  await shot('docs/screenshots/133-fonts.png');await evalJs('window.__texora.dialogs.close()');
+  await evalJs("window.__texora.sidebar.show('outline');window.__texora.editor.revealLine(47,1)");
+  console.log('Gallery captured from real isolated sample project; AI result screens are explicitly illustrative.');
+}

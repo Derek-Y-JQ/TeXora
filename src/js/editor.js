@@ -729,15 +729,18 @@ function registerCompletions() {
 
 /* ----------------------------------------------------------------- hovers */
 const mathCache = new Map();
+export function clearMathPreviewCache() { mathCache.clear(); }
 
 async function renderMath(code, displayMode = false, kind = 'math') {
-  const key = (kind === 'math' ? (displayMode ? 'D:' : 'I:') : kind + ':') + code;
+  const revisions = [...ctx.state.docs].map(([file, doc]) => file + ':' + doc.model?.getVersionId()).join('|');
+  const key = [ctx.state.project.rootFile, ctx.state.settings.build.engine, revisions, kind, displayMode, code].join('|');
   if (mathCache.has(key)) return mathCache.get(key);
   const p = ctx.api.tex
     .snippet({ code, kind, displayMode })
     .then((res) => (res.ok ? { ok: true, url: ctx.api.assetUrl(res.png), width: res.width, height: res.height, dpi: res.dpi } : { ok: false, error: res.error }))
     .catch((err) => ({ ok: false, error: err.message }));
   mathCache.set(key, p);
+  p.then(result => { if (!result.ok && mathCache.get(key) === p) mathCache.delete(key); });
   if (mathCache.size > 300) mathCache.delete(mathCache.keys().next().value);
   return p;
 }
@@ -1808,7 +1811,7 @@ export class EditorController {
       actions
         .map(
           (a) =>
-            `<button data-action="${escapeHtml(a.id)}" title="${escapeHtml(a.prompt || a.label)}">${icon(a.id === 'translate' ? 'translate' : a.id === 'ask' ? 'message' : 'wand')}<span class="ai-label">${escapeHtml(a.label)}</span></button>`
+            `<button data-action="${escapeHtml(a.id)}" title="${escapeHtml(a.label)}">${icon(a.id === 'translate' ? 'translate' : a.id === 'ask' ? 'message' : 'wand')}<span class="ai-label">${escapeHtml(a.label)}</span></button>`
         )
         .join('') + `<button data-action="custom" title="自定义指令">${icon('sparkles')}<span class="ai-label">自定义</span></button>`;
     this.aiBar.classList.add('visible');

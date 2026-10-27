@@ -1,6 +1,8 @@
 import { ctx } from './ctx.js';
 import { icon, escapeHtml, toast, copyText, baseName } from './util.js';
-import { buildAIContext, contextPolicy } from './ai-context.js';
+import { buildAIContext, contextPolicy, responseModeFor } from './ai-context.js';
+import { diffHtml } from './text-diff.js';
+import { renderMarkdown } from './markdown.js';
 
 const samePath = (a, b) => String(a || '').replace(/\\/g, '/').toLowerCase() === String(b || '').replace(/\\/g, '/').toLowerCase();
 const time = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -74,7 +76,7 @@ export function createAI() {
 
   function appendRecord(record) {
     records.set(record.id, record);
-    ctx.sidebar.pushAiThread({ role: 'assistant', text: record.suggestion, resultId: record.id, applied: record.applied, time: record.time });
+    ctx.sidebar.pushAiThread({ role: 'assistant', text: record.suggestion, resultId: record.id, applied: record.applied, responseMode: record.responseMode, time: record.time });
   }
 
   async function loadHistory() {
@@ -126,8 +128,10 @@ export function createAI() {
       const fenced = suggestion.match(/^```(?:latex|tex)?\s*\r?\n([\s\S]*?)\r?\n```$/i);
       if (fenced) suggestion = fenced[1];
       if (!suggestion.trim()) throw new Error('AI 返回了空内容，请重试');
+      const responseMode = responseModeFor(instruction, options.responseMode || action?.mode);
       const record = {
-        id, projectRoot, sourcePath, title: options.title || action?.label || 'AI 建议', instruction, original, suggestion,
+        responseMode,
+        id, projectRoot, sourcePath, title: options.title || action?.label || (responseMode === 'answer' ? 'AI 回答' : 'AI 建议'), instruction, original, suggestion,
         kind: options.kind || 'text', snapshot: origin, time: time(), applied: false,
         incomplete: !!res.incomplete || built.targetTruncated,
         request: { actionId: options.actionId, target: options.target, attachments: options.attachments, hasImages: images.length > 0, model: options.model },
@@ -157,7 +161,7 @@ export function createAI() {
   }
 
   async function apply(record, mode) {
-    if (record.applied || record._applying || record.incomplete) return false;
+    if (record.responseMode === 'answer' || record.applied || record._applying || record.incomplete) return false;
     if (!samePath(record.projectRoot, ctx.state.project.root) || !record.sourcePath) {
       toast({ type: 'warn', title: '请先打开原项目和目标文件', body: '此建议不会写入其他文件' }); return false;
     }
@@ -204,19 +208,40 @@ export function createAI() {
 
   function showResult(record) {
     if (!record?.suggestion) return;
+    if (record.responseMode === 'answer') return ctx.dialogs.modal({
+      title: record.title || 'AI 回答', subtitle: '检查与解释 · 回答不会替换原文', width: 900, height: 'min(80vh, 700px)',
+      body: `${record.incomplete ? '<div class="ai-result-warning">回答达到长度上限，可能不完整。</div>' : ''}<div class="ai-answer markdown-body">${renderMarkdown(record.suggestion)}</div>`,
+      foot: '<button class="btn btn-sm" data-answer-close>关闭</button><span class="spacer"></span><button class="btn btn-sm" data-answer-copy>复制回答</button>',
+      onMount: ({ root, close }) => {
+        root.querySelector('[data-answer-close]').onclick = close;
+        root.querySelector('[data-answer-copy]').onclick = () => copyText(record.suggestion);
+      }
+    });
     const applied = !!record.applied;
+    const diff = diffHtml(record.original || '', record.suggestion, escapeHtml);
     const body = `<div class="ai-result" data-result-id="${escapeHtml(record.id)}">
       <div class="ai-result-note">${icon(applied ? 'check' : 'sparkles')}<span>${applied ? '已修改 · ' : ''}${escapeHtml(record.instruction)}</span></div>
       <div class="field-hint">目标文件：${escapeHtml(record.sourcePath || '未打开文件')}</div>
       ${record.incomplete && !applied ? '<div class="ai-result-warning">输出或目标上下文已达到长度上限，暂不可应用。请缩小选区或提高输出上限后重新生成。</div>' : ''}
       <div class="diff-grid${applied ? ' applied' : ''}">
-      ${!applied && record.original ? `<div class="diff-pane removed"><div class="diff-pane-head">${icon('code')}修改前</div><pre>${escapeHtml(record.original)}</pre></div>` : ''}
-      <div class="diff-pane added"><div class="diff-pane-head">${icon('check')}${applied ? '已修改 · 应用后的内容' : 'AI 建议'}</div><pre>${escapeHtml(applied ? record.appliedText || record.suggestion : record.suggestion)}</pre></div></div></div>`;
+      ${!applied && record.original ? `<div class="diff-pane removed"><div class="diff-pane-head">${icon('code')}修改前</div><pre>${diff.left}</pre></div>` : ''}
+      <div class="diff-pane added"><div class="diff-pane-head">${icon('check')}${applied ? '已修改 · 应用后的内容' : 'AI 建议'}</div><pre>${applied ? escapeHtml(record.appliedText || record.suggestion) : diff.right}</pre></div></div></div>`;
     return ctx.dialogs.modal({
       title: `${applied ? '已修改' : 'AI 建议'}${record.title === 'AI 建议' ? '' : ' · ' + record.title}`, subtitle: applied ? '此记录已应用到文档，不会重复插入或替换' : '先预览差异，再决定是否修改原文件',
       iconName: applied ? 'check' : 'sparkles', width: 900, height: 'min(80vh, 700px)', body,
       foot: `<button class="btn btn-sm" data-btn="close">关闭</button><span class="spacer"></span><button class="btn btn-sm" data-btn="copy">${icon('copy')}复制</button>${applied ? '' : `<button class="btn btn-sm" data-btn="regen">${icon('refresh')}重新生成</button><button class="btn btn-sm" data-btn="insert" ${record.incomplete || !record.sourcePath ? 'disabled' : ''}>${icon('plus')}插入到下方</button>${record.original ? `<button class="btn btn-sm btn-primary" data-btn="replace" ${record.incomplete || !record.snapshot.range ? 'disabled' : ''}>${icon('check')}替换</button>` : `<button class="btn btn-sm btn-primary" data-btn="insertCursor" ${record.incomplete || !record.sourcePath ? 'disabled' : ''}>${icon('plus')}插入到原光标处</button>`}`}`,
       onMount: ({ root, close }) => {
+        if (!applied) {
+          const toggle = document.createElement('button');
+          toggle.className = 'btn btn-sm'; toggle.dataset.btn = 'diffHighlight';
+          toggle.textContent = '关闭 Diff 高亮'; toggle.setAttribute('aria-pressed', 'true');
+          root.querySelector('.modal-foot').prepend(toggle);
+          toggle.addEventListener('click', () => {
+            const off = root.classList.toggle('diff-highlights-off');
+            toggle.textContent = off ? '开启 Diff 高亮' : '关闭 Diff 高亮';
+            toggle.setAttribute('aria-pressed', String(!off));
+          });
+        }
         root.querySelector('[data-btn="close"]').onclick = close;
         root.querySelector('[data-btn="copy"]').onclick = () => copyText(record.appliedText || record.suggestion);
         root.querySelector('[data-btn="regen"]')?.addEventListener('click', () => {

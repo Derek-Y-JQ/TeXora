@@ -14,6 +14,7 @@ const os = require('node:os');
 const { Store } = require('./lib/store');
 const { ProjectService } = require('./lib/fsops');
 const { TexEnv } = require('./lib/texenv');
+const { CodeTools } = require('./lib/code-tools');
 const { Compiler } = require('./lib/compiler');
 const { History } = require('./lib/history');
 const { AiService } = require('./lib/ai');
@@ -112,6 +113,7 @@ function send(channel, payload) {
 }
 
 const compiler = new Compiler({ store, project, tex, history, send, fallbackCacheRoot: USER_DATA });
+const codeTools = new CodeTools({ tex, store, project, userData: USER_DATA });
 
 // --------------------------------------------------------------------- window
 function createWindow() {
@@ -562,6 +564,8 @@ handle('tex:refresh', async () => {
 handle('tex:packages', async (query, limit) => ({ ok: true, ...(await tex.searchPackages(query || '', limit || 200)) }));
 handle('tex:fonts', async (force) => ({ ok: true, fonts: await tex.fonts(!!force) }));
 handle('tex:installPackage', async (name) => ({ ok: true, ...(await tex.installPackage(name)) }));
+handle('tex:codeStatus', async options => codeTools.status(options));
+handle('tex:prepareCode', async options => codeTools.prepare(options));
 handle('tex:styFiles', async () => ({ ok: true, files: await tex.styFiles() }));
 
 handle('tex:envDefs', async (payload = {}) => {

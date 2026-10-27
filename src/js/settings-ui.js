@@ -267,8 +267,8 @@ export function createSettingsUI() {
           <div class="setting-control"><button class="btn btn-sm" id="aiTest">${icon('send')}测试连接</button></div>
         </div>
       </div>
-      ${group('全局系统提示词')}
-      <div class="setting-card">${textAreaRow('ai.systemPrompt', 'System Prompt', '限定学术语气、禁止修改公式符号定义、输出语言偏好等', 5)}</div>
+      ${group('全局系统提示词')}<button class="btn btn-sm" id="resetSystemPrompt">恢复系统默认提示词</button>
+      <div class="setting-card">${textAreaRow('ai.systemPrompt', 'System Prompt', '通用能力与准确性要求；具体任务决定语言、格式和是否修改公式', 5)}</div>
       ${group('上下文与 Skills')}
       <div class="setting-card">
         ${selectRow('ai.contextScope', '上下文读取范围', '侧栏与 Block 共用此上限；侧栏可取消本次不需要的上下文', [['selection', '仅选中内容 / 当前块'], ['file', '当前文件'], ['file-with-preamble', '当前文件 + 主文档导言区'], ['project', '允许附加其他项目文件']])}
@@ -285,7 +285,7 @@ export function createSettingsUI() {
       ${group('Block AI 快捷动作')}
       <div class="setting-card" style="padding:12px 16px">
         <div id="blockActions" class="block-actions"></div>
-        <button class="btn btn-sm" id="blockActionAdd" style="margin-top:8px">${icon('plus')}新增动作</button>
+        <button class="btn btn-sm" id="resetBlockPrompts">恢复默认动作与提示词</button><button class="btn btn-sm" id="blockActionAdd" style="margin-top:8px">${icon('plus')}新增动作</button>
       </div>
       ${group('多模态 OCR')}
       <div class="setting-card">
@@ -331,9 +331,9 @@ export function createSettingsUI() {
       </div>
       ${group('强调色')}
       <div class="accent-row">
-        ${[['violet', '#8b7cf8'], ['blue', '#3b82f6'], ['emerald', '#10b981'], ['amber', '#f59e0b'], ['rose', '#f43f5e']]
+        ${[['violet', '#8b7cf8'], ['blue', '#3b82f6'], ['emerald', '#10b981'], ['amber', '#f59e0b'], ['rose', '#f43f5e'], ['tea', '#8cae78'], ['sky', '#38bdf8'], ['solar', '#b58900']]
           .map(
-            ([id, color]) => `<button class="accent-dot ${s.appearance.accent === id ? 'active' : ''}" data-accent-choice="${id}" style="--dot:${color}" title="${id}"></button>`
+            ([id, color]) => `<button class="accent-dot ${s.appearance.accent === id ? 'active' : ''}" data-accent-choice="${id}" style="--dot:${color}" title="${({tea:'茶绿',sky:'晴空',solar:'日晷 · Solarized',blue:'蓝色',violet:'紫罗兰',emerald:'翡翠',amber:'琥珀',rose:'玫瑰'})[id]}"></button>`
           )
           .join('')}
       </div>
@@ -681,11 +681,14 @@ export function createSettingsUI() {
     const box = body.querySelector('#blockActions');
     if (!box) return;
     const actions = ctx.state.settings.ai.blockActions || [];
+    body.querySelector('#resetSystemPrompt').onclick = async () => { const d=await ctx.api.settings.defaults(); await ctx.api.settings.set('ai.systemPrompt',d.ai.systemPrompt); body.querySelector('[data-setting="ai.systemPrompt"]').value=d.ai.systemPrompt; };
+    body.querySelector('#resetBlockPrompts').onclick = async () => { const d=await ctx.api.settings.defaults(); ctx.state.settings.ai.blockActions=structuredClone(d.ai.blockActions); await ctx.api.settings.set('ai.blockActions',d.ai.blockActions); renderBlockActions(body); };
     box.innerHTML = actions
       .map(
         (a, i) => `<div class="block-action-row">
         <input class="input input-sm" data-action-label="${i}" value="${escapeHtml(a.label)}" placeholder="按钮名称" />
         <input class="input input-sm" data-action-prompt="${i}" value="${escapeHtml(a.prompt)}" placeholder="提示词" />
+        <select class="input input-sm" data-action-mode="${i}" title="结果展示方式"><option value="answer" ${a.mode === 'answer' ? 'selected' : ''}>回答</option><option value="edit" ${a.mode === 'edit' ? 'selected' : ''}>改写 Diff</option><option value="auto" ${!a.mode || a.mode === 'auto' ? 'selected' : ''}>自动判断</option></select>
         <button class="icon-btn sm" data-action-remove="${i}">${icon('trash')}</button>
       </div>`
       )
@@ -696,6 +699,7 @@ export function createSettingsUI() {
     for (const input of $$('[data-action-prompt]', box)) {
       input.addEventListener('change', () => saveAction(Number(input.dataset.actionPrompt), 'prompt', input.value));
     }
+    for (const select of $$('[data-action-mode]', box)) select.onchange = () => saveAction(Number(select.dataset.actionMode), 'mode', select.value);
     for (const btn of $$('[data-action-remove]', box)) {
       btn.addEventListener('click', () => {
         const actions2 = ctx.state.settings.ai.blockActions.filter((_, i) => i !== Number(btn.dataset.actionRemove));
@@ -703,11 +707,11 @@ export function createSettingsUI() {
         setTimeout(() => renderBlockActions(body), 60);
       });
     }
-    body.querySelector('#blockActionAdd')?.addEventListener('click', () => {
+    body.querySelector('#blockActionAdd').onclick = () => {
       const actions2 = [...(ctx.state.settings.ai.blockActions || []), { id: 'custom-' + Date.now().toString(36), label: '新动作', prompt: '请处理下面的 LaTeX 内容：' }];
       ctx.api.settings.set('ai.blockActions', actions2);
       setTimeout(() => renderBlockActions(body), 60);
-    });
+    };
   }
 
   function saveAction(index, key, value) {

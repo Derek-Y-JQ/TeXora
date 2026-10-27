@@ -440,14 +440,15 @@ export class Sidebar {
     }
     const activeFile = ctx.state.activePath;
     const activeLine = ctx.editor?.lastCursor?.line || 1;
-    const groups = new Map();
+    const groups = [];
     if (project.length) {
       for (const item of project) {
-        if (!groups.has(item.rel)) groups.set(item.rel, { file: item.file, items: [] });
-        groups.get(item.rel).items.push(item);
+        let last = groups.at(-1);
+        if (!last || last[0] !== item.rel) groups.push([item.rel, { file: item.file, items: [] }]);
+        groups.at(-1)[1].items.push(item);
       }
     } else {
-      groups.set(baseName(activeFile), { file: activeFile, items: parsed.outline });
+      groups.push([baseName(activeFile), { file: activeFile, items: parsed.outline }]);
     }
     let html = '<div class="outline-list project-outline">';
     for (const [rel, group] of groups) {
@@ -986,7 +987,7 @@ export class Sidebar {
     box.innerHTML = this.aiThread.map(m => `<div class="ai-msg ${m.role} ${m.error ? 'error' : ''} ${m.applied ? 'applied' : ''}" ${m.resultId ? `data-result-id="${escapeHtml(m.resultId)}" role="button" tabindex="0" aria-label="打开 AI 建议"` : ''}>
       <div class="ai-msg-head">${m.role === 'user' ? '你' : 'TeXora AI'}${m.time ? ` · ${escapeHtml(m.time)}` : ''}${m.applied ? '<span class="ai-applied-badge">已修改</span>' : ''}</div>
       <div class="ai-msg-body">${escapeHtml((m.text || '').slice(0, 420))}${(m.text || '').length > 420 ? '…' : ''}</div>
-      ${m.resultId ? `<div class="ai-msg-actions"><button class="btn btn-tiny">${m.applied ? '查看已修改内容' : '打开 Diff 建议'}</button></div>` : ''}</div>`).join('');
+      ${m.resultId ? `<div class="ai-msg-actions"><button class="btn btn-tiny">${m.applied ? '查看已修改内容' : m.responseMode === 'answer' ? '查看回答' : '打开 Diff 建议'}</button></div>` : ''}</div>`).join('');
     for (const message of $$('[data-result-id]', box)) {
       message.onclick = () => ctx.ai.resultAction({ id: message.dataset.resultId });
       message.onkeydown = e => { if (e.target === message && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); message.click(); } };
