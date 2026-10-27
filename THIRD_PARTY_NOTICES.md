@@ -10,6 +10,7 @@ Each is distributed under its own license; this file is informational only.
 | Electron | 38.8.6 | MIT | Desktop runtime (Chromium + Node.js) |
 | Chromium | bundled with Electron | BSD-3-Clause and others | Rendering engine |
 | Node.js | bundled with Electron | MIT | Main-process runtime |
+| KaTeX | 0.19.1 | MIT | Instant floating math previews |
 | Monaco Editor | 0.57.0 | MIT | Source editor |
 | Vite | 7.3.1 | MIT | Renderer bundler |
 | electron-builder | 26.18.0 | MIT | Installer packaging |
@@ -46,3 +47,5 @@ from these projects are redistributed with TeXora.
 TeXora does not bundle any model. AI features call the endpoint configured by
 the user (OpenAI, DeepSeek, Anthropic, Google, Moonshot or a compatible service)
 and are subject to that provider's terms and privacy policy.
+
+KaTeX copyright and license: [docs/licenses/KaTeX-LICENSE.txt](docs/licenses/KaTeX-LICENSE.txt).

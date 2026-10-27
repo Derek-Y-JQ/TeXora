@@ -334,3 +334,11 @@
 
 /* We render our own selection context menu; never show Monaco's native one. */
 .monaco-editor .monaco-menu, .monaco-editor .context-view.monaco-menu-container { display:none !important; }
+
+.about-mark img { width: 52px; height: 52px; object-fit: contain; }
+.texora-hover.live-math { animation: none; min-width: 200px; max-width: min(580px, calc(100% - 20px)); }
+.live-math .hc-title { display: flex; align-items: center; gap: 5px; }
+.live-math-close { margin-left: auto; border: 0; background: transparent; color: var(--text-3); cursor: pointer; font-size: 18px; }
+.live-math-body { overflow: auto; padding: 4px; }
+.live-math-body .katex-display { margin: 0.4em 0; }
+.live-math-status { margin-top: 6px; color: var(--text-3); font-size: 11px; }

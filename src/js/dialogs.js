@@ -3,6 +3,7 @@
  * image insertion, citation picker, symbol palette, font picker, bib manager,
  * diff viewer, shortcuts and about.
  */
+import appIcon from '../assets/icon.png';
 import { ctx } from './ctx.js';
 import { PROJECT_HOME, openExternalLink } from './external-links.js';
 import { openCodeDialog } from './code-dialog.js';
@@ -1180,7 +1181,7 @@ export function createDialogs() {
     const body = `
       <div class="about">
         <div class="about-hero">
-          <div class="about-mark"><svg viewBox="0 0 24 24"><path d="M5.4 18.6 12 5.2l2.6 5.3 2.2-2.3 1.6 1.6-3.4 3.5 3.6 7.3h-3l-2.6-5.3-2.5 5.3z" fill="currentColor" stroke="none"/></svg></div>
+          <div class="about-mark"><img src="${appIcon}" alt="TeXora" /></div>
           <div>
             <div class="about-title">TeXora</div>
             <div class="about-ver">版本 ${escapeHtml(info.version)} · 本地优先的 LaTeX 写作工作台</div>

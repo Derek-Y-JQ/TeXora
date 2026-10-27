@@ -3,6 +3,8 @@
  */
 import { ctx } from './js/ctx.js';
 import { openUpdateDownload } from './js/external-links.js';
+import { enumLabelEdit } from './js/live-math.js';
+import { packageInsertion } from './js/code-blocks.js';
 import { projectOutline } from './js/project-outline.js';
 import { EditorController, monaco, clearMathPreviewCache } from './js/editor.js';
 import { PreviewController } from './js/preview.js';
@@ -151,6 +153,7 @@ function wireWindowControls() {
     api.window.toggleMaximize();
   });
   $('#themeToggle').addEventListener('click', () => ctx.cmd('view.toggleTheme'));
+  $('#updateBtn').addEventListener('click', async () => { const btn=$('#updateBtn');if(btn.disabled)return;btn.disabled=true;try{await checkUpdates(true);}finally{btn.disabled=false;} });
   $('#settingsBtn').addEventListener('click', () => ctx.cmd('settings.open'));
   $('#commandBar').addEventListener('click', () => ctx.commands.openPalette());
   $('#brand').addEventListener('click', () => ctx.cmd('view.sidebar', 'files'));
@@ -1586,16 +1589,59 @@ function insertAlignment(kind) {
   ed.editor.focus();
 }
 
-function setEnumLabel(option) {
+async function setEnumLabel(option) {
   const model = ctx.editor.model;
   if (!model) return;
-  const pos = ctx.editor.editor.getPosition();
-  const content = model.getLineContent(pos.lineNumber);
-  const m = content.match(/\\begin\{enumerate\}(\s*\[[^\]]*\])?/);
-  if (!m) return toast({ type: 'info', title: '请把光标放在 enumerate 环境内' });
-  const start = m.index + m[0].replace(/\s*\[[^\]]*\]/, '').length;
-  const range = { startLineNumber: pos.lineNumber, startColumn: start + 1, endLineNumber: pos.lineNumber, endColumn: start + 1 + (m[1] ? m[1].length : 0) };
-  ctx.editor.editor.executeEdits('texora-enum', [{ range, text: `[${option}]` }]);
+  const editor = ctx.editor.editor;
+  const position = editor.getPosition();
+  const patch = enumLabelEdit(model.getValue(), model.getOffsetAt(position), option);
+  if (!patch) return toast({ type: 'info', title: '请把光标放在 enumerate 环境内', body: '支持列表项目正文和嵌套列表，无需移动到 begin 行' });
+  try {
+    const root = ctx.state.project.root;
+    await editProjectPreamble(text => {
+      const packages=['enumitem'];
+      const chinese=option.includes('\\chinese');
+      const p=packageInsertion(text,packages);
+      let result=text.slice(0,p.offset)+p.text+text.slice(p.offset);
+      if(chinese && !/\\(?:documentclass|usepackage)(?:\[[^\]]*\])?\{[^}]*ctex/.test(result.split('\\begin{document}')[0])) {
+        const extra=packageInsertion(result,['ctex']);
+        result=result.slice(0,extra.offset)+extra.text+result.slice(extra.offset);
+      }
+      return result;
+    });
+    if(root!==ctx.state.project.root || ctx.editor.model!==model)return;
+    // Preamble edits may shift the list. Recompute against Monaco's tracked cursor.
+    const latest=enumLabelEdit(model.getValue(),model.getOffsetAt(editor.getPosition()),option);
+    if(!latest)return;
+    const a=model.getPositionAt(latest.start),b=model.getPositionAt(latest.end);
+    editor.executeEdits('texora-enum',[{range:{startLineNumber:a.lineNumber,startColumn:a.column,endLineNumber:b.lineNumber,endColumn:b.column},text:latest.text}]);
+    if(option.includes('\\chinese') && ctx.state.settings.build.engine==='pdflatex') {ctx.state.settings.build.engine='xelatex';await api.settings.set('build.engine','xelatex');}
+    editor.focus();
+  } catch(error) { toast({type:'warn',title:'编号样式未应用',body:error.message}); }
+}
+
+function replaceModelText(model, text) {
+  const before=model.getValue();
+  if(before===text)return;
+  let a=0,b=before.length,c=text.length;
+  while(a<b && a<c && before[a]===text[a])a++;
+  while(b>a && c>a && before[b-1]===text[c-1]){b--;c--;}
+  const start=model.getPositionAt(a),end=model.getPositionAt(b);
+  model.pushEditOperations([],[{range:{startLineNumber:start.lineNumber,startColumn:start.column,endLineNumber:end.lineNumber,endColumn:end.column},text:text.slice(a,c)}],()=>null);
+}
+
+async function editProjectPreamble(transform) {
+  const project=ctx.state.project, rootFile=project.rootFile;
+  if(!rootFile)throw Error('请先打开项目并指定主文档');
+  const doc=ctx.state.docs.get(rootFile);
+  const read=doc?null:await api.fs.read(rootFile);
+  if(!doc && !read?.ok)throw Error(read?.error || '无法读取主文档');
+  if(ctx.state.project!==project)throw Error('项目已切换，请重试');
+  const before=doc?doc.model.getValue():read.text;
+  const text=transform(before);
+  if(text===before)return;
+  if(doc)replaceModelText(doc.model,text);
+  else {const written=await api.fs.write(rootFile,text);if(!written.ok)throw Error(written.error || '主文档写入失败');}
 }
 
 function insertTodo() {
@@ -1605,31 +1651,29 @@ function insertTodo() {
   ensurePreamblePackage('todonotes');
 }
 
-function applyLocalFont(kind, name) {
-  const doc = ctx.state.docs.get(ctx.state.activePath);
-  if (!doc) return toast({ type: 'warn', title: '请先打开项目主文档' });
-  const model = doc.model;
-  let text = model.getValue();
+async function applyLocalFont(kind, name) {
   const cmd = kind === 'cjk' ? 'setCJKmainfont' : kind === 'mono' ? 'setmonofont' : 'setmainfont';
-  const needsCjkPkg = kind === 'cjk' && !/\\usepackage(\[[^\]]*\])?\{(ctex|xeCJK)\}|documentclass\[[^\]]*\]\{ctex/.test(text);
-  const needsFontspec = kind !== 'cjk' && !/\\usepackage(\[[^\]]*\])?\{fontspec\}/.test(text);
-  const existing = new RegExp(`\\\\${cmd}\\s*(\\[[^\\]]*\\])?\\s*\\{[^}]*\\}`);
-  let changed = false;
-  const begin = text.indexOf('\\begin{document}');
-  if (begin < 0) return toast({ type: 'error', title: '无法写入字体', body: '未找到 \\begin{document}' });
-  let injection = '';
-  if (needsFontspec) injection += '\\usepackage{fontspec}\n';
-  if (needsCjkPkg) injection += '\\usepackage{xeCJK}\n';
-  if (existing.test(text)) text = text.replace(existing, '');
-  injection += `\\${cmd}{${name}}\n`;
-  if (injection) text = text.slice(0, begin) + injection + text.slice(begin);
-  changed = true;
-  if (!changed) return;
-  model.pushEditOperations([], [{ range: model.getFullModelRange(), text }], () => null);
-  const fonts = { ...ctx.state.settings.tex.fonts, [kind]: name };
-  api.settings.set('tex.fonts', fonts);
-  ctx.state.settings.tex.fonts = fonts;
-  toast({ type: 'success', title: '字体已写入导言区', body: `\\${cmd}{${name}}（保存后编译生效）` });
+  try {
+    await editProjectPreamble(source => {
+      let text=source;
+      const begin=text.indexOf('\\begin{document}');
+      if(begin<0)throw Error('主文档缺少 begin{document}');
+      const pre=text.slice(0,begin);
+      const hasCjk=/\\(?:documentclass|usepackage)(?:\[[^\]]*\])?\{[^}]*ctex|\\usepackage(?:\[[^\]]*\])?\{[^}]*xeCJK/.test(pre);
+      const patch=packageInsertion(text,kind==='cjk'?(hasCjk?[]:['xeCJK']):['fontspec']);
+      text=text.slice(0,patch.offset)+patch.text+text.slice(patch.offset);
+      const command=new RegExp('\\\\'+cmd+'\\s*(?:\\[[^\\]]*\\])?\\s*\\{[^}]*\\}');
+      const currentEnd=text.indexOf('\\begin{document}');
+      let head=text.slice(0,currentEnd);
+      head=command.test(head)?head.replace(command,()=>`\\${cmd}{${name}}`):head+`\\${cmd}{${name}}\n`;
+      return head+text.slice(currentEnd);
+    });
+    const fonts={...ctx.state.settings.tex.fonts,[kind]:name};
+    await api.settings.set('tex.fonts',fonts);ctx.state.settings.tex.fonts=fonts;
+    if(kind==='cjk' || ctx.state.settings.build.engine==='pdflatex') {ctx.state.settings.build.engine='xelatex';await api.settings.set('build.engine','xelatex');}
+    for(const button of document.querySelectorAll('[data-font="'+kind+'"] span'))button.textContent=name;
+    toast({type:'success',title:'主文档字体已更新',body:`\\${cmd}{${name}} · 保存并编译后生效`});
+  } catch(error) {toast({type:'warn',title:'字体未应用',body:error.message});}
 }
 
 function ensurePreamblePackage(pkg) {

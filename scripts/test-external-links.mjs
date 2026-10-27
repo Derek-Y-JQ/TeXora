@@ -23,6 +23,7 @@ const about = dialogs.slice(dialogs.indexOf('  async function openAbout()'), dia
 let listener;
 const context = vm.createContext({
   ctx: { api: { info: async () => ({}), tex: { info: async () => ({}) }, ...api }, state: { texInfo: {} } },
+  appIcon: 'app-icon.png',
   ...links, toast: notify, escapeHtml: String, icon: () => '', dialogButton: () => '',
   modal: options => {
     assert.ok(!options.foot.includes('onclick='), 'CSP-safe listener');

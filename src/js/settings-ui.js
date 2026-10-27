@@ -113,9 +113,9 @@ export function createSettingsUI() {
         ${switchRow('editor.autoCloseBrackets', '括号自动配对', '')}
         ${switchRow('editor.autoCloseQuotes', '引号自动配对', '')}
       </div>
-      ${group('内联与悬浮预览')}
+      ${group('悬浮预览')}
       <div class="setting-card">
-        ${switchRow('editor.inlineMathPreview', '数学公式预览', '悬浮或行间公式实时渲染卡片（由本地 pdftocairo 渲染）')}
+        ${switchRow('editor.inlineMathPreview', '数学公式预览', '光标进入公式或悬浮时显示；输入即时更新，不插入行间占位')}
         ${switchRow('editor.imagePreview', '插图预览', '悬浮 \\includegraphics 显示缩略图与文件大小')}
         ${switchRow('editor.tikzPreview', 'TikZ 示意图预览', '独立局部编译 tikzpicture 环境')}
         ${switchRow('editor.tablePreview', '表格预览', '局部渲染 tabular / tblr 环境')}
@@ -182,7 +182,7 @@ export function createSettingsUI() {
     const info = ctx.state.texInfo || {};
     return `
       <h2 class="settings-section-title">宏包与 TeX 环境</h2>
-      <p class="settings-section-desc">自动探测本地 TeX 发行版，管理宏包安装策略、CTAN 镜像与本地字体映射。</p>
+      <p class="settings-section-desc">自动探测本地 TeX 发行版，管理宏包安装策略、CTAN 镜像与文档排版字体。</p>
       ${group('TeX 发行版')}
       <div class="setting-card">
         <div class="setting-row">
@@ -216,7 +216,8 @@ export function createSettingsUI() {
         </div>
         <div class="pkg-result" id="pkgResult"><div class="field-hint">已安装宏包：${(ctx.state.packages || []).length} 个</div></div>
       </div>
-      ${group('本地字体映射')}
+      ${group('文档排版字体')}
+      <p class="settings-section-desc">选择后写入当前项目主文档的导言区，改变 PDF 中的字体；子文件也会使用主文档字体。使用 XeLaTeX 编译。这不会改变编辑器或软件界面的字体。</p>
       <div class="setting-card">
         ${['latin', 'cjk', 'mono']
           .map((kind) => {

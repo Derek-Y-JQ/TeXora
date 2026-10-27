@@ -747,11 +747,10 @@ class Compiler {
     return candidates.find(file => fs.existsSync(file) && (fs.existsSync(file.replace(/\.pdf$/i,'.synctex.gz')) || fs.existsSync(file.replace(/\.pdf$/i,'.synctex')))) || candidates.find(file => fs.existsSync(file)) || candidates[0];
   }
 
-  async extractPreamble() {
-    const rootFile = this.project.rootFile;
+  async extractPreamble(rootText, rootFile = this.project.rootFile) {
     if (!rootFile) return { preamble: '', safePreamble: '', engine: this.store.get('build.engine', 'xelatex'), packages: [], usesCJK: false };
     const now = Date.now();
-    const text = await fsp.readFile(rootFile, 'utf8').catch(() => '');
+    const text = typeof rootText === 'string' ? rootText : await fsp.readFile(rootFile, 'utf8').catch(() => '');
     const beginIdx = text.indexOf('\\begin{document}');
     let pre = beginIdx > 0 ? text.slice(0, beginIdx) : text.slice(0, 6000);
     const originalPreamble = pre;
@@ -855,7 +854,9 @@ class Compiler {
   }
 
   /** Compile an isolated snippet and rasterize it (math / tikz / table previews). */
-  async snippet({ code, kind = 'math', scale = 2, displayMode = false }) {
+  async snippet({ code, kind = 'math', scale = 2, displayMode = false, rootText, rootFile: expectedRoot }) {
+    const projectRoot=this.root, rootFile=this.project.rootFile;
+    if(expectedRoot && expectedRoot!==rootFile)return {ok:false,cancelled:true,error:'项目已切换'};
     const configuredEngine = this.store.get('build.engine', 'xelatex');
     const engineName = ['pdflatex', 'xelatex', 'lualatex'].includes(configuredEngine) ? configuredEngine : 'xelatex';
     const exe = this.tex.get(engineName) || this.tex.get('xelatex') || this.tex.get('pdflatex');
@@ -863,9 +864,9 @@ class Compiler {
     if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return { ok: false, error: '未检测到 pdftoppm / pdftocairo，无法渲染预览' };
     const body = String(code || '').trim().replace(/\\qedhere\b/g, '');
     if (!body) return { ok: false, error: '空内容' };
-    const { originalPreamble, dependencyPreamble, preamble, safePreamble, essentialMathPreamble, essentialTablePreamble, essentialTikzPreamble } = await this.extractPreamble();
+    const { originalPreamble, dependencyPreamble, preamble, safePreamble, essentialMathPreamble, essentialTablePreamble, essentialTikzPreamble } = await this.extractPreamble(rootText, rootFile);
     const hash = crypto.createHash('sha1').update('preview-v2|' + engineName + '|' + kind + '|' + body + '|' + originalPreamble + '|' + dependencyPreamble + '|' + scale + '|' + displayMode).digest('hex').slice(0, 16);
-    const outDir = path.join(await this.resolveCacheDir(), 'snippets');
+    const outDir = path.join(await this.resolveCacheDir(projectRoot), 'snippets');
     await fsp.mkdir(outDir, { recursive: true });
     const png = path.join(outDir, hash + '.png');
     if (fs.existsSync(png) && Date.now() - fs.statSync(png).mtimeMs < 1000 * 60 * 60 * 24 && !this.store.get('build.previewNoCache')) {
@@ -878,8 +879,8 @@ class Compiler {
     const tikzPkg = needsTikz ? '\\usepackage{tikz}\n' : '';
     const base = '\\usepackage{amsmath,amssymb,amsthm,mathtools}\n\\usepackage{xcolor}\n\\usepackage{graphicx}\n\\usepackage{array}\n' + tikzPkg;
     const build = (pre, faithful = false) => {
-      const docDir = path.dirname(this.project.rootFile || '').replace(/\\/g, '/');
-      const projectDir = String(this.root || '').replace(/\\/g, '/');
+      const docDir = path.dirname(rootFile || '').replace(/\\/g, '/');
+      const projectDir = String(projectRoot || '').replace(/\\/g, '/');
       const graphics = '\\graphicspath{{' + docDir + '/}{' + projectDir + '/}}\n';
       const head = docClass + base + graphics + (kind === 'table' ? '\\usepackage{booktabs}\n\\usepackage{array}\n' : '');
       let bodyBlock;
@@ -904,8 +905,8 @@ class Compiler {
       }
       const snippetEnv = codeEnvironment(this.store, this.tex.env);
       const inherited = snippetEnv.TEXINPUTS ? String(snippetEnv.TEXINPUTS).split(path.delimiter) : [];
-      snippetEnv.TEXINPUTS = [path.dirname(this.project.rootFile || ''), this.root, ...inherited, ''].filter((v, i, a) => v !== undefined && a.indexOf(v) === i).join(path.delimiter);
-      const res = await run(exe, ['-interaction=nonstopmode', '-halt-on-error', ...(mintedEnabled(this.store, this.root) ? ['-shell-escape'] : []), '-output-directory=' + workDir, 'snippet.tex'], {
+      snippetEnv.TEXINPUTS = [path.dirname(rootFile || ''), projectRoot, ...inherited, ''].filter((v, i, a) => v !== undefined && a.indexOf(v) === i).join(path.delimiter);
+      const res = await run(exe, ['-interaction=nonstopmode', '-halt-on-error', ...(mintedEnabled(this.store, projectRoot) ? ['-shell-escape'] : []), '-output-directory=' + workDir, 'snippet.tex'], {
         cwd: workDir, env: snippetEnv, timeout: kind === 'tikz' ? 120000 : 60000
       });
       const ok = res.code === 0 && fs.existsSync(pdf);

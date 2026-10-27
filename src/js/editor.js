@@ -3,6 +3,9 @@
  * intelligent completions, hover previews, block mode, drag-reorder,
  * folding, inline math zones and editor commands.
  */
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+import { mathAtOffset, mathDefinitions } from './live-math.js';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { ctx } from './ctx.js';
@@ -736,7 +739,7 @@ async function renderMath(code, displayMode = false, kind = 'math') {
   const key = [ctx.state.project.rootFile, ctx.state.settings.build.engine, revisions, kind, displayMode, code].join('|');
   if (mathCache.has(key)) return mathCache.get(key);
   const p = ctx.api.tex
-    .snippet({ code, kind, displayMode })
+    .snippet({ code, kind, displayMode, rootFile:ctx.state.project.rootFile, rootText:ctx.state.docs.get(ctx.state.project.rootFile)?.model?.getValue() })
     .then((res) => (res.ok ? { ok: true, url: ctx.api.assetUrl(res.png), width: res.width, height: res.height, dpi: res.dpi } : { ok: false, error: res.error }))
     .catch((err) => ({ ok: false, error: err.message }));
   mathCache.set(key, p);
@@ -761,51 +764,7 @@ function wrappedDisplayBody(env, inner) {
 }
 
 function mathAtPosition(model, position) {
-  const line = model.getLineContent(position.lineNumber);
-  const col = position.column - 1;
-  const segments = [];
-  const re = /(\$\$|\\\[|\\\(|\$)/g;
-  let m;
-  while ((m = re.exec(line))) {
-    const open = m[0];
-    const close = open === '$$' ? '$$' : open === '\\[' ? '\\]' : open === '\\(' ? '\\)' : '$';
-    const start = m.index;
-    let end = line.indexOf(close, start + open.length);
-    if (end < 0) continue;
-    if (open === '$' && line[start + 1] === '$') continue;
-    segments.push({ start, end: end + close.length, innerStart: start + open.length, innerEnd: end, display: open !== '$' && open !== '\\(' });
-    re.lastIndex = end + close.length;
-  }
-  for (const seg of segments) {
-    if (col >= seg.start && col <= seg.end) {
-      return { code: line.slice(seg.innerStart, seg.innerEnd).trim(), display: seg.display, start: seg.start, end: seg.end };
-    }
-  }
-  // display math written as \[ ... \] across lines
-  const allLines = splitLines(model.getValue());
-  for (let i = 0; i < allLines.length; i++) {
-    if (!/\\\[/.test(stripComment(allLines[i]))) continue;
-    let j = i;
-    while (j < allLines.length && !/\\\]/.test(stripComment(allLines[j]))) j++;
-    if (j >= allLines.length) continue;
-    if (position.lineNumber - 1 >= i && position.lineNumber - 1 <= j) {
-      const first = (stripComment(allLines[i]).split('\\[')[1] || '');
-      const last = (stripComment(allLines[j]).split('\\]')[0] || '');
-      const body = [first, ...allLines.slice(i + 1, j), last].join('\n').trim();
-      if (body) return { code: body, display: true, kind: 'math' };
-    }
-    i = j;
-  }
-  // inside display math environment (equation/align)
-  const env = parseDocument(model.getValue()).environments.find(
-    (e) => ['equation', 'align', 'gather', 'multline', 'eqnarray', 'displaymath'].includes(e.env.replace('*', '')) && position.lineNumber >= e.line && position.lineNumber <= (e.endLine || e.line)
-  );
-  if (env) {
-    const all = splitLines(model.getValue());
-    const inner = all.slice(env.line, (env.endLine || env.line) - 1).join('\n');
-    if (inner.trim()) return { code: wrappedDisplayBody(env.env, inner), display: true, env: env.env, kind: 'math' };
-  }
-  return null;
+  return mathAtOffset(model.getValue(), model.getOffsetAt(position));
 }
 
 async function labelTarget(labelName) {
@@ -1155,12 +1114,13 @@ export class EditorController {
       this.updateBlocks();
       this.updateSelectionBar();
       ctx.emit('cursor', this.lastCursor);
+      this.scheduleLiveMath();
     });
     this.editor.onDidChangeCursorSelection(() => this.updateSelectionBar());
     this.editor.onContextMenu((ev) => this.onEditorContextMenu(ev));
     this.editor.onDidScrollChange(() => {
       this.updateBlocks();
-      this.hideHover();
+      if (this.liveMath) this.positionLiveMath(); else this.hideHover();
       // Scrolling moves blocks beneath a stationary pointer.
       cancelAnimationFrame(this._blockHoverFrame);
       this._blockHoverFrame = requestAnimationFrame(() => this.refreshBlockHover());
@@ -1168,6 +1128,7 @@ export class EditorController {
     this.editor.onDidLayoutChange(() => {
       this.updateBlocks();
       if (this.hoveredBlock) this.positionAiBar(this.hoveredBlock);
+      if (this.liveMath) this.positionLiveMath();
     });
     this.editor.onDidChangeModelContent((e) => {
       this.onContentChange(e);
@@ -1176,7 +1137,7 @@ export class EditorController {
       this.scheduleHover(e);
     });
     this.editor.onMouseLeave(() => {
-      this.hideHover();
+      if (!this.liveMath) this.hideHover();
     });
     this.editor.onMouseDown((e) => this.onMouseDown(e));
 
@@ -1352,6 +1313,7 @@ export class EditorController {
   }
 
   attach(doc, viewState) {
+    this.hideHover(true);
     if (!this.editor) return;
     if (this.model) this.saveViewState();
     this.model = doc.model;
@@ -1382,7 +1344,7 @@ export class EditorController {
     ctx.emit('doc:changed', { path: doc.path });
     this.scheduleParse();
     this.scheduleAutoClose(e);
-    this.scheduleMathZones();
+    this.scheduleLiveMath();
     this.updateBlocks();
     if (this.model) this.markDirtyTab();
   }
@@ -1491,6 +1453,7 @@ export class EditorController {
   }
 
   onKeyDown(e) {
+    if (e.keyCode === monaco.KeyCode.Escape && this.liveMath) { this._dismissedMath=this.liveMath.key; this.hideHover(true); return; }
     const ed = ctx.state.settings?.editor || {};
     const model = this.model;
     if (!model) return;
@@ -1866,6 +1829,7 @@ export class EditorController {
   }
 
   scheduleHover(e) {
+    if (this.liveMath) return;
     const pos = e.target.position;
     if (!pos || e.target.type === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS) {
       if (this.hoverTimer) clearTimeout(this.hoverTimer);
@@ -1881,12 +1845,16 @@ export class EditorController {
 
   async showHoverAt(pos, x, y) {
     if (!this.model) return;
+    const model = this.model, version = model.getVersionId();
+    const math = mathAtPosition(model, pos);
+    if (math && ctx.state.settings.editor.inlineMathPreview !== false) { this.showLiveMath(pos, math); return; }
     let html = null;
     try {
       html = await buildHoverContent(this.model, pos);
     } catch (err) {
       console.warn('[hover]', err.message);
     }
+    if (this.liveMath || this.model !== model || model.getVersionId() !== version) return;
     if (!html) {
       this.hideHover();
       return;
@@ -1919,12 +1887,18 @@ export class EditorController {
     this.hoverEl.style.top = Math.max(8, top) + 'px';
   }
 
-  hideHover() {
+  hideHover(force = false) {
+    if (this.liveMath && !force) return;
+    this.liveMath = null;
+    this._liveSequence = (this._liveSequence || 0) + 1;
+    clearTimeout(this._nativeMathTimer);
     if (this.hoverTimer) {
       clearTimeout(this.hoverTimer);
       this.hoverTimer = null;
     }
     this.hoverState = null;
+    this.hoverEl?.classList.remove('live-math');
+    if (this.hoverEl) { this.hoverEl.style.visibility=''; this.hoverEl.style.maxHeight=''; }
     if (this.hoverEl) this.hoverEl.style.display = 'none';
   }
 
@@ -2057,157 +2031,88 @@ export class EditorController {
     ctx.cmd('doc.markDirty');
   }
 
-  /* ------------------------------------------------------- inline math zones */
-  async refreshMathZones() {
-    if (!this.editor || !this.model) return;
-    const cfg = ctx.state.settings?.editor || {};
-    const enabled = cfg.inlineMathPreview !== false || cfg.tikzPreview !== false || cfg.tablePreview !== false;
-    const gen = ++this.zoneGen;
-    if (!enabled) {
-      this.clearMathZones();
-      return;
-    }
-    const text = this.model.getValue();
-    const lines = splitLines(text);
-    const candidates = [];
-    let inVerbatim = null;
-    for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      if (inVerbatim) {
-        if (raw.includes(`\\end{${inVerbatim}}`)) inVerbatim = null;
-        continue;
-      }
-      const vb = raw.match(/\\begin\{(verbatim\*?|lstlisting|minted|Verbatim)\}/);
-      if (vb) { inVerbatim = vb[1]; continue; }
-      const code = stripComment(raw);
-      const displayStart = code.match(/^\s*\\\[(.*)$/);
-      if (displayStart) {
-        // collect until \]
-        let body = displayStart[1];
-        let j = i;
-        while (j < lines.length && !/\\\]/.test(body)) {
-          j++;
-          body += '\n' + (lines[j] || '');
-        }
-        body = body.replace(/\\\]\s*$/, '');
-        candidates.push({ code: body.trim(), afterLine: j + 1 });
-        i = j;
-        continue;
-      }
-      const envStart = code.match(/^\s*\\begin\{(equation\*?|align\*?|gather\*?|multline\*?|displaymath)\}/);
-      if (envStart) {
-        const env = envStart[1];
-        let j = i;
-        while (j < lines.length && !stripComment(lines[j]).includes(`\\end{${env}}`)) j++;
-        const inner = lines.slice(i + 1, j).join('\n').trim();
-        if (inner) candidates.push({ code: wrappedDisplayBody(env, inner), afterLine: j + 1, kind: 'math' });
-        i = j;
-      }
-      // TikZ figures
-      const tikzStart = code.match(/^\s*\\begin\{tikzpicture\}/);
-      if (tikzStart && cfg.tikzPreview !== false) {
-        let j = i;
-        while (j < lines.length && !stripComment(lines[j]).includes('\\end{tikzpicture}')) j++;
-        const body = lines.slice(i, j + 1).join('\n').trim();
-        if (body) candidates.push({ code: body, afterLine: j + 1, kind: 'tikz' });
-        i = j;
-        continue;
-      }
-      // tables
-      const tblStart = code.match(/^\s*\\begin\{(tabular|tblr|longtable)\}/);
-      if (tblStart && cfg.tablePreview !== false) {
-        const env = tblStart[1];
-        let j = i;
-        while (j < lines.length && !stripComment(lines[j]).includes(`\\end{${env}}`)) j++;
-        const body = lines.slice(i, j + 1).join('\n').trim();
-        if (body) candidates.push({ code: body, afterLine: j + 1, kind: 'table' });
-        i = j;
-      }
-    }
-    const capped = candidates;
-    const debug = { candidates: candidates.length, ok: 0, fail: 0, errors: [] };
+  /* Formula/table/TikZ previews use overlays; never insert editor view zones. */
+  refreshMathZones() {
+    this.zoneGen++;
     this.clearMathZones();
-    if (!capped.length) return;
+    this.scheduleLiveMath();
+  }
 
-    const snippetReason = (err) => {
-      const line = String(err || '').split(/\r?\n/).find((l) => /^!|Undefined control|LaTeX Error|Package .* Error/.test(l));
-      return line || String(err || '').slice(-180);
-    };
-    const addZone = (afterLine, height, dom) => {
-      let id = 0;
-      this.editor.changeViewZones((accessor) => {
-        id = accessor.addZone({
-          afterLineNumber: Math.min(this.model.getLineCount(), afterLine),
-          heightInPx: height,
-          domNode: dom,
-          suppressMouseDown: false
-        });
-      });
-      this.mathZones.push(id);
-      return id;
-    };
-    const removeZone = (id) => {
-      this.editor.changeViewZones((accessor) => accessor.removeZone(id));
-      this.mathZones = this.mathZones.filter((x) => x !== id);
-    };
+  scheduleLiveMath = debounce(() => {
+    const pos = this.editor?.getPosition();
+    const math = this.model && pos && ctx.state.settings.editor.inlineMathPreview !== false ? mathAtPosition(this.model, pos) : null;
+    if (!math) { this.hideHover(true); this._dismissedMath = null; return; }
+    if (this._dismissedMath === this.model.uri.toString()+':'+math.start) return;
+    this.showLiveMath(pos, math);
+  }, 70);
 
-    const placeholders = capped.map((cand) => {
-      const dom = document.createElement('div');
-      dom.className = 'math-zone loading';
-      dom.dataset.line = String(cand.afterLine);
-      dom.innerHTML = '<span class="mz-spinner"></span><span>正在加载预览…</span>';
-      const id = addZone(cand.afterLine, 38, dom);
-      return { cand, dom, id };
-    });
-
-    const renderItem = async (item) => {
-      if (gen !== this.zoneGen) return;
-      const cand = item.cand;
-      if (!cand.code) {
-        item.dom.className = 'math-zone failed';
-        item.dom.textContent = '无法加载预览：内容为空';
-        return;
-      }
-      const rendered = await renderMath(cand.code, true, cand.kind || 'math');
-      if (gen !== this.zoneGen) return;
-      if (!rendered.ok) {
-        debug.fail++;
-        const reason = snippetReason(rendered.error);
-        debug.errors.push(reason);
-        removeZone(item.id);
-        item.dom.className = 'math-zone failed';
-        item.dom.dataset.line = String(cand.afterLine);
-        item.dom.innerHTML = '<span class="mz-err-title">无法加载预览：</span><span class="mz-err-reason">' + escapeHtml(reason) + '</span>';
-        item.id = addZone(cand.afterLine, 62, item.dom);
-        return;
-      }
-      debug.ok++;
-      const cssPx = rendered.dpi ? (rendered.height * 96) / rendered.dpi : rendered.height / 6;
-      const cssHeight = Math.min(260, Math.max(34, Math.round(cssPx) + 14));
-      removeZone(item.id);
-      const imgDom = document.createElement('div');
-      imgDom.className = 'math-zone';
-      imgDom.dataset.line = String(cand.afterLine);
-      imgDom.innerHTML = '<img src="' + rendered.url + '" style="max-height:' + (cssHeight - 14) + 'px" />';
-      item.id = addZone(cand.afterLine, cssHeight, imgDom);
-    };
-
-    const queue = placeholders.slice();
-    const worker = async () => {
-      while (queue.length && gen === this.zoneGen) {
-        const item = queue.shift();
-        if (item) await renderItem(item);
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker(), worker()]);
-    if (gen !== this.zoneGen) return;
-    window.__zoneDebug = debug;
-    if (!debug.ok && debug.candidates && (!this._zoneRetry || this._zoneRetry < 2)) {
-      this._zoneRetry = (this._zoneRetry || 0) + 1;
-      setTimeout(() => this.refreshMathZones(), 2500);
-    } else if (debug.ok) {
-      this._zoneRetry = 0;
+  showLiveMath(pos, math) {
+    const model = this.model;
+    const key = model.uri.toString()+':'+math.start;
+    const changed = this.liveMath?.key !== key;
+    if (!this.hoverEl) {
+      this.hoverEl = document.createElement('div');
+      this.hoverEl.className = 'texora-hover';
+      document.querySelector('#editorHost').appendChild(this.hoverEl);
     }
+    if (changed) {
+      this.hoverEl.innerHTML = '<div class="hover-card"><div class="hc-title">'+icon('sigma')+' 公式预览 <button class="live-math-close" title="关闭预览">×</button></div><div class="hc-math live-math-body">正在预览…</div><div class="hc-meta live-math-status"></div></div>';
+      this.hoverEl.querySelector('button').onclick = () => { this._dismissedMath = key; this.hideHover(true); this.editor.focus(); };
+    }
+    const sequence = this._liveSequence = (this._liveSequence || 0)+1;
+    this.liveMath = { key, math, pos, model, version:model.getVersionId(), sequence };
+    this.hoverEl.classList.add('live-math');
+    this.hoverEl.style.display = 'block';
+    const body=this.hoverEl.querySelector('.live-math-body'), status=this.hoverEl.querySelector('.live-math-status');
+    try {
+      const rootModel=ctx.state.docs.get(ctx.state.project.rootFile)?.model || model;
+      const macros={};
+      const definitions=mathDefinitions(rootModel.getValue());
+      if(definitions) { try { katex.renderToString(definitions,{macros,globalGroup:true,throwOnError:true,trust:false,maxExpand:1000}); } catch {} }
+      const html=katex.renderToString(math.code.replace(/\\label\s*\{[^}]*\}/g,''),{displayMode:math.display,throwOnError:true,trust:false,macros,maxExpand:1000,strict:'ignore'});
+      body.innerHTML=html;status.textContent='实时预览';
+    } catch {
+      if(changed)body.textContent='公式输入中…';
+      status.textContent='输入中，保留上次预览；停顿后使用本地 TeX 更新';
+    }
+    this.positionLiveMath();
+    clearTimeout(this._nativeMathTimer);
+    this._nativeMathTimer=setTimeout(()=>this.renderNativeMath(),650);
+  }
+
+  async renderNativeMath() {
+    if(!this.liveMath)return;
+    if(this._nativeMathBusy){this._nativeMathTimer=setTimeout(()=>this.renderNativeMath(),250);return;}
+    const state=this.liveMath;
+    if(!state.math.code.trim())return;
+    this._nativeMathBusy=true;
+    try {
+      const rendered=await renderMath(state.math.code,state.math.display,'math');
+      if(this.liveMath!==state || this.model!==state.model || state.model.getVersionId()!==state.version)return;
+      const status=this.hoverEl.querySelector('.live-math-status');
+      if(rendered.ok){
+        const image=new Image();image.src=rendered.url;
+        await image.decode().catch(()=>{});
+        if(this.liveMath!==state || this.model!==state.model || state.model.getVersionId()!==state.version)return;
+        this.hoverEl.querySelector('.live-math-body').replaceChildren(image);
+        status.textContent='本地 TeX 预览';this.positionLiveMath();
+      }else status.textContent='本次公式暂未编译通过，保留上次预览';
+    } finally {this._nativeMathBusy=false;}
+  }
+
+  positionLiveMath() {
+    if(!this.liveMath || !this.hoverEl)return;
+    const p=this.editor.getScrolledVisiblePosition(this.liveMath.pos);
+    if(!p){this.hoverEl.style.visibility='hidden';return;}
+    this.hoverEl.style.visibility='visible';
+    const host=document.querySelector('#editorHost').getBoundingClientRect();
+    const width=this.hoverEl.offsetWidth;
+    this.hoverEl.style.left=Math.max(8,Math.min(p.left,host.width-width-12))+'px';
+    // Fit above the current input line. When near the top, use space beneath it.
+    const above=p.top-12, below=host.height-p.top-p.height-12;
+    const useAbove=above>=100 || above>=below;
+    this.hoverEl.style.maxHeight=Math.max(48,Math.min(300,useAbove?above:below))+'px';
+    this.hoverEl.style.top=(useAbove?Math.max(0,p.top-this.hoverEl.offsetHeight-10):p.top+p.height+10)+'px';
   }
 
   clearMathZones() {
