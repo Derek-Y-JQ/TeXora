@@ -469,7 +469,10 @@ handle('project:open', async (target) => {
     if (res.canceled) return { ok: false, canceled: true };
     root = res.filePaths[0];
   }
+  compiler.stop();
+  compiler.lastResult = null;
   const info = await project.open(root);
+  if (info.cancelled) return { ok: false, canceled: true };
   history.setRoot(project.root, store.get('files.historyMaxDays', 14));
   git = new GitService(project);
   send('project:changed', { ...info, reason: 'open' });
@@ -477,6 +480,8 @@ handle('project:open', async (target) => {
 });
 handle('project:info', async () => ({ ok: true, ...project.info() }));
 handle('project:close', async () => {
+  compiler.stop();
+  compiler.lastResult = null;
   project.close();
   send('project:changed', { root: '', reason: 'close' });
   return { ok: true };

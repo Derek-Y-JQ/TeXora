@@ -230,7 +230,9 @@ export class PreviewController {
     const xPt = (px / rect.width) * widthPt;
     const yPt = (py / rect.height) * heightPt;
     const page = Number(pageEl.dataset.page);
+    const token = this.renderToken;
     const res = await ctx.api.tex.synctexInverse(page, xPt, yPt);
+    if (token !== this.renderToken) return;
     if (!res || !res.ok) {
       ctx.emit('toast', { type: 'warn', title: '反向定位未命中', body: (res && res.error) || '请确认已使用 -synctex=1 编译' });
       return;
@@ -243,6 +245,7 @@ export class PreviewController {
   }
 
   clear() {
+    this.renderToken++;
     this.pages = [];
     this.pageEls = [];
     this.stage?.querySelectorAll('.pdf-page').forEach((n) => n.remove());

@@ -52,11 +52,15 @@ class ProjectService extends EventEmitter {
   }
 
   async open(rootPath) {
+    const revision = this.revision = (this.revision || 0) + 1;
     rootPath = path.resolve(rootPath);
     const stat = await fsp.stat(rootPath).catch(() => null);
     if (!stat) throw new Error('目录不存在：' + rootPath);
-    this.root = stat.isDirectory() ? rootPath : path.dirname(rootPath);
-    this.rootFile = await this.detectRootFile();
+    const root = stat.isDirectory() ? rootPath : path.dirname(rootPath);
+    const rootFile = await this.detectRootFile(root);
+    if (this.revision !== revision) return { cancelled: true };
+    this.root = root;
+    this.rootFile = rootFile;
     this.pushRecent(this.root);
     this.startWatch();
     this.emit('opened', { root: this.root, rootFile: this.rootFile });
@@ -64,6 +68,7 @@ class ProjectService extends EventEmitter {
   }
 
   close() {
+    this.revision = (this.revision || 0) + 1;
     this.stopWatch();
     this.root = '';
     this.rootFile = '';
@@ -71,6 +76,7 @@ class ProjectService extends EventEmitter {
 
   info() {
     return {
+      revision: this.revision,
       root: this.root,
       name: this.root ? path.basename(this.root) : '',
       rootFile: this.rootFile,
@@ -78,8 +84,13 @@ class ProjectService extends EventEmitter {
     };
   }
 
-  async detectRootFile() {
-    if (this.store.get('build.autoDetectRoot', true) === false) return this.rootFile || '';
+  async detectRootFile(root = this.root) {
+    if (this.store.get('build.autoDetectRoot', true) === false) return root === this.root ? this.rootFile || '' : '';
+    for (const name of ['main.tex', 'root.tex', 'thesis.tex', 'paper.tex', 'document.tex', 'master.tex', 'book.tex']) {
+      const file = path.join(root, name);
+      const head = await fsp.readFile(file, 'utf8').catch(() => '');
+      if (/\\documentclass/.test(head)) return file;
+    }
     const candidates = [];
     async function walk(dir, depth) {
       if (depth > 4) return;
@@ -100,7 +111,7 @@ class ProjectService extends EventEmitter {
         }
       }
     }
-    await walk(this.root, 0);
+    await walk(root, 0);
     const preferred = ['main.tex', 'root.tex', 'thesis.tex', 'paper.tex', 'document.tex', 'master.tex', 'book.tex'];
     const withDocClass = [];
     for (const file of candidates.slice(0, 80)) {

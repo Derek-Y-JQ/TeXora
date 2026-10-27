@@ -212,9 +212,9 @@ class Compiler {
    * user data directory (e.g. when the project lives inside a read-only
    * installation folder such as Program Files).
    */
-  async resolveCacheDir() {
+  async resolveCacheDir(root = this.root) {
     const name = this.store.get('build.cacheDir', '.latex_cache') || '.latex_cache';
-    const primary = path.join(this.root, name);
+    const primary = path.join(root, name);
     const probe = async (dir) => {
       try {
         await fsp.mkdir(dir, { recursive: true });
@@ -230,13 +230,12 @@ class Compiler {
     };
     let target = primary;
     if (!(await probe(primary))) {
-      const hash = crypto.createHash('sha1').update(this.root || '').digest('hex').slice(0, 12);
+      const hash = crypto.createHash('sha1').update(root || '').digest('hex').slice(0, 12);
       target = path.join(this.fallbackCacheRoot, 'build-cache', hash);
       await fsp.mkdir(target, { recursive: true }).catch(() => {});
       this.send('build:log', { chunk: `\n[cache] 项目目录不可写，改用用户缓存：${target}\n` });
     }
-    this.activeCache = target;
-    this.activeCacheRoot = this.root;
+    if (this.root === root) { this.activeCache = target; this.activeCacheRoot = root; }
     return target;
   }
 
@@ -260,11 +259,15 @@ class Compiler {
     if (!this.root) return { ok: false, error: '尚未打开项目' };
     const rootFile = this.resolveRootFile(options.file);
     if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, error: '未找到主文档（含 \\documentclass 的 .tex 文件）' };
+    const projectRoot = this.root;
+    const revision = this.project.revision;
+    this._artifactGeneration = (this._artifactGeneration || 0) + 1;
+    const send = (event, payload) => { if (this.root === projectRoot && this.project.revision === revision) this.send(event, { ...payload, projectRoot, revision }); };
     const engine = options.engine || this.store.get('build.engine', 'xelatex');
     const token = { cancelled: false };
     this._buildToken = token;
     const checkCancelled = () => {
-      if (token.cancelled) throw Object.assign(new Error('编译已停止'), { code: 'TEXORA_CANCELLED' });
+      if (token.cancelled || this.root !== projectRoot || this.project.revision !== revision) throw Object.assign(new Error('编译已停止'), { code: 'TEXORA_CANCELLED' });
     };
     this._preCache = null;
     this._snippetTier = null;
@@ -288,8 +291,8 @@ class Compiler {
     this.startedAt = started;
     const before = fs.existsSync(pdfPath) ? fs.statSync(pdfPath).mtimeMs : 0;
 
-    this.send('build:status', { state: 'running', engine, rootFile, jobname, pass: 0 });
-    this.send('build:log', { chunk: `\n€ TeXora 编译开始 · ${engine} · ${path.basename(rootFile)}\n`, reset: true });
+    send('build:status', { state: 'running', engine, rootFile, jobname, pass: 0 });
+    send('build:log', { chunk: `\n€ TeXora 编译开始 · ${engine} · ${path.basename(rootFile)}\n`, reset: true });
 
     const env = codeEnvironment(this.store, this.tex.env || {});
     if (this.store.get('build.autoInstallMissing', 'ask') === 'auto') env.MIKTEX_AUTOINSTALL = '1';
@@ -314,7 +317,7 @@ class Compiler {
         timeout,
         outFile,
         onSpawn: (child) => { this.childPid = child.pid; },
-        onChunk: (chunk) => this.send('build:log', { chunk })
+        onChunk: (chunk) => send('build:log', { chunk })
       });
       transcript += res.output;
       code = res.code;
@@ -348,8 +351,8 @@ class Compiler {
         const needsRerun = /\\(ref|eqref|pageref|autoref|cref|Cref|cite[a-zA-Z]*|tableofcontents|listoffigures|listoftables|bibliography|addbibresource|printbibliography|footnote)\b/.test(sourceText);
         const runs = needsRerun ? Math.min(maxRuns, 3) : 2;
         for (let pass = 1; pass <= runs; pass++) {
-          this.send('build:status', { state: 'running', engine: engineName, rootFile, jobname, pass, total: runs, runs });
-          this.send('build:log', { chunk: `\n— 第 ${pass}/${runs} 遍（${engineName}）—\n` });
+          send('build:status', { state: 'running', engine: engineName, rootFile, jobname, pass, total: runs, runs });
+          send('build:log', { chunk: `\n— 第 ${pass}/${runs} 遍（${engineName}）—\n` });
           await exec(exe, baseArgs, runCwd, `pass${pass}`);
           const auxPath = path.join(cache, jobname + '.aux');
           const bcfPath = path.join(cache, jobname + '.bcf');
@@ -357,17 +360,17 @@ class Compiler {
             const bibEngine = this.store.get('build.bibliography', 'biber');
             const auxText = fs.existsSync(auxPath) ? await fsp.readFile(auxPath, 'utf8').catch(() => '') : '';
             if ((bibEngine === 'biber' || fs.existsSync(bcfPath)) && fs.existsSync(bcfPath) && this.tex.get('biber')) {
-              this.send('build:log', { chunk: '\n— 参考文献（Biber）—\n' });
+              send('build:log', { chunk: '\n— 参考文献（Biber）—\n' });
               await exec(this.tex.get('biber'), ['--input-directory', rootDir, '--output-directory', cache, bcfPath], cache, 'biber');
             } else if (/\\bibdata|\\citation/.test(auxText) && this.tex.get('bibtex')) {
-              this.send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
+              send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
               const bibEnv = { ...env, BIBINPUTS: [rootDir, this.root, cache].join(path.delimiter), BSTINPUTS: [rootDir, this.root, cache].join(path.delimiter) };
               await run(this.tex.get('bibtex'), [jobname], {
                 cwd: cache,
                 env: bibEnv,
                 timeout,
                 onSpawn: (child) => { this.childPid = child.pid; },
-                onChunk: (chunk) => this.send('build:log', { chunk })
+                onChunk: (chunk) => send('build:log', { chunk })
               }).then((r) => { transcript += r.output; results.push({ exe: 'bibtex', code: r.code }); this.childPid = 0; });
             }
           }
@@ -406,7 +409,7 @@ class Compiler {
       let autoInstalled = null;
       if (!ok && missing && this.store.get('build.autoInstallMissing', 'ask') === 'auto') {
         const pkgName = missing.missingFile.replace(/\.sty$/, '');
-        this.send('build:log', { chunk: `\n— 自动安装缺失宏包 ${pkgName} —\n` });
+        send('build:log', { chunk: `\n— 自动安装缺失宏包 ${pkgName} —\n` });
         autoInstalled = await this.tex.installPackage(pkgName);
         if (autoInstalled.ok) {
           this.running = false;
@@ -417,14 +420,6 @@ class Compiler {
 
       const pages = ok ? await this.renderPages(pdfPath, previewDir) : await this.readExistingPages(previewDir);
       checkCancelled();
-      if (ok && pages.length) {
-        try {
-          const linkMap = await this.extractLinks(pdfPath, pages.length);
-          for (const pg of pages) pg.links = linkMap[pg.index] || [];
-        } catch (err) {
-          console.warn('[links]', err.message);
-        }
-      }
       const duration = Date.now() - started;
       const result = {
         ok,
@@ -433,6 +428,7 @@ class Compiler {
         timedOut,
         duration,
         rootFile,
+        projectRoot, revision,
         jobname,
         pdf: ok ? pdfPath : '',
         rootPdf,
@@ -443,19 +439,21 @@ class Compiler {
         transcriptTail: transcript.slice(-4000),
         autoInstalled
       };
+      checkCancelled();
       this.lastResult = result;
       if (ok && this.history) {
         this.history.snapshot(rootFile, await fsp.readFile(rootFile, 'utf8').catch(() => ''), 'build');
       }
       checkCancelled();
-      this.send('build:done', result);
+      send('build:done', result);
       return result;
     } catch (err) {
-      if (token.cancelled || err.code === 'TEXORA_CANCELLED') return { ok: false, cancelled: true };
+      if (token.cancelled || this.root !== projectRoot || this.project.revision !== revision || err.code === 'TEXORA_CANCELLED') return { ok: false, cancelled: true };
       const result = {
         ok: false,
         engine,
         error: err.message,
+        projectRoot, revision,
         duration: Date.now() - started,
         rootFile,
         pages: await this.readExistingPages(previewDir),
@@ -465,11 +463,11 @@ class Compiler {
         transcriptTail: transcript.slice(-4000)
       };
       this.lastResult = result;
-      this.send('build:done', result);
+      send('build:done', result);
       return result;
     } finally {
       this.running = false;
-      this.send('build:status', { state: 'idle' });
+      send('build:status', { state: 'idle' });
       if (this._queue.length) {
         const next = this._queue.shift();
         setTimeout(() => this.build(next), 40);
@@ -527,125 +525,79 @@ class Compiler {
 
   /** Load an existing PDF (last build) without invoking TeX. */
   async loadExisting() {
-    if (!this.root) return { ok: false, error: '尚未打开项目' };
-    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) {
-      try { this.tex.detect(); } catch {}
-      if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) {
-        await new Promise((r) => setTimeout(r, 400));
-        try { this.tex.detect(); } catch {}
-      }
-    }
+    const projectRoot = this.root;
+    const revision = this.project.revision;
     const rootFile = this.resolveRootFile();
-    if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, noPdf: true, error: '尚未生成 PDF' };
-    const cache = await this.resolveCacheDir();
+    const artifactGeneration = this._artifactGeneration;
+    const current = () => this._artifactGeneration === artifactGeneration && !this.running && this.root === projectRoot && this.project.rootFile === rootFile && this.project.revision === revision;
+    if (!projectRoot || !rootFile) return { ok: false, noPdf: true };
     const jobname = this.jobnameFor(rootFile);
     const rootDir = path.dirname(rootFile);
-    const candidates = [
-      path.join(cache, jobname + '.pdf'),
-      path.join(rootDir, jobname + '.pdf'),
-      path.join(this.root, jobname + '.pdf'),
-      path.join(rootDir, 'main.pdf'),
-      path.join(this.root, 'main.pdf')
-    ];
-    let pdfPath = '';
-    let bestMtime = 0;
-    for (const candidate of candidates) {
-      try {
-        const st = await fsp.stat(candidate);
-        if (st.isFile() && st.size > 0) { pdfPath = candidate; bestMtime = st.mtimeMs; break; }
-      } catch {}
+    const primary = path.join(projectRoot, this.store.get('build.cacheDir', '.latex_cache'));
+    const fallback = path.join(this.fallbackCacheRoot, 'build-cache', crypto.createHash('sha1').update(projectRoot).digest('hex').slice(0, 12));
+    const dirs = [...new Set([primary, fallback, rootDir, projectRoot, path.join(rootDir, 'build'), path.join(rootDir, 'out')])];
+    const candidates = await Promise.all(dirs.map(async dir => {
+      const file = path.join(dir, jobname + '.pdf');
+      const stat = await fsp.stat(file).catch(() => null);
+      return stat?.isFile() && stat.size ? { file, stat } : null;
+    }));
+    const found = candidates.filter(Boolean).sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+    if (!current()) return { ok: false, cancelled: true };
+    if (!found.length) return { ok: false, noPdf: true, projectRoot, rootFile };
+    let { file: pdfPath, stat } = found[0];
+    // Root copies and cache output may have different mtimes. Bind SyncTeX only
+    // to the displayed bytes, never to an unrelated older build with the same name.
+    const hasTrace = file => fs.existsSync(file.replace(/\.pdf$/i, '.synctex.gz')) || fs.existsSync(file.replace(/\.pdf$/i, '.synctex'));
+    let tracePdf = hasTrace(pdfPath) ? pdfPath : '';
+    if (!tracePdf) {
+      let digest;
+      for (const candidate of found) {
+        if (!hasTrace(candidate.file) || candidate.stat.size !== stat.size) continue;
+        digest ||= crypto.createHash('sha256').update(await fsp.readFile(pdfPath)).digest('hex');
+        if (crypto.createHash('sha256').update(await fsp.readFile(candidate.file)).digest('hex') === digest) { tracePdf = candidate.file; break; }
+      }
     }
-    if (!pdfPath) {
-      // Fallback: any PDF next to the root document / in the project folder.
-      const dirs = [rootDir, this.root].filter((d, i, a) => d && a.indexOf(d) === i);
-      const found = [];
-      const walk = async (dir, depth) => {
-        if (depth > 1) return;
-        let entries = [];
-        try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
-        for (const e of entries) {
-          const full = path.join(dir, e.name);
-          if (e.isDirectory()) {
-            if (e.name === '.latex_cache' || e.name === '.git' || e.name === 'node_modules') continue;
-            await walk(full, depth + 1);
-          } else if (/\.pdf$/i.test(e.name)) {
-            try {
-              const st = await fsp.stat(full);
-              if (st.size > 0) found.push({ file: full, size: st.size, mtime: st.mtimeMs });
-            } catch {}
-          }
-        }
-      };
-      for (const dir of dirs) await walk(dir, 0);
-      const stem = path.basename(rootFile, path.extname(rootFile)).toLowerCase();
-      const projName = path.basename(this.root).toLowerCase();
-      const allowed = found.filter((f) => {
-        const dir = path.dirname(f.file);
-        const name = path.basename(f.file, '.pdf').toLowerCase();
-        if (dir === rootDir || dir === this.root) return true;
-        return name === stem || name === 'main' || name === projName || name.includes(stem) || stem.includes(name);
-      });
-      if (!allowed.length) return { ok: false, noPdf: true, error: '尚未生成 PDF' };
-      allowed.sort((a, b) => b.mtime - a.mtime || b.size - a.size);
-      pdfPath = allowed[0].file; bestMtime = allowed[0].mtime;
-    }
-    if (!pdfPath) return { ok: false, noPdf: true, error: '尚未生成 PDF' };
-    const previewDir = path.join(cache, 'preview');
-    await fsp.mkdir(previewDir, { recursive: true });
-    const pages = await this.renderPages(pdfPath, previewDir).catch(() => []);
-    if (!pages.length) return { ok: false, noPdf: true, error: '已有 PDF，但无法生成预览图片' };
-    try {
-      const linkMap = await this.extractLinks(pdfPath, pages.length);
-      for (const pg of pages) pg.links = linkMap[pg.index] || [];
-    } catch {}
-    const result = {
-      ok: true,
-      cached: true,
-      cachedPdf: pdfPath,
-      rootFile,
-      pdf: pdfPath,
-      rootPdf: path.join(rootDir, jobname + '.pdf'),
-      pages,
-      problems: [],
-      errorCount: 0,
-      warningCount: 0,
-      duration: 0,
-      at: bestMtime
-    };
+    if (tracePdf && tracePdf !== pdfPath) { pdfPath = tracePdf; stat = await fsp.stat(pdfPath); }
+    const cache = await this.resolveCacheDir(projectRoot);
+    const pages = await this.renderPages(pdfPath, path.join(cache, 'preview')).catch(() => []);
+    if (!current()) return { ok: false, cancelled: true };
+    if (!pages.length) return { ok: false, error: '已有 PDF，但无法生成预览图片', projectRoot, rootFile };
+    const result = { ok: true, cached: true, projectRoot, revision, rootFile,
+      pdf: pdfPath, cachedPdf: pdfPath, synctexPdf: tracePdf,
+      rootPdf: path.join(rootDir, jobname + '.pdf'), pages, problems: [],
+      errorCount: 0, warningCount: 0, duration: 0, at: stat.mtimeMs };
     this.lastResult = result;
     return result;
   }
 
   async renderPages(pdfPath, previewDir) {
+    const stat = await fsp.stat(pdfPath);
+    const signature = JSON.stringify([path.resolve(pdfPath), stat.size, stat.mtimeMs, PDF_RENDER_DPI]);
+    const key = crypto.createHash('sha256').update(signature).digest('hex').slice(0, 24);
+    // Immutable per-PDF directories prevent concurrent projects/builds from
+    // deleting pages that a currently displayed preview is still reading.
+    previewDir = path.join(previewDir, key);
+    const manifest = path.join(previewDir, 'manifest.json');
+    const saved = await fsp.readFile(manifest, 'utf8').then(JSON.parse).catch(() => null);
+    if (saved?.signature === signature && saved.pages?.length && saved.pages.every(p => fs.existsSync(p.file))) return saved.pages;
+    this._renderJobs ||= new Map();
+    if (this._renderJobs.has(manifest)) return this._renderJobs.get(manifest);
+    const job = this.renderUncached(pdfPath, previewDir, signature);
+    this._renderJobs.set(manifest, job);
+    try { return await job; } finally { this._renderJobs.delete(manifest); }
+  }
+
+  async renderUncached(pdfPath, previewDir, signature) {
     const out = [];
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) { try { this.tex.detect(); } catch {} }
     if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return out;
-    try {
-      for (const f of await fsp.readdir(previewDir)) {
-        if (/^page-\d+\.png$/.test(f)) await fsp.unlink(path.join(previewDir, f)).catch(() => {});
-      }
-    } catch {}
-    // poppler's Windows build cannot open non-ASCII absolute paths, so run it
-    // from the cache directory with relative ASCII filenames. pdftoppm is used
-    // when available because some MiKTeX builds ship a broken pdftocairo.
-    const pdfName = path.basename(pdfPath);
-    const cwd = path.dirname(pdfPath);
+    await fsp.mkdir(previewDir, { recursive: true });
+    // Poppler on Windows needs ASCII relative arguments even for Unicode projects.
+    await fsp.copyFile(pdfPath, path.join(previewDir, 'document.pdf'));
+    const options = { timeout: 120000, env: this.tex.env, cwd: previewDir };
     let res;
-    if (this.tex.get('pdftoppm')) {
-      res = await run(this.tex.get('pdftoppm'), ['-png', '-r', String(PDF_RENDER_DPI), pdfName, 'preview/page'], {
-        timeout: 120000,
-        env: this.tex.env,
-        cwd
-      });
-    }
-    if (!this.tex.get('pdftoppm') || res.code !== 0) {
-      const alt = await run(this.tex.get('pdftocairo') || this.tex.get('pdftoppm'), ['-png', '-r', String(PDF_RENDER_DPI), '-o', 'preview/page', pdfName], {
-        timeout: 120000,
-        env: this.tex.env,
-        cwd
-      });
-      if (!res) res = alt;
-      else res.output += '\n' + alt.output;
-    }
+    if (this.tex.get('pdftoppm')) res = await run(this.tex.get('pdftoppm'), ['-png', '-r', String(PDF_RENDER_DPI), 'document.pdf', 'page'], options);
+    if ((!res || res.code !== 0) && this.tex.get('pdftocairo')) res = await run(this.tex.get('pdftocairo'), ['-png', '-r', String(PDF_RENDER_DPI), 'document.pdf', 'page'], options);
     let files = [];
     try {
       files = (await fsp.readdir(previewDir)).filter((f) => /^page-\d+\.png$/.test(f));
@@ -665,7 +617,14 @@ class Compiler {
         dpi: PDF_RENDER_DPI
       });
     }
-    if (!out.length) this.send('build:log', { chunk: `\n[pdftocairo] ${res.output.slice(-600)}\n` });
+    if (!out.length) this.send('build:log', { chunk: `\n[pdftocairo] ${(res?.output || '').slice(-600)}\n` });
+    if (out.length) {
+      try {
+        const links = await this.extractLinks(path.join(previewDir, 'document.pdf'), out.length);
+        for (const page of out) page.links = links[page.index] || [];
+      } catch {}
+      await fsp.writeFile(path.join(previewDir, 'manifest.json'), JSON.stringify({ signature, pages: out }));
+    }
     return out;
   }
 
@@ -742,14 +701,14 @@ class Compiler {
     const pdf = this.synctexPdf(jobname);
     if (!fs.existsSync(pdf)) return { ok: false, error: '尚未生成 PDF' };
     let res = await run(synctex, ['view', '-i', `${line}:${column}:${path.resolve(file)}`, '-o', pdf], {
-      cwd: this.root, env: this.tex.env, timeout: 20000
+      cwd: path.dirname(this.project.rootFile), env: this.tex.env, timeout: 20000
     });
     let text = res.output || '';
     if (!/Page:\s*\d+/.test(text)) {
-      const rel = path.relative(this.root, file);
+      const rel = path.relative(path.dirname(this.project.rootFile), file);
       if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
         const alt = await run(synctex, ['view', '-i', `${line}:${column}:${rel.split(path.sep).join('/')}`, '-o', pdf], {
-          cwd: this.root, env: this.tex.env, timeout: 20000
+          cwd: path.dirname(this.project.rootFile), env: this.tex.env, timeout: 20000
         });
         if (/Page:\s*\d+/.test(alt.output || '')) { res = alt; text = alt.output; }
       }
@@ -770,18 +729,19 @@ class Compiler {
     const pdf = this.synctexPdf(jobname);
     if (!fs.existsSync(pdf)) return { ok: false, error: '尚未生成 PDF' };
     const res = await run(synctex, ['edit', '-o', `${page}:${x}:${y}:${pdf}`], {
-      cwd: this.root, env: this.tex.env, timeout: 20000
+      cwd: path.dirname(this.project.rootFile), env: this.tex.env, timeout: 20000
     });
     const text = res.output || '';
     const input = (text.match(/Input:(.+)/) || [])[1];
     const line = Number((text.match(/Line:(\d+)/) || [])[1] || 0);
     const column = Number((text.match(/Column:(-?\d+)/) || [])[1] || 0);
     if (!input || !line) return { ok: false, error: text.slice(0, 400) || '未找到对应源码位置' };
-    return { ok: true, file: input.trim(), line, column };
+    return { ok: true, file: path.resolve(path.dirname(this.project.rootFile), input.trim()), line, column };
   }
 
   /** Extract a portable preamble from the root document for snippet builds. */
   synctexPdf(jobname) {
+    if (this.lastResult?.rootFile === this.project.rootFile && Object.hasOwn(this.lastResult, 'synctexPdf')) return this.lastResult.synctexPdf || '';
     const last = this.lastResult?.rootFile === this.project.rootFile ? this.lastResult.pdf : '';
     const candidates = [last, path.join(this.cacheDir(), jobname + '.pdf'), path.join(this.root, this.store.get('build.cacheDir', '.latex_cache'), jobname + '.pdf')].filter(Boolean);
     return candidates.find(file => fs.existsSync(file) && (fs.existsSync(file.replace(/\.pdf$/i,'.synctex.gz')) || fs.existsSync(file.replace(/\.pdf$/i,'.synctex')))) || candidates.find(file => fs.existsSync(file)) || candidates[0];

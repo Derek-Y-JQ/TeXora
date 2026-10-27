@@ -482,6 +482,7 @@ function wireIpc() {
   });
   api.project.onChange((payload) => {
     if (payload.reason === 'close') {
+      resetProjectPreview();
       ctx.state.project = { root: '', name: '', rootFile: '', recent: payload.recent || [] };
       closeAllDocuments();
       setEmptyState(true);
@@ -496,6 +497,7 @@ function wireIpc() {
   });
 
   api.build.onStatus((st) => {
+    if (previewSuspended || (st.projectRoot && (st.projectRoot !== ctx.state.project.root || st.revision !== ctx.state.project.revision))) return;
     if (st.state === 'running') {
       ctx.state.build.running = true;
       ctx.state.build.state = 'running';
@@ -622,16 +624,37 @@ const refreshOutlineSoon = debounce(async () => {
   if (ctx.sidebar?.panel === 'outline') ctx.sidebar.renderOutline();
 }, 350);
 
+let previewGeneration = 0;
+let previewSuspended = false;
+function resetProjectPreview() {
+  previewGeneration++;
+  previewSuspended = true;
+  ctx.state.build.running = false;
+  lastPages = [];
+  ctx.state.build.result = null;
+  ctx.preview.clear();
+  ctx.preview.setBusy(false);
+}
+
 async function onProjectOpened(proj, { openRoot = true, silent = false } = {}) {
   clearMathPreviewCache();
+  resetProjectPreview();
+  const generation = previewGeneration;
+  const current = () => generation === previewGeneration;
   ctx.state.project = { ...proj };
+  previewSuspended = false;
+  void openPreviewOnLoad(generation);
   $('#projectName').textContent = proj.name || baseName(proj.root);
   document.title = `TeXora — ${proj.name || ''}`;
   await ctx.sidebar.refreshFiles();
+  if (!current()) return;
   $('#sbRootName').textContent = proj.rootFile ? baseName(proj.rootFile) : '未识别主文档';
   await refreshAssets();
+  if (!current()) return;
   await refreshBibEntries();
+  if (!current()) return;
   ctx.state.gitStatus = await api.git.status().catch(() => null);
+  if (!current()) return;
   if (proj.rootFile) {
     const docDir = proj.rootFile.replace(/[\\/][^\\/]+$/, '');
     if (docDir !== proj.root && !silent && !info?.capture?.enabled) {
@@ -640,19 +663,28 @@ async function onProjectOpened(proj, { openRoot = true, silent = false } = {}) {
   }
   if (openRoot && proj.rootFile) {
     await openDocument(proj.rootFile, { silent: true });
+    if (!current()) return;
     await autoSelectEngine(silent);
+    if (!current()) return;
     window.__boot = 'doc';
     if (!silent) toast({ type: 'success', title: '项目已打开', body: proj.name });
   }
   refreshEnvDefs();
   ctx.emit('project:changed', { ...proj, reason: 'open' });
   ctx.sidebar.refreshAll(true);
-  void openPreviewOnLoad();
 }
 
+let projectOpenRequest = 0;
 async function openProject(path) {
+  const request = ++projectOpenRequest;
+  resetProjectPreview();
   const res = await api.project.open(path);
-  if (!res || res.canceled) return;
+  if (request !== projectOpenRequest) return;
+  if (!res || res.canceled || !res.ok) {
+    previewSuspended = false;
+    if (ctx.state.project.root) void openPreviewOnLoad();
+    if (!res || res.canceled) return;
+  }
   if (!res.ok) return toast({ type: 'error', title: '打开项目失败', body: res.error || '' });
   await onProjectOpened(res, { openRoot: true });
 }
@@ -663,6 +695,8 @@ async function closeProject() {
     const ok = await ctx.dialogs.confirm({ title: '关闭项目', message: '有未保存的修改，仍要关闭项目吗？', confirmText: '关闭', danger: true });
     if (!ok) return;
   }
+  projectOpenRequest++;
+  resetProjectPreview();
   await api.project.close();
   ctx.state.project = { root: '', name: '', rootFile: '', recent: ctx.state.project.recent };
   closeAllDocuments();
@@ -774,6 +808,7 @@ function renderEmptyRecent(recent) {
 
 /* ---------------------------------------------------------------- documents */
 async function openDocument(path, opts = {}) {
+  const generation = previewGeneration;
   if (!path) return;
   if (!/\.(tex|ltx|sty|cls|bib|md|txt|cfg|def|dtx|ins|json|latexmkrc|bst)$/i.test(path) && extOf(path)) {
     if (['png', 'jpg', 'jpeg', 'pdf', 'gif', 'svg', 'webp', 'eps'].includes(extOf(path))) {
@@ -783,6 +818,7 @@ async function openDocument(path, opts = {}) {
   let doc = ctx.state.docs.get(path);
   if (!doc) {
     const res = await api.fs.read(path);
+    if (generation !== previewGeneration) return;
     if (!res.ok) return toast({ type: 'error', title: '读取失败', body: res.error || '' });
     if (res.binary) return toast({ type: 'info', title: '暂不支持预览此类型', body: baseName(path) });
     const model = ctx.editor.createModel(path, res.text);
@@ -1050,9 +1086,10 @@ function renderBreadcrumbs() {
 }
 
 /* --------------------------------------------------------------------- build */
-async function loadCachedPreview() {
+async function loadCachedPreview(generation = previewGeneration) {
   try {
     const res = await api.build.existing();
+    if (generation !== previewGeneration) return false;
     window.__cachedDebug = res;
     if (res?.ok && res.pages?.length) {
       handleBuildDone({ ...res, ok: true, cached: true, live: true, problems: [], duration: 0 });
@@ -1064,20 +1101,23 @@ async function loadCachedPreview() {
   return false;
 }
 
-async function openPreviewOnLoad() {
-  let loaded = await loadCachedPreview();
+async function openPreviewOnLoad(generation = previewGeneration) {
+  let loaded = await loadCachedPreview(generation);
+  if (generation !== previewGeneration) return;
   if (!loaded) {
     // TeX tools may still be detecting when the first project opens.
     try { ctx.state.texInfo = await api.tex.refresh(); } catch {}
-    loaded = await loadCachedPreview();
+    if (generation !== previewGeneration) return;
+    loaded = await loadCachedPreview(generation);
   }
   if (!loaded) {
     await new Promise((r) => setTimeout(r, 450));
-    loaded = await loadCachedPreview();
+    if (generation !== previewGeneration) return;
+    loaded = await loadCachedPreview(generation);
   }
-  if (loaded) return;
+  if (loaded || generation !== previewGeneration) return;
   if (ctx.state.settings.build.livePreview && !info?.capture?.enabled) {
-    setTimeout(() => ctx.cmd('build.run'), 500);
+    setTimeout(() => { if (generation === previewGeneration) ctx.cmd('build.run'); }, 500);
   }
 }
 
@@ -1104,6 +1144,7 @@ async function checkUpdates(manual = false) {
 }
 
 async function runBuild(opts = {}) {
+  const generation = previewGeneration;
   if (buildPreparing || ctx.state.build.running) return;
   if (!ctx.state.project.root) {
     toast({ type: 'warn', title: '请先打开项目', body: '编译需要一个包含主文档的项目文件夹' });
@@ -1123,10 +1164,12 @@ async function runBuild(opts = {}) {
     for (const [path, doc] of ctx.state.docs) {
       if (doc.dirty && !(await saveDocument(path, { silent: true }))) return;
     }
+    if (generation !== previewGeneration) return;
     buildStartedAt = Date.now();
     setBuildStatus('building', '编译中…');
     ctx.preview.setBusy(true);
     const res = await api.build.run({ file: ctx.state.activePath, live: !!opts.live });
+    if (generation !== previewGeneration) return;
     if (res && res.error) {
       ctx.state.build.running = false;
       setBuildStatus('error', '编译失败');
@@ -1183,6 +1226,9 @@ function setBuildStatus(state, text) {
 }
 
 function handleBuildDone(result) {
+  if (previewSuspended) return;
+  if (result.projectRoot && (result.projectRoot !== ctx.state.project.root || result.revision !== ctx.state.project.revision)) return;
+  if (result.rootFile && result.rootFile !== ctx.state.project.rootFile) return;
   ctx.state.build.running = false;
   ctx.state.build.result = result;
   ctx.state.build.state = result.ok ? 'ok' : 'error';
@@ -1915,7 +1961,9 @@ ctx.app = {
     if (!ctx.state.project.rootFile) return toast({ type: 'warn', title: '尚未识别主文档' });
     const file = ctx.state.activePath || ctx.state.project.rootFile;
     const target = line || ctx.editor.lastCursor.line;
+    const generation = previewGeneration;
     const res = await api.tex.synctexForward(file, target, 1);
+    if (generation !== previewGeneration) return;
     if (!res.ok) return toast({ type: 'warn', title: '正向定位失败', body: res.error || '请确认使用 -synctex=1 编译' });
     ctx.preview.flashAt(res.page, res.x, res.y, res.height || 12, res.width || 0);
     toast({ type: 'success', title: '已定位到 PDF', body: '第 ' + res.page + ' 页', timeout: 1500 });
