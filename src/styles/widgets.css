@@ -342,3 +342,6 @@
 .live-math-body { overflow: auto; padding: 4px; }
 .live-math-body .katex-display { margin: 0.4em 0; }
 .live-math-status { margin-top: 6px; color: var(--text-3); font-size: 11px; }
+/* Keep a floating formula from intercepting pointer moves to formulas beneath it. */
+.texora-hover.live-math { pointer-events: none; }
+.texora-hover.live-math .live-math-close { pointer-events: auto; }

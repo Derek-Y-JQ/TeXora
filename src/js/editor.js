@@ -1089,6 +1089,9 @@ export class EditorController {
     host.addEventListener('pointerleave', () => {
       this.blockPointer = null;
       this.scheduleHideAiBar(240);
+      this._previewSource = 'pointer';
+      this._lastPreviewPointer = null;
+      this.hideHover(true);
     });
 
     this.dropIndicator = document.createElement('div');
@@ -1100,6 +1103,7 @@ export class EditorController {
       this.updateBlocks();
       this.updateSelectionBar();
       ctx.emit('cursor', this.lastCursor);
+      this._previewSource = 'caret';
       this.scheduleLiveMath();
     });
     this.editor.onDidChangeCursorSelection(() => this.updateSelectionBar());
@@ -1123,7 +1127,15 @@ export class EditorController {
       this.scheduleHover(e);
     });
     this.editor.onMouseLeave(() => {
-      if (!this.liveMath) this.hideHover();
+      if (this.hoverEl?.matches(':hover')) return;
+      this._previewSource = 'pointer';
+      this._lastPreviewPointer = null;
+      this.hideHover(true);
+    });
+    this.editor.onDidBlurEditorText(() => {
+      if (this.hoverEl?.matches(':hover')) return;
+      this._previewSource = 'pointer';
+      this.hideHover(true);
     });
     this.editor.onMouseDown((e) => this.onMouseDown(e));
 
@@ -1330,6 +1342,7 @@ export class EditorController {
     ctx.emit('doc:changed', { path: doc.path });
     this.scheduleParse();
     this.scheduleAutoClose(e);
+    this._previewSource = 'caret';
     this.scheduleLiveMath();
     this.updateBlocks();
     if (this.model) this.markDirtyTab();
@@ -1815,23 +1828,30 @@ export class EditorController {
   }
 
   scheduleHover(e) {
-    const pos = e.target.position;
-    if (!pos || e.target.type === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS) {
-      if (this.hoverTimer) clearTimeout(this.hoverTimer);
-      this.hideHover();
+    const x=e.event?.posx, y=e.event?.posy;
+    // Monaco can retarget a stationary pointer when text/layout changes. Only
+    // actual pointer movement takes ownership away from the editing caret.
+    if (!e.force && typeof x==='number' && typeof y==='number' && this._lastPreviewPointer?.x===x && this._lastPreviewPointer?.y===y) return;
+    this._lastPreviewPointer={x,y};
+    this._previewSource='pointer';
+    const pos=e.target?.position;
+    if (!pos || e.target.type!==monaco.editor.MouseTargetType.CONTENT_TEXT) {
+      this.hideHover(true);
       return;
     }
-    if (this.liveMath && pos) {
-      const offset = this.model.getOffsetAt(pos);
-      if (offset >= this.liveMath.math.start && offset <= this.liveMath.math.end) return;
-      // Keep the editing card until another preview target is actually hovered.
-      if (!previewEnvironmentAt(this.model.getValue(), offset) && !/\\(?:includegraphics|ref|cite)/.test(this.model.getLineContent(pos.lineNumber))) return;
+    const math=ctx.state.settings.editor.inlineMathPreview!==false ? mathAtPosition(this.model,pos) : null;
+    if (math && this.model.getOffsetAt(pos)>=math.end) { this.hideHover(true); return; }
+    if (math && this.model.getOffsetAt(pos)<math.end) {
+      clearTimeout(this.hoverTimer);
+      this.showLiveMath(pos,math);
+      return;
     }
-    if (this.hoverState && this.hoverState.line === pos.lineNumber && this.hoverState.col === pos.column) return;
-    if (this.hoverTimer) clearTimeout(this.hoverTimer);
-    this.hoverTimer = setTimeout(() => {
-      this.showHoverAt(pos, e.event?.posx, e.event?.posy);
-    }, 300);
+    if (this.liveMath) this.hideHover(true);
+    if (this.hoverState && this.hoverState.line===pos.lineNumber && this.hoverState.col===pos.column) return;
+    // Invalidate any response for a target the pointer has already left.
+    this._hoverSequence=(this._hoverSequence || 0)+1;
+    clearTimeout(this.hoverTimer);
+    this.hoverTimer=setTimeout(()=>this.showHoverAt(pos,x,y),300);
   }
 
   async showHoverAt(pos, x, y) {
@@ -2043,6 +2063,7 @@ export class EditorController {
   }
 
   scheduleLiveMath = debounce(() => {
+    if (this._previewSource==='pointer') return;
     const pos = this.editor?.getPosition();
     const math = this.model && pos && ctx.state.settings.editor.inlineMathPreview !== false ? mathAtPosition(this.model, pos) : null;
     if (!math) {
@@ -2055,7 +2076,7 @@ export class EditorController {
       clearTimeout(this._blockPreviewTimer);
       if(enabled) {
         const model=this.model,version=model.getVersionId();
-        this._blockPreviewTimer=setTimeout(()=>{if(this.model===model && model.getVersionId()===version)this.showHoverAt(pos);},400);
+        this._blockPreviewTimer=setTimeout(()=>{if(this._previewSource!=='pointer' && this.model===model && model.getVersionId()===version)this.showHoverAt(pos);},400);
       }
       return;
     }
