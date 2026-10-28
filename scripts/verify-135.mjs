@@ -22,11 +22,12 @@ export default async function({evalJs,click,sleep,shot,send}) {
   assert.ok(await evalJs('Math.abs(window.__texora.editor.editor.getScrollTop()-window.__scroll)<2'));
   assert.ok(await evalJs("(()=>{const e=window.__texora.editor,p=e.editor.getScrolledVisiblePosition(e.editor.getPosition()),host=document.querySelector('#editorHost').getBoundingClientRect(),r=document.querySelector('.live-math').getBoundingClientRect();return r.bottom<=host.top+p.top-3 || r.top>=host.top+p.top+p.height+3;})()"));
   await shot('docs/screenshots/135-live-math.png');
-  await waitFor('document.querySelector(".live-math-status")?.textContent==="本地 TeX 预览"',300);
-  // Unfinished formula retains the previous preview rather than removing the card.
+  await sleep(900);
+  assert.equal(await evalJs('document.querySelector(".live-math-status").textContent'),"实时预览");
+  // Unfinished formula stays visible and marks malformed syntax in red.
   await evalJs("window.__texora.editor.editor.trigger('keyboard','type',{text:'+'+String.fromCharCode(92)+'frac{'})");
   await sleep(150); assert.equal(await evalJs('document.querySelector(".live-math").style.display'),'block');
-  assert.ok(await evalJs('!!document.querySelector(".live-math-body img, .live-math-body .katex")'));
+  assert.ok(await evalJs('!!document.querySelector(".live-math-body .katex-error")'));
   await evalJs("window.__texora.editor.editor.trigger('keyboard','undo',null)");
   // Scroll: overlay tracks the formula; no view zones are inserted.
   await evalJs('window.__texora.editor.editor.setScrollTop(window.__scroll+30)');
@@ -51,5 +52,5 @@ export default async function({evalJs,click,sleep,shot,send}) {
   await evalJs("document.querySelector('.modal-layer .modal-close, .modal-layer [data-dialog-btn]')?.click()");
   assert.ok(await evalJs('document.querySelector("#updateBtn").getBoundingClientRect().left<document.querySelector("#settingsBtn").getBoundingClientRect().left'));
   await click('#updateBtn'); await waitFor('!document.querySelector("#updateBtn").disabled',400);
-  console.log('PASS 1.3.5 UI: continuous floating math, stable scroll, caret avoidance, native TeX, unfinished formula persistence, zero view zones, nested enumeration + packages, Chinese labels compilation, root font replacement, About icon and update button.');
+  console.log('PASS 1.3.5 UI: continuous floating math, stable scroll, caret avoidance, instant math without redundant native calls, red malformed input, zero view zones, nested enumeration + packages, Chinese labels compilation, root font replacement, About icon and update button.');
 }

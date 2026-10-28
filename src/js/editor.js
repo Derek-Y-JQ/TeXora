@@ -3,9 +3,9 @@
  * intelligent completions, hover previews, block mode, drag-reorder,
  * folding, inline math zones and editor commands.
  */
-import katex from 'katex';
+import { renderLiveFormula } from './live-formula.js';
 import 'katex/dist/katex.min.css';
-import { mathAtOffset, mathDefinitions } from './live-math.js';
+import { mathAtOffset, mathDefinitions, previewEnvironmentAt } from './live-math.js';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { ctx } from './ctx.js';
@@ -899,7 +899,7 @@ function regexMatchAt(line, re, col) {
 }
 
 function tableSnippetBody(text) {
-  const m = String(text).match(/\\begin\{(tabular\*?|tabularx|tblr|longtable)\}[\s\S]*?\\end\{\1\}/);
+  const m = String(text).match(/\\begin\{(tabular\*?|tabularx|tabulary|tblr|longtblr|longtable)\}[\s\S]*?\\end\{\1\}/);
   return m ? m[0] : text;
 }
 
@@ -947,27 +947,13 @@ async function buildHoverContent(model, position) {
     return '<div class="hover-card"><div class="hc-title">' + icon('alert') + ' 未找到图片</div><div class="hc-text">' + escapeHtml(file) + '</div></div>';
   }
 
-  // table / tikz environment preview
-  const envBlock = line.match(/\\begin\{(table\*?|tikzpicture)\}/);
-  if (envBlock && col >= envBlock.index && col <= envBlock.index + envBlock[0].length) {
-    const env = envBlock[1];
-    const enabled = env === 'tikzpicture' ? ed.tikzPreview !== false : ed.tablePreview !== false;
-    if (enabled) {
-      const parsed = ctx.state.parsed;
-      const entry = parsed?.environments.find((e) => e.env === env && e.line === position.lineNumber);
-      if (entry && entry.endLine) {
-        const lines = splitLines(model.getValue());
-        let body = lines.slice(entry.line - 1, entry.endLine).join('\n');
-        const kind = env === 'tikzpicture' ? 'tikz' : 'table';
-        if (kind === 'table') body = tableSnippetBody(body);
-        const rendered = await renderMath(body, true, kind);
-        const head = '<div class="hover-card"><div class="hc-title">' + icon(env === 'tikzpicture' ? 'image' : 'table') + ' ' + escapeHtml(env) + ' 预览</div>';
-        if (rendered.ok) {
-          return head + '<div class="hc-math"><img src="' + rendered.url + '" /></div><div class="hc-meta">' + env + ' · 局部编译</div></div>';
-        }
-        return head + '<div class="hc-text danger-text">局部编译失败</div><pre class="hc-snippet">' + escapeHtml((rendered.error || '').slice(-500)) + '</pre></div>';
-      }
-    }
+  const block = previewEnvironmentAt(model.getValue(), model.getOffsetAt(position));
+  if (block && (block.kind === 'tikz' ? ed.tikzPreview !== false : ed.tablePreview !== false)) {
+    const body = block.kind === 'table' ? tableSnippetBody(block.code) : block.code;
+    const rendered = await renderMath(body, true, block.kind);
+    const head = '<div class="hover-card"><div class="hc-title">' + icon(block.kind === 'tikz' ? 'image' : 'table') + ' ' + escapeHtml(block.env) + ' 预览</div>';
+    if (rendered.ok) return head + '<div class="hc-math"><img src="' + rendered.url + '" /></div><div class="hc-meta">' + escapeHtml(block.env) + ' · 局部编译</div></div>';
+    return head + '<div class="hc-text danger-text">局部编译失败</div><pre class="hc-snippet">' + escapeHtml((rendered.error || '').slice(-500)) + '</pre></div>';
   }
 
   const refMatch = regexMatchAt(line, /\\(ref|eqref|autoref|cref|Cref|pageref|namecref|nameref)\{([^}]+)\}/g, col);
@@ -1120,7 +1106,7 @@ export class EditorController {
     this.editor.onContextMenu((ev) => this.onEditorContextMenu(ev));
     this.editor.onDidScrollChange(() => {
       this.updateBlocks();
-      if (this.liveMath) this.positionLiveMath(); else this.hideHover();
+      if (this.liveMath) this.positionLiveMath(); else if (!this._cursorBlockPreview) this.hideHover();
       // Scrolling moves blocks beneath a stationary pointer.
       cancelAnimationFrame(this._blockHoverFrame);
       this._blockHoverFrame = requestAnimationFrame(() => this.refreshBlockHover());
@@ -1829,12 +1815,17 @@ export class EditorController {
   }
 
   scheduleHover(e) {
-    if (this.liveMath) return;
     const pos = e.target.position;
     if (!pos || e.target.type === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS) {
       if (this.hoverTimer) clearTimeout(this.hoverTimer);
       this.hideHover();
       return;
+    }
+    if (this.liveMath && pos) {
+      const offset = this.model.getOffsetAt(pos);
+      if (offset >= this.liveMath.math.start && offset <= this.liveMath.math.end) return;
+      // Keep the editing card until another preview target is actually hovered.
+      if (!previewEnvironmentAt(this.model.getValue(), offset) && !/\\(?:includegraphics|ref|cite)/.test(this.model.getLineContent(pos.lineNumber))) return;
     }
     if (this.hoverState && this.hoverState.line === pos.lineNumber && this.hoverState.col === pos.column) return;
     if (this.hoverTimer) clearTimeout(this.hoverTimer);
@@ -1848,17 +1839,27 @@ export class EditorController {
     const model = this.model, version = model.getVersionId();
     const math = mathAtPosition(model, pos);
     if (math && ctx.state.settings.editor.inlineMathPreview !== false) { this.showLiveMath(pos, math); return; }
+    this.hideHover(true);
+    const sequence = this._hoverSequence = (this._hoverSequence || 0) + 1;
+    const block = previewEnvironmentAt(model.getValue(), model.getOffsetAt(pos));
+    const blockEnabled = block && (block.kind === 'tikz' ? ctx.state.settings.editor.tikzPreview !== false : ctx.state.settings.editor.tablePreview !== false);
+    if (blockEnabled) { const caret=model.getOffsetAt(this.editor.getPosition());this._cursorBlockPreview=caret>=block.start && caret<=block.end; }
+    if (blockEnabled) this.displayHover('<div class="hover-card"><div class="hc-title">'+icon(block.kind==='tikz'?'image':'table')+' '+escapeHtml(block.env)+' 预览</div><div class="hc-text">正在生成本地预览…</div></div>',pos,x,y);
     let html = null;
     try {
       html = await buildHoverContent(this.model, pos);
     } catch (err) {
       console.warn('[hover]', err.message);
     }
-    if (this.liveMath || this.model !== model || model.getVersionId() !== version) return;
+    if (sequence !== this._hoverSequence || this.liveMath || this.model !== model || model.getVersionId() !== version) return;
     if (!html) {
       this.hideHover();
       return;
     }
+    this.displayHover(html, pos, x, y);
+  }
+
+  displayHover(html, pos, x, y) {
     const host = document.querySelector('#editorHost');
     if (!this.hoverEl) {
       this.hoverEl = document.createElement('div');
@@ -1890,6 +1891,9 @@ export class EditorController {
   hideHover(force = false) {
     if (this.liveMath && !force) return;
     this.liveMath = null;
+    this._cursorBlockPreview = false;
+    this._hoverSequence = (this._hoverSequence || 0) + 1;
+    clearTimeout(this._blockPreviewTimer);
     this._liveSequence = (this._liveSequence || 0) + 1;
     clearTimeout(this._nativeMathTimer);
     if (this.hoverTimer) {
@@ -2041,7 +2045,20 @@ export class EditorController {
   scheduleLiveMath = debounce(() => {
     const pos = this.editor?.getPosition();
     const math = this.model && pos && ctx.state.settings.editor.inlineMathPreview !== false ? mathAtPosition(this.model, pos) : null;
-    if (!math) { this.hideHover(true); this._dismissedMath = null; return; }
+    if (!math) {
+      this._dismissedMath = null;
+      const block=this.model && pos && previewEnvironmentAt(this.model.getValue(),this.model.getOffsetAt(pos));
+      const enabled=block && (block.kind==='tikz'?ctx.state.settings.editor.tikzPreview!==false:ctx.state.settings.editor.tablePreview!==false);
+      if(this.liveMath)this.hideHover(true);
+      if (!enabled && this._cursorBlockPreview) this.hideHover(true);
+      this._cursorBlockPreview=!!enabled;
+      clearTimeout(this._blockPreviewTimer);
+      if(enabled) {
+        const model=this.model,version=model.getVersionId();
+        this._blockPreviewTimer=setTimeout(()=>{if(this.model===model && model.getVersionId()===version)this.showHoverAt(pos);},400);
+      }
+      return;
+    }
     if (this._dismissedMath === this.model.uri.toString()+':'+math.start) return;
     this.showLiveMath(pos, math);
   }, 70);
@@ -2059,29 +2076,31 @@ export class EditorController {
       this.hoverEl.innerHTML = '<div class="hover-card"><div class="hc-title">'+icon('sigma')+' 公式预览 <button class="live-math-close" title="关闭预览">×</button></div><div class="hc-math live-math-body">正在预览…</div><div class="hc-meta live-math-status"></div></div>';
       this.hoverEl.querySelector('button').onclick = () => { this._dismissedMath = key; this.hideHover(true); this.editor.focus(); };
     }
-    const sequence = this._liveSequence = (this._liveSequence || 0)+1;
-    this.liveMath = { key, math, pos, model, version:model.getVersionId(), sequence };
+    const rootModel=ctx.state.docs.get(ctx.state.project.rootFile)?.model || model;
+    const preamble=rootModel.getValue().split('\\begin{document}')[0];
+    const signature=JSON.stringify([key,math.code,math.display,preamble,ctx.state.settings.build.engine]);
+    if(this.liveMath?.signature===signature) {
+      this.liveMath.pos=pos;this.liveMath.math=math;this.liveMath.version=model.getVersionId();
+      this.positionLiveMath();return;
+    }
+    this._hoverSequence=(this._hoverSequence||0)+1;
+    clearTimeout(this._blockPreviewTimer);
+    const rendered=renderLiveFormula(math.code,math.display,mathDefinitions(rootModel.getValue()));
+    this.liveMath = { key, math, pos, model, version:model.getVersionId(), signature, needsNative:rendered.needsNative };
     this.hoverEl.classList.add('live-math');
     this.hoverEl.style.display = 'block';
     const body=this.hoverEl.querySelector('.live-math-body'), status=this.hoverEl.querySelector('.live-math-status');
-    try {
-      const rootModel=ctx.state.docs.get(ctx.state.project.rootFile)?.model || model;
-      const macros={};
-      const definitions=mathDefinitions(rootModel.getValue());
-      if(definitions) { try { katex.renderToString(definitions,{macros,globalGroup:true,throwOnError:true,trust:false,maxExpand:1000}); } catch {} }
-      const html=katex.renderToString(math.code.replace(/\\label\s*\{[^}]*\}/g,''),{displayMode:math.display,throwOnError:true,trust:false,macros,maxExpand:1000,strict:'ignore'});
-      body.innerHTML=html;status.textContent='实时预览';
-    } catch {
-      if(changed)body.textContent='公式输入中…';
-      status.textContent='输入中，保留上次预览；停顿后使用本地 TeX 更新';
-    }
+    if(rendered.html)body.innerHTML=rendered.html;
+    else {body.textContent=rendered.source || math.code;body.style.color='#ff626f';}
+    if(rendered.html)body.style.color='';
+    status.textContent=rendered.needsNative?'红色部分有错误或不支持即时渲染，将尝试本地 TeX':'实时预览';
     this.positionLiveMath();
     clearTimeout(this._nativeMathTimer);
-    this._nativeMathTimer=setTimeout(()=>this.renderNativeMath(),650);
+    if(rendered.needsNative)this._nativeMathTimer=setTimeout(()=>this.renderNativeMath(),650);
   }
 
   async renderNativeMath() {
-    if(!this.liveMath)return;
+    if(!this.liveMath?.needsNative)return;
     if(this._nativeMathBusy){this._nativeMathTimer=setTimeout(()=>this.renderNativeMath(),250);return;}
     const state=this.liveMath;
     if(!state.math.code.trim())return;
@@ -2096,7 +2115,7 @@ export class EditorController {
         if(this.liveMath!==state || this.model!==state.model || state.model.getVersionId()!==state.version)return;
         this.hoverEl.querySelector('.live-math-body').replaceChildren(image);
         status.textContent='本地 TeX 预览';this.positionLiveMath();
-      }else status.textContent='本次公式暂未编译通过，保留上次预览';
+      }else status.textContent='本地 TeX 未通过，请检查红色部分';
     } finally {this._nativeMathBusy=false;}
   }
 

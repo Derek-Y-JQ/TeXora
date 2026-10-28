@@ -63,3 +63,18 @@ export function enumLabelEdit(text, offset, option) {
   const merged=items.filter(x=>x.split('=')[0].trim()!==key);merged.push(option);
   return {start,end,text:'['+merged.join(',')+']'};
 }
+export function previewEnvironmentAt(text, offset) {
+  const clean=maskLatex(text), stack=[], candidates=[];
+  const re=/\\(begin|end)\{(table\*?|tabular\*?|tabularx|tabulary|tblr|longtblr|longtable|tikzpicture)\}/g;
+  let m;
+  while((m=re.exec(clean))) {
+    if(m[1]==='begin')stack.push({env:m[2],start:m.index});
+    else {
+      const index=stack.findLastIndex(entry=>entry.env===m[2]);
+      if(index<0)continue;
+      const entry=stack[index];stack.splice(index);
+      if(offset>=entry.start && offset<=re.lastIndex)candidates.push({...entry,end:re.lastIndex,kind:entry.env==='tikzpicture'?'tikz':'table',code:text.slice(entry.start,re.lastIndex)});
+    }
+  }
+  return candidates.sort((a,b)=>b.start-a.start)[0] || null;
+}
