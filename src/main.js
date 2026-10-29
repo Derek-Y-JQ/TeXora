@@ -1271,7 +1271,7 @@ function handleBuildDone(result) {
   if (ctx.state.previewMode !== 'markdown') {
     if (result.pages?.length) ctx.preview.render(result.pages, { keepZoom: true });
     else {
-      ctx.preview.showPlaceholder(result.ok ? '编译成功，但未能生成预览图片（检查 pdftocairo）' : '编译失败，请查看问题面板');
+      ctx.preview.showPlaceholder(result.ok ? 'PDF 已生成，但预览渲染失败；请查看编译日志或用外部阅读器打开' : '编译失败，请查看问题面板');
     }
   }
   renderProblems();

@@ -14,7 +14,7 @@ const tag='v'+version;
 const prefix=`https://api.github.com/repos/${owner}/${repo}`;
 const dry=process.env.GITHUB_DRY_RUN==='1';
 const roots=['src','electron','build','docs','skills'];
-const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs'];
+const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs','scripts/test-pdf-raster.cjs','scripts/test-cjk-preview.cjs','scripts/verify-141.mjs'];
 const rootFiles=['package.json','package-lock.json','vite.config.js','.gitignore','README.md','LICENSE','THIRD_PARTY_NOTICES.md'];
 const textExt=/\.(?:js|cjs|mjs|json|html|css|md|tex|bib|sty|cls|yml|yaml|txt|nsh|svg)$/i;
 async function request(url,method='GET',body,raw=false){
@@ -70,7 +70,7 @@ async function main(){
   entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
  }
  const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
- const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: reliable saves, project search and accessible dialogs`,tree:nextTree.sha,parents:[head.object.sha]});
+ const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: fix CJK PDF preview with font diagnostics and renderer fallback`,tree:nextTree.sha,parents:[head.object.sha]});
  const latest=await request(prefix+'/git/ref/heads/main');
  if(latest.object.sha!==head.object.sha)throw Error('Remote main changed during preparation; retry after review.');
  await request(prefix+'/git/refs/heads/main','PATCH',{sha:commit.sha,force:false});

@@ -9,6 +9,7 @@ const fsp = fs.promises;
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { run, killTree } = require('./run');
+const { rasterPdf, rasterIdentity } = require('./pdf-raster');
 const { codeEnvironment, mintedEnabled } = require('./code-tools');
 
 const AUX_EXT = new Set([
@@ -572,7 +573,7 @@ class Compiler {
 
   async renderPages(pdfPath, previewDir) {
     const stat = await fsp.stat(pdfPath);
-    const signature = JSON.stringify([path.resolve(pdfPath), stat.size, stat.mtimeMs, PDF_RENDER_DPI]);
+    const signature = JSON.stringify([path.resolve(pdfPath), stat.size, stat.mtimeMs, PDF_RENDER_DPI, rasterIdentity(this.tex)]);
     const key = crypto.createHash('sha256').update(signature).digest('hex').slice(0, 24);
     // Immutable per-PDF directories prevent concurrent projects/builds from
     // deleting pages that a currently displayed preview is still reading.
@@ -589,26 +590,20 @@ class Compiler {
 
   async renderUncached(pdfPath, previewDir, signature) {
     const out = [];
-    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) { try { this.tex.detect(); } catch {} }
-    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return out;
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo') && !this.tex.get('mgs')) { try { this.tex.detect(); } catch {} }
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo') && !this.tex.get('mgs')) return out;
     await fsp.mkdir(previewDir, { recursive: true });
     // Poppler on Windows needs ASCII relative arguments even for Unicode projects.
     await fsp.copyFile(pdfPath, path.join(previewDir, 'document.pdf'));
-    const options = { timeout: 120000, env: this.tex.env, cwd: previewDir };
-    let res;
-    if (this.tex.get('pdftoppm')) res = await run(this.tex.get('pdftoppm'), ['-png', '-r', String(PDF_RENDER_DPI), 'document.pdf', 'page'], options);
-    if ((!res || res.code !== 0) && this.tex.get('pdftocairo')) res = await run(this.tex.get('pdftocairo'), ['-png', '-r', String(PDF_RENDER_DPI), 'document.pdf', 'page'], options);
-    let files = [];
-    try {
-      files = (await fsp.readdir(previewDir)).filter((f) => /^page-\d+\.png$/.test(f));
-    } catch {}
-    files.sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
-    for (const f of files) {
-      const full = path.join(previewDir, f);
+    const rendered = await rasterPdf({ tex: this.tex, cwd: previewDir, input: 'document.pdf', dpi: PDF_RENDER_DPI });
+    if (rendered.diagnostics.length) this.send('build:log', { chunk: '\n[PDF 预览] ' + rendered.diagnostics.join('\n') + '\n' });
+    if (!rendered.ok) { this.send('build:log', { chunk: rendered.error + '\n' }); return out; }
+    for (let i = 0; i < rendered.files.length; i++) {
+      const full = rendered.files[i];
       const size = pngSize(full);
       if (!size) continue;
       out.push({
-        index: Number(f.match(/\d+/)[0]),
+        index: i + 1,
         file: full,
         width: size.width,
         height: size.height,
@@ -617,7 +612,6 @@ class Compiler {
         dpi: PDF_RENDER_DPI
       });
     }
-    if (!out.length) this.send('build:log', { chunk: `\n[pdftocairo] ${(res?.output || '').slice(-600)}\n` });
     if (out.length) {
       try {
         const links = await this.extractLinks(path.join(previewDir, 'document.pdf'), out.length);
@@ -861,11 +855,11 @@ class Compiler {
     const engineName = ['pdflatex', 'xelatex', 'lualatex'].includes(configuredEngine) ? configuredEngine : 'xelatex';
     const exe = this.tex.get(engineName) || this.tex.get('xelatex') || this.tex.get('pdflatex');
     if (!exe) return { ok: false, error: '未检测到 LaTeX 引擎，无法渲染预览' };
-    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo')) return { ok: false, error: '未检测到 pdftoppm / pdftocairo，无法渲染预览' };
+    if (!this.tex.get('pdftoppm') && !this.tex.get('pdftocairo') && !this.tex.get('mgs')) return { ok: false, error: '未检测到 PDF 渲染工具（Poppler / Ghostscript），无法渲染预览' };
     const body = String(code || '').trim().replace(/\\qedhere\b/g, '');
     if (!body) return { ok: false, error: '空内容' };
     const { originalPreamble, dependencyPreamble, preamble, safePreamble, essentialMathPreamble, essentialTablePreamble, essentialTikzPreamble } = await this.extractPreamble(rootText, rootFile);
-    const hash = crypto.createHash('sha1').update('preview-v2|' + engineName + '|' + kind + '|' + body + '|' + originalPreamble + '|' + dependencyPreamble + '|' + scale + '|' + displayMode).digest('hex').slice(0, 16);
+    const hash = crypto.createHash('sha1').update(rasterIdentity(this.tex) + '|' + engineName + '|' + kind + '|' + body + '|' + originalPreamble + '|' + dependencyPreamble + '|' + scale + '|' + displayMode).digest('hex').slice(0, 16);
     const outDir = path.join(await this.resolveCacheDir(projectRoot), 'snippets');
     await fsp.mkdir(outDir, { recursive: true });
     const png = path.join(outDir, hash + '.png');
@@ -938,15 +932,9 @@ class Compiler {
     }
     if (res && res.ok) this._snippetTier = usedTier;
     if (!res.ok) return { ok: false, error: res.res.output.slice(-1200) || '编译失败' };
-    const renderer = this.tex.get('pdftoppm');
-    const render = renderer
-      ? await run(renderer, ['-png', '-r', String(288 * scale), '-singlefile', 'snippet.pdf', 'snippet'], { env: this.tex.env, timeout: 30000, cwd: workDir })
-      : await run(this.tex.get('pdftocairo'), ['-png', '-r', String(288 * scale), '-singlefile', '-o', 'snippet', 'snippet.pdf'], { env: this.tex.env, timeout: 30000, cwd: workDir });
-    const rendered = path.join(workDir, 'snippet.png');
-    if (render.code === 0 && fs.existsSync(rendered)) {
-      try { fs.copyFileSync(rendered, png); } catch {}
-    }
-    if (!fs.existsSync(png)) return { ok: false, error: render.output.slice(-800) || '光栅化失败' };
+    const render = await rasterPdf({ tex: this.tex, cwd: workDir, input: 'snippet.pdf', dpi: 288 * scale, single: true, timeout: 30000 });
+    if (!render.ok) return { ok: false, error: render.error + '\n' + render.diagnostics.join('\n').slice(-1000) };
+    await fsp.copyFile(render.files[0], png);
     const size = pngSize(png);
     return { ok: true, png, width: size?.width || 0, height: size?.height || 0, dpi: 288 * scale };
   }
