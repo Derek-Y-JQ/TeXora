@@ -315,7 +315,10 @@ function broadcastSettings() {
 handle('overleaf:login',async()=>{if(overleaf.busy)throw Error('请等待当前 Overleaf 操作完成');await overleafSession.login();return {ok:true};});
 handle('overleaf:logout',async()=>{if(overleaf.busy)throw Error('请等待同步完成');await overleafSession.logout();overleaf.plans.clear();return {ok:true};});
 handle('overleaf:projects',async()=>({ok:true,projects:await overleaf.projects()}));
-handle('overleaf:load',async id=>({ok:true,...await overleaf.load(id)}));
+handle('overleaf:load',async (id,requestId)=>{
+  if(typeof requestId!=='string'||!/^[\w-]{1,80}$/.test(requestId))throw Error('无效的项目加载请求');
+  return {ok:true,...await overleaf.load(id,progress=>send('overleaf:loadProgress',{...progress,requestId}))};
+});
 handle('overleaf:binding',async()=>({ok:true,binding:await overleaf.binding(project.root)}));
 handle('overleaf:plan',async()=>({ok:true,...await overleaf.plan(project.root)}));
 handle('overleaf:apply',async token=>{if(overleafSession.loginWindow)throw Error('请先关闭 Overleaf 登录窗口，再确认同步');const plan=overleaf.plans.get(token);if(plan?.root!==project.root)throw Error('当前项目已切换，请重新检查');return {ok:true,...await overleaf.apply(token)};});

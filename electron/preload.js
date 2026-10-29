@@ -28,7 +28,8 @@ const api = {
   update: { check: () => invoke('update:check') },
   overleaf: {
     login: () => invoke('overleaf:login'), logout: () => invoke('overleaf:logout'),
-    projects: () => invoke('overleaf:projects'), load: id => invoke('overleaf:load',id),
+    projects: () => invoke('overleaf:projects'), load: (id,requestId) => invoke('overleaf:load',id,requestId),
+    onLoadProgress: cb => on('overleaf:loadProgress',cb),
     binding: () => invoke('overleaf:binding'), plan: () => invoke('overleaf:plan'),
     apply: token => invoke('overleaf:apply',token)
   },

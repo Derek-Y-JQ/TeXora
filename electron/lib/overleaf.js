@@ -67,18 +67,23 @@ class Overleaf {
     if(!Array.isArray(data.projects))throw Error('Overleaf 项目列表格式已变化，请重新登录或更新 TeXora');
     return data.projects.map(p=>({id:p._id||p.id,name:String(p.name||'Untitled'),access:p.accessLevel})).filter(p=>ID.test(p.id));
   }
-  async remote(id) {if(!ID.test(id))throw Error('无效的项目编号');return unzip(await this.transport.zip(`/project/${id}/download/zip`));}
-  async load(id) {return this.exclusive(async()=>{
+  async remote(id,onProgress) {if(!ID.test(id))throw Error('无效的项目编号');const data=await this.transport.zip(`/project/${id}/download/zip`,onProgress);onProgress?.({phase:'extracting',filesCompleted:0,totalFiles:null});return unzip(data);}
+  async load(id,onProgress) {return this.exclusive(async()=>{
+    const report=event=>{try{onProgress?.(event);}catch{}};
+    report({phase:'checking'});
     const p=(await this.projects()).find(p=>p.id===id);if(!p)throw Error('项目不存在或账号无权访问');
     const records=await this.records(),root=path.join(this.dir,'projects',id);
-    if(records[root])return {root,name:p.name,cached:true};
-    const files=await this.remote(id);
+    if(records[root]){report({phase:'cached'});return {root,name:p.name,cached:true};}
+    const files=await this.remote(id,report);
+    report({phase:'extracting',filesCompleted:0,totalFiles:files.size});
     await fs.mkdir(path.dirname(root),{recursive:true});
     // An interrupted import never becomes an implicit overwrite on retry.
     const staging=root+'-'+crypto.randomUUID();await fs.mkdir(staging);
-    try {for(const [n,b]of files){await fs.mkdir(path.dirname(path.join(staging,n)),{recursive:true});await fs.writeFile(path.join(staging,n),b);}await fs.rename(staging,root);}
+    let completed=0;
+    try {for(const [n,b]of files){await fs.mkdir(path.dirname(path.join(staging,n)),{recursive:true});await fs.writeFile(path.join(staging,n),b);completed++;if(completed%20===0||completed===files.size)report({phase:'extracting',filesCompleted:completed,totalFiles:files.size});}await fs.rename(staging,root);}
     catch(e){throw Error('导入未完成：'+e.message);}
     records[root]={id,name:p.name,base:hashes(files)};await this.save(records);
+    report({phase:'ready',filesCompleted:completed,totalFiles:files.size});
     return {root,name:p.name,cached:false};
   });}
   async binding(root) {const r=(await this.records())[root];return r?{id:r.id,name:r.name}:null;}

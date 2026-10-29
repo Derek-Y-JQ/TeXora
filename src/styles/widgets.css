@@ -354,3 +354,8 @@
 .overleaf-project code { overflow-wrap:anywhere; }
 .overleaf-conflict { color:#ff7777; }
 .overleaf-projects + .field-hint { margin-top:12px; } .modal [data-filter] { width:100%; }
+.overleaf-transfer { margin:16px 0 8px;padding:14px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface-1); }
+.overleaf-transfer[hidden] { display:none; }
+.overleaf-transfer-line { display:flex;justify-content:space-between;gap:12px;font-size:12px;font-variant-numeric:tabular-nums; }
+.overleaf-transfer-line strong { font-size:13px; }
+.overleaf-transfer progress { display:block;width:100%;height:8px;margin:12px 0;accent-color:var(--accent); }

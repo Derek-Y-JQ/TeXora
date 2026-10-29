@@ -1,5 +1,6 @@
 'use strict';
 const {BrowserWindow,session}=require('electron');
+const {performance}=require('node:perf_hooks');
 const ORIGIN='https://www.overleaf.com';
 // Only the site's own Socket.IO client runs in this remote, sandboxed window.
 // Credentials and cookies never cross the application preload bridge.
@@ -70,23 +71,42 @@ class OverleafSession {
     throw Error('Overleaf 重定向次数过多，请在登录窗口检查登录状态');
   }
   async json(route){const r=await this.request(route);if(!r.headers.get('content-type')?.includes('json'))throw Error('Overleaf 未返回项目数据，请打开登录窗口检查是否需要网页验证后刷新');return r.json();}
-  async zip(route){
+  async zip(route,onProgress){
+    const started=performance.now();let phase='waiting',received=0,totalBytes=null,lastEmit=-Infinity;
+    let samples=[{at:started,bytes:0}];
+    const report=(force=false)=>{
+      if(typeof onProgress!=='function')return;
+      const now=performance.now();if(!force&&now-lastEmit<200)return;lastEmit=now;
+      samples.push({at:now,bytes:received});while(samples.length>1&&samples[1].at<now-2000)samples.shift();
+      const seconds=(now-samples[0].at)/1000;
+      const speed=phase==='downloading'&&seconds>=0.1?(received-samples[0].bytes)/seconds:0;
+      try{onProgress({phase,receivedBytes:received,totalBytes,speedBytesPerSecond:speed,elapsedSeconds:(now-started)/1000});}catch{}
+    };
+    report(true);
+    const heartbeat=typeof onProgress==='function'?setInterval(()=>report(),500):null;
+    heartbeat?.unref?.();
     try{
       const r=await this.request(route);
       if(r.headers.get('content-type')?.includes('text/html'))throw Error('Overleaf 未返回项目压缩包，请打开登录窗口检查网页验证状态');
       const size=Number(r.headers.get('content-length'));
       if(size>256*1024*1024)throw Error('项目压缩包超过大小限制');
-      const reader=r.body.getReader(),chunks=[];let total=0;
+      // Fetch can decode Content-Encoding; its compressed length is then not a
+      // valid denominator for bytes read from the decoded response stream.
+      const encoding=r.headers.get('content-encoding');
+      totalBytes=Number.isFinite(size)&&size>0&&(!encoding||encoding==='identity')?size:null;
+      phase='downloading';samples=[{at:performance.now(),bytes:0}];report(true);
+      const reader=r.body.getReader(),chunks=[];
       for(;;){
-        const {done,value}=await reader.read();if(done)break;total+=value.length;
-        if(total>256*1024*1024){await reader.cancel();throw Error('项目压缩包超过大小限制');}
-        chunks.push(Buffer.from(value));
+        const {done,value}=await reader.read();if(done)break;received+=value.length;
+        if(received>256*1024*1024){await reader.cancel();throw Error('项目压缩包超过大小限制');}
+        chunks.push(Buffer.from(value));report();
       }
+      phase='downloaded';totalBytes=received;report(true);
       return Buffer.concat(chunks);
     }catch(e){
       if(['AbortError','TimeoutError'].includes(e.name)||e.message==='Overleaf 请求超时，请稍后重试')throw Error('Overleaf 项目下载超时，请检查网络后重新加载；无需为此退出登录');
       throw e;
-    }
+    }finally{if(heartbeat)clearInterval(heartbeat);}
   }
   async tree(id){
     if(this.worker&&!this.worker.isDestroyed())this.worker.close();

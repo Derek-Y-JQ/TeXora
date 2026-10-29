@@ -112,6 +112,8 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ## 1.3.6 更新
 
+- Overleaf 加载项目时显示下载百分比、已下载大小、近两秒下载速度及耗时；总大小未知时显示不定进度，下载完成后切换为解压及文件写入进度。
+
 - 输入 `\[` 或 `$$` 后按回车立即补齐结束符，光标进入公式内部；兼容 Windows 换行与已有配对。
 - 行内公式的结束 `$` 用浅灰色提示，按 `$`、右箭头或 Tab 接受；未接受时不写入文件。
 - 项目文件夹按钮右侧新增 Overleaf 入口，支持官方网页登录、项目列表与本地加载编辑。
@@ -192,5 +194,7 @@ MIT License。依赖许可与致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTI
 - 保存仅写本地。回传时点击 **检查并同步**，逐项查看上传、下载和删除，然后点击 **确认同步**。同步前后校验文件；同一文件两端都改变时阻止同步，需先手动合并。替换或删除的本地内容先备份到用户数据目录的 `overleaf/backups`。
 - 这是手动文件同步，不提供协作者同时编辑时的实时合并。回传期间请暂停对相同文件的在线编辑。只读项目可以导入及拉取；没有写入权限时禁止上传。
 - 登录 Cookie 仅保存在独立的本机浏览器会话中，不交给 AI 或应用渲染进程；“退出账号”清除该会话，本地副本保留。Overleaf 对接使用其网页登录与网页接口，网站接口变化、网络限制、验证码或登录策略可能要求重新登录或更新适配。当前实现面向官方 `www.overleaf.com`，不包含自托管实例。
+
+![Overleaf 下载进度界面示例（测试数据）](docs/screenshots/136-overleaf-progress.png)
 
 接口依据：[Overleaf 项目列表](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Project/ProjectController.mjs)、[文件上传](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Uploads/ProjectUploadController.mjs)、[项目连接](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/ide-react/connection/connection-manager.ts)。此接入不要求用户提供 Overleaf 密码给 TeXora，也不依赖付费项目的 Git 接入。

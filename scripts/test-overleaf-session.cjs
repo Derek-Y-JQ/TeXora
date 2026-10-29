@@ -25,6 +25,15 @@ const original=Module._load;Module._load=function(n,...args){return n==='electro
  await assert.rejects(client.request('/user/projects/invalid'),/无效/);
  queue=[new Response(new Uint8Array([80,75]),{headers:{'content-type':'application/zip'}})];assert.deepEqual(await client.zip('/project/'+id+'/download/zip'),Buffer.from([80,75]));
  queue=[new Response(new ReadableStream({start(controller){controller.error(new DOMException('aborted','AbortError'));}}),{headers:{'content-type':'application/zip'}})];await assert.rejects(client.zip('/project/'+id+'/download/zip'),/项目下载超时/);
+ const progress=[];
+ queue=[new Response(new ReadableStream({async start(controller){for(let i=0;i<3;i++){await new Promise(r=>setTimeout(r,230));controller.enqueue(new Uint8Array(1024));}controller.close();}}),{headers:{'content-type':'application/zip','content-length':'3072'}})];
+ assert.equal((await client.zip('/project/'+id+'/download/zip',e=>progress.push(e))).length,3072);
+ assert.equal(progress[0].phase,'waiting');assert.ok(progress.some(e=>e.phase==='downloading'&&e.receivedBytes>0&&e.speedBytesPerSecond>0));assert.equal(progress.at(-1).phase,'downloaded');assert.equal(progress.at(-1).receivedBytes,3072);assert.equal(progress.at(-1).totalBytes,3072);
+ let count=progress.length;await new Promise(r=>setTimeout(r,550));assert.equal(progress.length,count,'download heartbeat stops after completion');
+ const unknown=[];queue=[new Response(new Uint8Array(100),{headers:{'content-type':'application/zip'}})];await client.zip('/project/'+id+'/download/zip',e=>unknown.push(e));assert.equal(unknown.find(e=>e.phase==='downloading').totalBytes,null);assert.equal(unknown.at(-1).totalBytes,100);
+ const encoded=[];queue=[new Response(new Uint8Array(100),{headers:{'content-type':'application/zip','content-length':'20','content-encoding':'gzip'}})];await client.zip('/project/'+id+'/download/zip',e=>encoded.push(e));assert.equal(encoded.find(e=>e.phase==='downloading').totalBytes,null);
+ const failed=[];queue=[new Response(new ReadableStream({start(controller){controller.error(new Error('fixture network failure'));}}),{headers:{'content-type':'application/zip'}})];await assert.rejects(client.zip('/project/'+id+'/download/zip',e=>failed.push(e)),/fixture network failure/);count=failed.length;await new Promise(r=>setTimeout(r,550));assert.equal(failed.length,count,'download heartbeat stops on error');assert.ok(!failed.some(e=>e.phase==='downloaded'));
+ console.log('PASS download progress: chunked bytes/speed, known/unknown total, decoded content length, and heartbeat cleanup after success/failure.');
  console.log('PASS login regression: empty Electron response URL, shared-session credentials, safe redirects, expired session vs permission/challenge, and no replay of writes.');
  const service=new OverleafSession(()=>null,'C:/test');let observed;
  service.request=async(route,options)=>{observed={route,options};return {json:async()=>({success:true})};};
