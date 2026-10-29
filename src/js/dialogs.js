@@ -60,7 +60,7 @@ function modal({ title = '', subtitle = '', iconName = '', width = 560, height =
   }
   activeModal = { root, close };
   modalEscape = e => {
-    if (e.key === 'Escape' && activeModal?.root === root) {
+    if (dismissable && e.key === 'Escape' && activeModal?.root === root) {
       e.preventDefault();
       close();
     }

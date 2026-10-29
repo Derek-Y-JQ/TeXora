@@ -2,6 +2,7 @@
  * TeXora renderer entry: boot, layout, documents, build pipeline, panels.
  */
 import { ctx } from './js/ctx.js';
+import { openOverleaf } from './js/overleaf-ui.js';
 import { openUpdateDownload } from './js/external-links.js';
 import { enumLabelEdit } from './js/live-math.js';
 import { packageInsertion } from './js/code-blocks.js';
@@ -59,6 +60,7 @@ async function boot() {
 
   wireWindowControls();
   wireTitlebar();
+  $('#overleafBtn').addEventListener('click', openOverleaf);
   wireSplitters();
   wireStatusbar();
   wireFindBar();
@@ -719,8 +721,8 @@ async function refreshAssets() {
 async function reloadOpenDocuments() {
   for (const [path, doc] of ctx.state.docs) {
     const res = await api.fs.read(path);
-    if (res.ok && res.text && res.text !== doc.model.getValue()) doc.model.setValue(res.text);
-    doc.dirty = false;
+    if (res.ok && typeof res.text === 'string' && res.text !== doc.model.getValue()) doc.model.setValue(res.text);
+    if(res.ok && typeof res.text === 'string') { doc.savedText=res.text;doc.mtime=res.mtime;doc.dirty=false; }
   }
   updateStats();
   renderTabs();

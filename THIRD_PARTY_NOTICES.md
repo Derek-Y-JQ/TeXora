@@ -11,6 +11,7 @@ Each is distributed under its own license; this file is informational only.
 | Chromium | bundled with Electron | BSD-3-Clause and others | Rendering engine |
 | Node.js | bundled with Electron | MIT | Main-process runtime |
 | KaTeX | 0.19.1 | MIT | Instant floating math previews |
+| adm-zip | 0.6.1 | MIT | Import and compare Overleaf project archives |
 | Monaco Editor | 0.57.0 | MIT | Source editor |
 | Vite | 7.3.1 | MIT | Renderer bundler |
 | electron-builder | 26.18.0 | MIT | Installer packaging |

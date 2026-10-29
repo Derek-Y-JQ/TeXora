@@ -26,6 +26,12 @@ function on(channel, cb) {
 const api = {
   info: () => invoke('app:info'),
   update: { check: () => invoke('update:check') },
+  overleaf: {
+    login: () => invoke('overleaf:login'), logout: () => invoke('overleaf:logout'),
+    projects: () => invoke('overleaf:projects'), load: id => invoke('overleaf:load',id),
+    binding: () => invoke('overleaf:binding'), plan: () => invoke('overleaf:plan'),
+    apply: token => invoke('overleaf:apply',token)
+  },
   systemFonts: () => invoke('app:systemFonts'),
   ready: () => ipcRenderer.send('app:renderer-ready'),
   captureNow: (p) => invoke('app:captureNow', p),

@@ -1,0 +1,3 @@
+import fs from 'node:fs';import path from 'node:path';import {spawn} from 'node:child_process';
+const root=path.resolve('.capture/overleaf-math-fixture');fs.mkdirSync(root,{recursive:true});fs.writeFileSync(path.join(root,'main.tex'),'\\documentclass{article}\n\\begin{document}\nFixture\n\\end{document}\n');
+const child=spawn(process.execPath,['scripts/cdp.mjs','--script','scripts/verify-overleaf-math.mjs','--','--project='+root],{env:{...process.env,TEXORA_USER_DATA:path.resolve('.capture/overleaf-ui-profile')},stdio:'inherit',windowsHide:true});child.on('exit',code=>process.exitCode=code||0);

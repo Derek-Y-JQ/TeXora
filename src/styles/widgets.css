@@ -345,3 +345,12 @@
 /* Keep a floating formula from intercepting pointer moves to formulas beneath it. */
 .texora-hover.live-math { pointer-events: none; }
 .texora-hover.live-math .live-math-close { pointer-events: auto; }
+
+.texora-dollar-ghost { color: #9298a5 !important; opacity: .65; font-style: normal; }
+.overleaf-actions { display:flex;gap:8px;margin:14px 0; }
+.overleaf-binding { display:flex;justify-content:space-between;align-items:center;margin:14px 0;gap:12px; }
+.overleaf-projects { max-height:42vh;overflow:auto;margin-top:12px; }
+.overleaf-project { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 4px;border-bottom:1px solid var(--border); }
+.overleaf-project code { overflow-wrap:anywhere; }
+.overleaf-conflict { color:#ff7777; }
+.overleaf-projects + .field-hint { margin-top:12px; } .modal [data-filter] { width:100%; }

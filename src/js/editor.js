@@ -3,6 +3,7 @@
  * intelligent completions, hover previews, block mode, drag-reorder,
  * folding, inline math zones and editor commands.
  */
+import { displayMathEnter, inlineDollarGhost } from './math-input.js';
 import { renderLiveFormula } from './live-formula.js';
 import 'katex/dist/katex.min.css';
 import { mathAtOffset, mathDefinitions, previewEnvironmentAt } from './live-math.js';
@@ -326,7 +327,6 @@ function registerLanguages() {
       { open: '{', close: '}' },
       { open: '[', close: ']' },
       { open: '(', close: ')' },
-      { open: '$', close: '$' },
       { open: '`', close: "'" },
       { open: '"', close: '"' },
       { open: '%', close: '%' }
@@ -1075,6 +1075,7 @@ export class EditorController {
     monaco.editor.setTheme(this.themeName());
     this.decorations = this.editor.createDecorationsCollection([]);
     this.hoverDecoration = this.editor.createDecorationsCollection([]);
+    this.dollarGhostDecoration = this.editor.createDecorationsCollection([]);
 
     this.aiBar = document.createElement('div');
     this.aiBar.className = 'block-ai-bar';
@@ -1104,6 +1105,7 @@ export class EditorController {
       this.updateSelectionBar();
       ctx.emit('cursor', this.lastCursor);
       this._previewSource = 'caret';
+      this.updateDollarGhost();
       this.scheduleLiveMath();
     });
     this.editor.onDidChangeCursorSelection(() => this.updateSelectionBar());
@@ -1312,6 +1314,7 @@ export class EditorController {
 
   attach(doc, viewState) {
     this.hideHover(true);
+    this.dollarGhost=null;this.dollarGhostDecoration?.clear();
     if (!this.editor) return;
     if (this.model) this.saveViewState();
     this.model = doc.model;
@@ -1342,6 +1345,7 @@ export class EditorController {
     ctx.emit('doc:changed', { path: doc.path });
     this.scheduleParse();
     this.scheduleAutoClose(e);
+    queueMicrotask(() => this.updateDollarGhost());
     this._previewSource = 'caret';
     this.scheduleLiveMath();
     this.updateBlocks();
@@ -1451,7 +1455,27 @@ export class EditorController {
     this.editor.setPosition({ lineNumber: pos.lineNumber + 1, column: inner.length + 1 });
   }
 
+  updateDollarGhost() {
+    const pos=this.editor?.getPosition(),selection=this.editor?.getSelection();
+    const ghost=this.model && pos && selection?.isEmpty() && this.editor.getSelections().length===1 && ctx.state.settings.editor.autoCloseBrackets!==false ? inlineDollarGhost(this.model.getValue(),this.model.getOffsetAt(pos)) : null;
+    this.dollarGhost=ghost;
+    this.dollarGhostDecoration?.set(ghost?[{range:new monaco.Range(pos.lineNumber,pos.column,pos.lineNumber,pos.column),options:{showIfCollapsed:true,after:{content:'$',inlineClassName:'texora-dollar-ghost',cursorStops:monaco.editor.InjectedTextCursorStops.None}}}]:[]);
+  }
+
+  acceptDollarGhost() {
+    if(!this.dollarGhost)return false;
+    const pos=this.editor.getPosition(),offset=this.model.getOffsetAt(pos);
+    if(offset!==this.dollarGhost.offset)return false;
+    this.dollarGhost=null;this.dollarGhostDecoration.clear();
+    this.editor.executeEdits('texora-dollar',[{range:new monaco.Range(pos.lineNumber,pos.column,pos.lineNumber,pos.column),text:'$'}]);
+    this.editor.setPosition({lineNumber:pos.lineNumber,column:pos.column+1});
+    return true;
+  }
+
   onKeyDown(e) {
+    if(this.dollarGhost && !e.ctrlKey && !e.metaKey && !e.altKey && ((!e.shiftKey && (e.keyCode===monaco.KeyCode.RightArrow || e.keyCode===monaco.KeyCode.Tab)) || e.browserEvent?.key==='$')) {
+      e.preventDefault();e.stopPropagation();this.acceptDollarGhost();return;
+    }
     if (e.keyCode === monaco.KeyCode.Escape && this.liveMath) { this._dismissedMath=this.liveMath.key; this.hideHover(true); return; }
     const ed = ctx.state.settings?.editor || {};
     const model = this.model;
@@ -1460,6 +1484,12 @@ export class EditorController {
       const pos = this.editor.getPosition();
       const line = model.getLineContent(pos.lineNumber);
       const beforeCursor = line.slice(0, pos.column - 1);
+      const pair=ed.autoCloseBrackets!==false && displayMathEnter(model.getValue(),model.getOffsetAt(pos),ed.indentSize===4?4:2);
+        if(pair && !e.ctrlKey && !e.metaKey && this.editor.getSelection()?.isEmpty() && this.editor.getSelections().length===1) {
+        e.preventDefault();e.stopPropagation();const end=model.getPositionAt(pair.end);
+        this.editor.executeEdits('texora-display-pair',[{range:new monaco.Range(pos.lineNumber,pos.column,end.lineNumber,end.column),text:pair.text}]);
+          this.editor.setPosition({lineNumber:pos.lineNumber+1,column:pair.cursorDelta});return;
+      }
       if (/^\\(?:cref|Cref|ref|eqref|autoref|pageref|nameref|cite[a-zA-Z]*|parencite|textcite|autocite|footcite)\s*$/.test(beforeCursor)) {
         e.preventDefault();
         this.insertBeginBraces();

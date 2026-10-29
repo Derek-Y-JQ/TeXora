@@ -1,4 +1,4 @@
-# TeXora 1.3.5 · 本地优先的 LaTeX 写作工作台
+# TeXora 1.3.6 · 本地优先的 LaTeX 写作工作台
 
 TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
@@ -110,6 +110,14 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ![主题与配色](docs/screenshots/133-theme.png)
 
+## 1.3.6 更新
+
+- 输入 `\[` 或 `$$` 后按回车立即补齐结束符，光标进入公式内部；兼容 Windows 换行与已有配对。
+- 行内公式的结束 `$` 用浅灰色提示，按 `$`、右箭头或 Tab 接受；未接受时不写入文件。
+- 项目文件夹按钮右侧新增 Overleaf 入口，支持官方网页登录、项目列表与本地加载编辑。
+- Overleaf 保存只写本地；检查上传、下载、删除列表并确认后，才同步原项目。同文件两端修改、只读权限及确认后内容变化均会阻止回传；支持失败后重试及本地替换备份。
+- 已通过同步模拟测试、桌面键盘与界面测试、会话隔离及安装包运行检查。**Overleaf 真实账号的完整登录与云端往返尚未实测**；其网页接口变化可能需要更新适配。
+
 ## 1.3.5 更新
 
 - 公式悬浮预览跟随鼠标目标，移出公式或编辑区即关闭，移动到另一处公式无需点击即可切换；键盘输入时跟随当前公式持续更新，旧光标任务及本地编译结果不会重新弹出已关闭卡片。
@@ -145,7 +153,7 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-1.3.5.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-1.3.6.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。
@@ -174,3 +182,14 @@ npm run dist
 `verify:134` 在隔离项目和本地模拟 AI 服务中验证新标签页、跨文件定位、最新消息滚动和改写正文校验，不调用付费模型。`verify:133` 在隔离项目中实际插入 listings、minted 与算法，验证宏包位置、完整 PDF 编译、提示词恢复及主题，并截取功能图片。首次运行可联网补齐代码高亮依赖。更多检查包括 `npm run verify:131`（本地模拟 AI，不调用付费模型）、`node scripts/verify-preview.cjs` 与 `node scripts/verify-code-tools.cjs`。
 
 MIT License。依赖许可与致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+### 公式输入与 Overleaf 项目
+
+- 单独输入 `\[` 或 `$$` 后按回车，立即插入配对的结束符并将光标放到公式内部。
+- 行内输入 `$` 后显示浅灰色的结束 `$` 提示；按 `$`、右箭头或 Tab 接受。未接受的提示不会写入文件。
+- 项目文件夹右侧的 **Overleaf** 按钮打开账号与项目窗口。先在独立的官方网页窗口登录，关闭登录窗口后刷新项目，再选择“加载本地编辑”。本地副本保存在 TeXora 用户数据目录中，可离线编辑。
+- 保存仅写本地。回传时点击 **检查并同步**，逐项查看上传、下载和删除，然后点击 **确认同步**。同步前后校验文件；同一文件两端都改变时阻止同步，需先手动合并。替换或删除的本地内容先备份到用户数据目录的 `overleaf/backups`。
+- 这是手动文件同步，不提供协作者同时编辑时的实时合并。回传期间请暂停对相同文件的在线编辑。只读项目可以导入及拉取；没有写入权限时禁止上传。
+- 登录 Cookie 仅保存在独立的本机浏览器会话中，不交给 AI 或应用渲染进程；“退出账号”清除该会话，本地副本保留。Overleaf 对接使用其网页登录与网页接口，网站接口变化、网络限制、验证码或登录策略可能要求重新登录或更新适配。当前实现面向官方 `www.overleaf.com`，不包含自托管实例。
+
+接口依据：[Overleaf 项目列表](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Project/ProjectController.mjs)、[文件上传](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Uploads/ProjectUploadController.mjs)、[项目连接](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/ide-react/connection/connection-manager.ts)。此接入不要求用户提供 Overleaf 密码给 TeXora，也不依赖付费项目的 Git 接入。

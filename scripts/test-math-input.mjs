@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';
+const math='data:text/javascript;base64,'+Buffer.from(fs.readFileSync('src/js/live-math.js')).toString('base64');
+const source=fs.readFileSync('src/js/math-input.js','utf8').replace("'./live-math.js'",JSON.stringify(math));
+const {displayMathEnter,inlineDollarGhost}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+assert.deepEqual(displayMathEnter('\\[',2),{start:2,end:2,text:'\n  \n\\]',cursorDelta:3});
+assert.equal(displayMathEnter('$$',2).text,'\n  \n$$');assert.equal(displayMathEnter('  \\[',4,4).text,'\n      \n  \\]');
+assert.equal(displayMathEnter('\\[]',2).end,3);assert.equal(displayMathEnter('\\[\n\\]',2).text,'\n  ');
+assert.equal(displayMathEnter('% \\[',4),null);assert.equal(displayMathEnter('text $$',7),null);
+assert.ok(inlineDollarGhost('$',1));assert.ok(inlineDollarGhost('$abc',4));assert.equal(inlineDollarGhost('$abc$',4),null);assert.equal(inlineDollarGhost('$$',2),null);assert.equal(inlineDollarGhost('\\$',2),null);assert.equal(inlineDollarGhost('% $',3),null);
+console.log('PASS math input: display newline pairs, indentation, existing closure, comment/literal safety and inline dollar ghost.');
+assert.equal(displayMathEnter('$$\nx\n$$',7),null);
+assert.equal(displayMathEnter('\\begin{lstlisting}\n\\[',21),null);
+assert.equal(inlineDollarGhost('\\begin{minted}{python}\n$x',25),null);
