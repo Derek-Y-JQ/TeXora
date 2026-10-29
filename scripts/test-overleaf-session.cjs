@@ -23,6 +23,8 @@ const original=Module._load;Module._load=function(n,...args){return n==='electro
  calls=[];queue=[new Response(null,{status:307,headers:{location:'/user/projects'}})];await assert.rejects(client.request('/project/'+id+'/upload',{method:'POST'}),/已停止同步/);assert.equal(calls.length,1);
  queue=Array.from({length:5},()=>new Response(null,{status:302,headers:{location:'/user/projects'}}));await assert.rejects(client.json('/user/projects'),/次数过多/);
  await assert.rejects(client.request('/user/projects/invalid'),/无效/);
+ queue=[new Response(new Uint8Array([80,75]),{headers:{'content-type':'application/zip'}})];assert.deepEqual(await client.zip('/project/'+id+'/download/zip'),Buffer.from([80,75]));
+ queue=[new Response(new ReadableStream({start(controller){controller.error(new DOMException('aborted','AbortError'));}}),{headers:{'content-type':'application/zip'}})];await assert.rejects(client.zip('/project/'+id+'/download/zip'),/项目下载超时/);
  console.log('PASS login regression: empty Electron response URL, shared-session credentials, safe redirects, expired session vs permission/challenge, and no replay of writes.');
  const service=new OverleafSession(()=>null,'C:/test');let observed;
  service.request=async(route,options)=>{observed={route,options};return {json:async()=>({success:true})};};

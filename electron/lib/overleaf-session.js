@@ -44,10 +44,10 @@ class OverleafSession {
     const loginRequired=()=>Error('Overleaf 登录已过期，请在登录窗口完成登录后刷新项目');
     // Electron Session.fetch can return a successful response with an empty URL.
     // Track redirects ourselves; Response.url is not an authentication signal.
-    const signal=AbortSignal.timeout(90000);
+    const signal=AbortSignal.timeout(route.endsWith('/download/zip')?300000:90000);
     for(let redirects=0;redirects<=4;redirects++){
       let response;
-      try{response=await this.session.fetch(url.href,{...options,credentials:'include',redirect:'manual',cache:'no-store',signal});}catch{throw Error('无法连接 Overleaf，请检查网络后重试');}
+      try{response=await this.session.fetch(url.href,{...options,credentials:'include',redirect:'manual',cache:'no-store',signal});}catch{if(signal.aborted)throw Error('Overleaf 请求超时，请稍后重试');throw Error('无法连接 Overleaf，请检查网络后重试');}
       if(response.url && new URL(response.url).origin!==ORIGIN)throw Error('Overleaf 返回了非预期的网站地址，请重新打开登录窗口');
       if([301,302,303,307,308].includes(response.status)){
         const location=response.headers.get('location');
@@ -70,7 +70,24 @@ class OverleafSession {
     throw Error('Overleaf 重定向次数过多，请在登录窗口检查登录状态');
   }
   async json(route){const r=await this.request(route);if(!r.headers.get('content-type')?.includes('json'))throw Error('Overleaf 未返回项目数据，请打开登录窗口检查是否需要网页验证后刷新');return r.json();}
-  async zip(route){const r=await this.request(route);if(r.headers.get('content-type')?.includes('text/html'))throw Error('登录已过期，请重新登录 Overleaf');const size=Number(r.headers.get('content-length'));if(size>256*1024*1024)throw Error('项目压缩包超过大小限制');const reader=r.body.getReader(),chunks=[];let total=0;for(;;){const {done,value}=await reader.read();if(done)break;total+=value.length;if(total>256*1024*1024){await reader.cancel();throw Error('项目压缩包超过大小限制');}chunks.push(Buffer.from(value));}return Buffer.concat(chunks);}
+  async zip(route){
+    try{
+      const r=await this.request(route);
+      if(r.headers.get('content-type')?.includes('text/html'))throw Error('Overleaf 未返回项目压缩包，请打开登录窗口检查网页验证状态');
+      const size=Number(r.headers.get('content-length'));
+      if(size>256*1024*1024)throw Error('项目压缩包超过大小限制');
+      const reader=r.body.getReader(),chunks=[];let total=0;
+      for(;;){
+        const {done,value}=await reader.read();if(done)break;total+=value.length;
+        if(total>256*1024*1024){await reader.cancel();throw Error('项目压缩包超过大小限制');}
+        chunks.push(Buffer.from(value));
+      }
+      return Buffer.concat(chunks);
+    }catch(e){
+      if(['AbortError','TimeoutError'].includes(e.name)||e.message==='Overleaf 请求超时，请稍后重试')throw Error('Overleaf 项目下载超时，请检查网络后重新加载；无需为此退出登录');
+      throw e;
+    }
+  }
   async tree(id){
     if(this.worker&&!this.worker.isDestroyed())this.worker.close();
     const win=this.window(false);this.worker=win;this.active=true;
