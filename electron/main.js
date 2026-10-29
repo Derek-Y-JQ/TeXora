@@ -178,6 +178,15 @@ function createWindow() {
     win = null;
     ready = false;
   });
+  win.webContents.on('will-prevent-unload', event => {
+    const response = dialog.showMessageBoxSync(win, {
+      type: 'warning', title: '未保存的修改',
+      message: '有未保存的文件，仍要退出或重新载入吗？',
+      detail: '选择取消后，可先保存所有文件。',
+      buttons: ['取消', '放弃修改并继续'], defaultId: 0, cancelId: 0, noLink: true
+    });
+    if (response === 1) event.preventDefault();
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };

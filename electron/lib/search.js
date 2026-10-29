@@ -48,11 +48,11 @@ async function searchProject(root, options) {
       const full = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (IGNORED_DIRS.has(e.name)) continue;
-        if (excludeRe && excludeRe.test(path.relative(root, full))) continue;
+        if (excludeRe && excludeRe.test(path.relative(root, full).split(path.sep).join('/'))) continue;
         await walk(full, depth + 1);
         continue;
       }
-      if (!isTextFile(full)) continue;
+      if (!e.isFile() || !isTextFile(full)) continue;
       const rel = path.relative(root, full).split(path.sep).join('/');
       if (includeRe && !includeRe.test(rel)) continue;
       if (excludeRe && excludeRe.test(rel)) continue;
@@ -90,6 +90,7 @@ async function searchProject(root, options) {
             truncated = true;
             break;
           }
+          if (!m[0].length) matcher.lastIndex = m.index + 1;
           if (!matcher.global) break;
         }
         if (truncated) break;
@@ -151,7 +152,7 @@ async function replaceProject(root, options) {
         await walk(full, depth + 1);
         continue;
       }
-      if (!isTextFile(full)) continue;
+      if (!e.isFile() || !isTextFile(full)) continue;
       const rel = path.relative(root, full).split(path.sep).join('/');
       if (includeRe && !includeRe.test(rel)) continue;
       if (excludeRe && excludeRe.test(rel)) continue;
@@ -171,8 +172,7 @@ async function replaceProject(root, options) {
           if (next !== text) { await fsp.writeFile(full, next, 'utf8'); files++; replacements += count; touched.push(rel); }
         }
       } else {
-        const q = options.query;
-        const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), options.caseSensitive ? 'g' : 'gi');
+        const re = new RegExp(matcher.source, matcher.flags);
         count = (text.match(re) || []).length;
         if (count) {
           const next = text.replace(re, () => replacement);

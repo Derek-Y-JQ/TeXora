@@ -422,8 +422,12 @@ function wireProblems() {
 }
 
 function wireShortcutsExtras() {
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener('beforeunload', event => {
     ctx.editor?.saveViewState();
+    if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
   });
 }
 
@@ -681,6 +685,10 @@ async function onProjectOpened(proj, { openRoot = true, silent = false } = {}) {
 
 let projectOpenRequest = 0;
 async function openProject(path) {
+  if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+    const ok = await ctx.dialogs.confirm({ title: '切换项目', message: '当前项目有未保存的修改，保存全部文件后切换？', confirmText: '保存并切换' });
+    if (!ok || !(await saveAll())) return;
+  }
   const request = ++projectOpenRequest;
   resetProjectPreview();
   const res = await api.project.open(path);
@@ -696,7 +704,7 @@ async function openProject(path) {
 
 async function closeProject() {
   const doc = ctx.state.docs.get(ctx.state.activePath);
-  if (doc?.dirty) {
+  if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
     const ok = await ctx.dialogs.confirm({ title: '关闭项目', message: '有未保存的修改，仍要关闭项目吗？', confirmText: '关闭', danger: true });
     if (!ok) return;
   }
@@ -720,7 +728,9 @@ async function refreshAssets() {
 
 async function reloadOpenDocuments() {
   for (const [path, doc] of ctx.state.docs) {
+    if (doc.dirty) continue;
     const res = await api.fs.read(path);
+    if (doc.dirty || ctx.state.docs.get(path) !== doc) continue;
     if (res.ok && typeof res.text === 'string' && res.text !== doc.model.getValue()) doc.model.setValue(res.text);
     if(res.ok && typeof res.text === 'string') { doc.savedText=res.text;doc.mtime=res.mtime;doc.dirty=false; }
   }
@@ -876,7 +886,18 @@ async function newDocument() {
   openDocument(res.path);
 }
 
-async function saveDocument(path = ctx.state.activePath, { silent = false } = {}) {
+function saveDocument(path = ctx.state.activePath, options = {}) {
+  const doc = ctx.state.docs.get(path);
+  if (!doc) return Promise.resolve(false);
+  const pending = (doc.saveQueue || Promise.resolve()).catch(() => false).then(() => {
+    if (ctx.state.docs.get(path) !== doc) return false;
+    return saveDocumentNow(path, options);
+  });
+  doc.saveQueue = pending;
+  return pending;
+}
+
+async function saveDocumentNow(path, { silent = false } = {}) {
   const doc = ctx.state.docs.get(path);
   if (!doc) return false;
   const text = doc.model.getValue();
@@ -885,7 +906,8 @@ async function saveDocument(path = ctx.state.activePath, { silent = false } = {}
     toast({ type: 'error', title: '保存失败', body: res.error });
     return false;
   }
-  doc.dirty = false;
+  if (ctx.state.docs.get(path) !== doc) return false;
+  doc.dirty = doc.model.getValue() !== text;
   doc.savedText = text;
   doc.mtime = res.mtime;
   if (ctx.state.settings.files.historyEnabled) await api.history.snapshot(path, text, 'save');
@@ -899,9 +921,11 @@ async function saveDocument(path = ctx.state.activePath, { silent = false } = {}
 
 async function saveAll() {
   for (const [path, doc] of ctx.state.docs) {
-    if (doc.dirty) await saveDocument(path, { silent: true });
+    if (doc.dirty && !(await saveDocument(path, { silent: true }))) return false;
   }
-  toast({ type: 'success', title: '全部文件已保存' });
+  const saved = ![...ctx.state.docs.values()].some(doc => doc.dirty);
+  if (saved) toast({ type: 'success', title: '全部文件已保存' });
+  return saved;
 }
 
 async function closeDocument(path = ctx.state.activePath) {
@@ -919,7 +943,7 @@ async function closeDocument(path = ctx.state.activePath) {
     });
     if (!keep) return;
     const ok = await saveDocument(path, { silent: true });
-    if (!ok) return;
+    if (!ok || doc.dirty) return;
   }
   const paths = Array.from(ctx.state.docs.keys());
   const idx = paths.indexOf(path);
@@ -927,6 +951,7 @@ async function closeDocument(path = ctx.state.activePath) {
   try {
     doc.model.dispose();
   } catch {}
+  clearTimeout(autosaveTimers.get(path));
   autosaveTimers.delete(path);
   if (ctx.state.activePath === path) {
     const next = paths[idx + 1] || paths[idx - 1];
@@ -949,6 +974,8 @@ async function closeDocument(path = ctx.state.activePath) {
 }
 
 function closeAllDocuments() {
+  for (const timer of autosaveTimers.values()) clearTimeout(timer);
+  autosaveTimers.clear();
   for (const [path, doc] of ctx.state.docs) {
     try {
       doc.model.dispose();

@@ -602,6 +602,7 @@ export class Sidebar {
     const replacement = panel.querySelector('#searchReplace').value;
     if (!query) return toast({ type: 'warn', title: '请先填写查找内容' });
     if (!ctx.state.project.root) return toast({ type: 'warn', title: '请先打开项目' });
+    if ([...ctx.state.docs.values()].some(doc => doc.dirty)) return toast({ type: 'warn', title: '请先保存所有修改，再替换项目内容' });
     if (!window.confirm('将在整个项目中把 “' + query + '” 替换为 “' + replacement + '”，是否继续？')) return;
     const res = await ctx.api.search.replace({
       query,
@@ -609,7 +610,7 @@ export class Sidebar {
       regex: this.searchState.regex,
       caseSensitive: this.searchState.caseSensitive,
       wholeWord: this.searchState.wholeWord,
-      include: this.searchState.include
+      include: panel.querySelector('#searchInclude').value.trim()
     });
     if (!res.ok) return toast({ type: 'error', title: '替换失败', body: res.error || '' });
     await ctx.app.reloadOpenDocuments();
@@ -620,7 +621,10 @@ export class Sidebar {
   async runSearch() {
     const q = this.panels.search.querySelector('#searchQuery').value;
     this.searchState.query = q;
-    if (!q) return;
+    const request = this.searchRequest = (this.searchRequest || 0) + 1;
+    const root = ctx.state.project.root;
+    this.searchState.include = this.panels.search.querySelector('#searchInclude').value.trim();
+    if (!q) { this.searchState.busy = false; this.searchState.results = null; this.panels.search.querySelector('#searchResults').innerHTML = ''; return; }
     if (!ctx.state.project.root) {
       toast({ type: 'warn', title: '请先打开项目' });
       return;
@@ -634,6 +638,7 @@ export class Sidebar {
       wholeWord: this.searchState.wholeWord,
       include: this.searchState.include
     });
+    if (request !== this.searchRequest || root !== ctx.state.project.root) return;
     this.searchState.busy = false;
     this.searchState.results = res;
     this.renderSearch();
@@ -668,7 +673,12 @@ export class Sidebar {
     const highlight = (text) => {
       try {
         const re = st.regex ? new RegExp(q, st.caseSensitive ? 'g' : 'gi') : new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), st.caseSensitive ? 'g' : 'gi');
-        return escapeHtml(text).replace(re, (m) => `<mark>${escapeHtml(m)}</mark>`);
+        let html = '', offset = 0;
+        for (const match of text.matchAll(re)) {
+          html += escapeHtml(text.slice(offset, match.index)) + '<mark>' + escapeHtml(match[0]) + '</mark>';
+          offset = match.index + match[0].length;
+        }
+        return html + escapeHtml(text.slice(offset));
       } catch {
         return escapeHtml(text);
       }

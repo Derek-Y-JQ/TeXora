@@ -29,6 +29,14 @@ function isImageFile(file) {
   return IMAGE_EXT.has(path.extname(file).toLowerCase());
 }
 
+function childPath(dir, name) {
+  if (typeof name !== 'string' || !name.trim() || path.isAbsolute(name)) throw new Error('请输入有效的相对文件名');
+  const full = path.resolve(dir, name);
+  const rel = path.relative(path.resolve(dir), full);
+  if (!rel || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) throw new Error('文件名不能超出目标目录');
+  return full;
+}
+
 class ProjectService extends EventEmitter {
   constructor(store, appDir) {
     super();
@@ -164,6 +172,8 @@ class ProjectService extends EventEmitter {
   }
 
   stopWatch() {
+    clearTimeout(this._pending);
+    this._pending = null;
     if (this.watcher) {
       try {
         this.watcher.close();
@@ -174,9 +184,9 @@ class ProjectService extends EventEmitter {
 
   safePath(target) {
     if (!this.root) throw new Error('尚未打开项目');
-    const resolved = path.resolve(target);
+    const resolved = path.resolve(this.root, target);
     const rel = path.relative(this.root, resolved);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) throw new Error('路径超出项目范围');
+    if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) throw new Error('路径超出项目范围');
     return resolved;
   }
 
@@ -237,7 +247,7 @@ class ProjectService extends EventEmitter {
 
   async createFile(targetDir, name, content = '') {
     const dir = path.isAbsolute(targetDir) ? targetDir : this.safePath(targetDir);
-    let full = path.join(dir, name);
+    let full = childPath(dir, name);
     let i = 1;
     while (fs.existsSync(full)) {
       const ext = path.extname(name);
@@ -251,14 +261,14 @@ class ProjectService extends EventEmitter {
 
   async createDir(targetDir, name) {
     const dir = path.isAbsolute(targetDir) ? targetDir : this.safePath(targetDir);
-    const full = path.join(dir, name);
+    const full = childPath(dir, name);
     await fsp.mkdir(full, { recursive: true });
     return full;
   }
 
   async rename(from, to) {
     const src = path.isAbsolute(from) ? from : this.safePath(from);
-    const dst = path.join(path.dirname(src), to);
+    const dst = childPath(path.dirname(src), to);
     await fsp.rename(src, dst);
     return dst;
   }
@@ -285,7 +295,7 @@ class ProjectService extends EventEmitter {
     const full = path.isAbsolute(dir) ? dir : this.safePath(dir);
     await fsp.mkdir(full, { recursive: true });
     const data = Buffer.from(base64.replace(/^data:[^;]+;base64,/, ''), 'base64');
-    let target = path.join(full, filename);
+    let target = childPath(full, filename);
     let i = 1;
     const ext = path.extname(filename);
     const base = path.basename(filename, ext);

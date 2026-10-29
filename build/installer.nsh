@@ -1,7 +1,6 @@
 !macro customInit
-  ; Close a running TeXora so locked files can be replaced.
-  nsExec::ExecToLog 'taskkill /F /IM "TeXora.exe" /T'
-  Sleep 300
+  ; Let the standard installer/uninstaller running-app checks prompt the user.
+  ; Never terminate the editor before the user can save their documents.
 
   ; Remove an older per-user ("just me") installation before installing for
   ; all users. electron-builder's uninstaller routine handles silent mode,

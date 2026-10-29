@@ -23,8 +23,12 @@ let modalEscape = null;
 function closeModal() {
   if (modalEscape) document.removeEventListener('keydown', modalEscape);
   modalEscape = null;
+  const previous = activeModal;
+  activeModal = null;
+  previous?.onClose?.();
   const layer = $('#modalLayer');
   if (!layer) return;
+  if (previous?.returnFocus?.isConnected) previous.returnFocus.focus();
   layer.innerHTML = '';
   layer.classList.remove('open');
   activeModal = null;
@@ -34,9 +38,10 @@ function modal({ title = '', subtitle = '', iconName = '', width = 560, height =
   const layer = $('#modalLayer');
   if (!layer) return null;
   closeModal();
+  const returnFocus = document.activeElement;
   layer.innerHTML = `
     <div class="modal-backdrop"></div>
-    <div class="modal ${className}" style="width:min(${width}px, 94vw);${height ? `height:${typeof height === 'number' ? height + 'px' : height};` : ''}">
+    <div class="modal ${className}" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" tabindex="-1" style="width:min(${width}px, 94vw);${height ? `height:${typeof height === 'number' ? height + 'px' : height};` : ''}">
       <div class="modal-head">
         <div>
           <div class="modal-title">${iconName ? icon(iconName) + ' ' : ''}${escapeHtml(title)}</div>
@@ -51,15 +56,21 @@ function modal({ title = '', subtitle = '', iconName = '', width = 560, height =
   const root = layer.querySelector('.modal');
   const close = () => {
     if (activeModal?.root !== root) return;
-    onClose?.();
     closeModal();
   };
   root.querySelector('.modal-close')?.addEventListener('click', close);
   if (dismissable) {
     layer.querySelector('.modal-backdrop')?.addEventListener('click', close);
   }
-  activeModal = { root, close };
+  activeModal = { root, close, onClose, returnFocus };
   modalEscape = e => {
+    if (e.key === 'Tab' && activeModal?.root === root) {
+      const items = [...root.querySelectorAll('button, input, textarea, select, a[href], [tabindex]')].filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+      const first = items[0], last = items.at(-1);
+      if (!first) { e.preventDefault(); root.focus(); }
+      else if (e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    }
     if (dismissable && e.key === 'Escape' && activeModal?.root === root) {
       e.preventDefault();
       close();
@@ -68,7 +79,7 @@ function modal({ title = '', subtitle = '', iconName = '', width = 560, height =
   document.addEventListener('keydown', modalEscape);
   onMount?.({ root, close });
   // focus first input
-  setTimeout(() => root.querySelector('.modal-body input, .modal-body textarea')?.focus(), 30);
+  setTimeout(() => { if (activeModal?.root === root) (root.querySelector('.modal-body input, .modal-body textarea, .modal-foot button') || root).focus(); }, 30);
   return { root, close, layer };
 }
 

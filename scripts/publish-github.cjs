@@ -1,149 +1,86 @@
-﻿'use strict';
-/**
- * Publish the current source tree and Windows installer to GitHub.
- * Requires: GITHUB_TOKEN (repo scope), GITHUB_OWNER, GITHUB_REPO.
- * Usage: node scripts/publish-github.mjs
+'use strict';
+/** Publish reviewed source and Windows assets, preserving the remote tree/history.
+ * GITHUB_TOKEN is read only from the environment and never written to disk.
+ * GITHUB_DRY_RUN=1 lists source changes without publishing.
  */
-const fs = require('node:fs');
-const fsp = fs.promises;
-const path = require('node:path');
-
-const TOKEN = process.env.GITHUB_TOKEN;
-const OWNER = process.env.GITHUB_OWNER;
-const REPO = process.env.GITHUB_REPO || 'TeXora';
-const VERSION = require('../package.json').version;
-const RELEASE_FILE = path.join('release', `TeXora-Setup-${VERSION}.exe`);
-const API = 'https://api.github.com';
-const EXCLUDE_DIRS = new Set(['node_modules', 'dist', 'release', '.git', '.capture', '.tmp', '.cache', '.latex_cache', '.texpadtmp']);
-const EXCLUDE_FILE = /(\.aux|\.log|\.out|\.toc|\.bbl|\.blg|\.synctex\.gz|\.fls|\.fdb_latexmk|\.bcf|\.run\.xml|\.thm|\.pdf)$/i;
-
-if (!TOKEN || !OWNER) {
-  console.error('Set GITHUB_TOKEN and GITHUB_OWNER before running.');
-  process.exit(1);
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const crypto=require('node:crypto');
+const token=process.env.GITHUB_TOKEN;
+const owner=process.env.GITHUB_OWNER || 'Derek-Y-JQ';
+const repo=process.env.GITHUB_REPO || 'TeXora';
+const version=require('../package.json').version;
+const tag='v'+version;
+const prefix=`https://api.github.com/repos/${owner}/${repo}`;
+const dry=process.env.GITHUB_DRY_RUN==='1';
+const roots=['src','electron','build','docs','skills'];
+const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs'];
+const rootFiles=['package.json','package-lock.json','vite.config.js','.gitignore','README.md','LICENSE','THIRD_PARTY_NOTICES.md'];
+const textExt=/\.(?:js|cjs|mjs|json|html|css|md|tex|bib|sty|cls|yml|yaml|txt|nsh|svg)$/i;
+async function request(url,method='GET',body,raw=false){
+ const response=await fetch(url,{method,headers:{Accept:'application/vnd.github+json','User-Agent':'TeXora-Publisher',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':raw?'application/octet-stream':'application/json'}:{})},body:body?(raw?body:JSON.stringify(body)):undefined,signal:AbortSignal.timeout(raw?600000:60000)});
+ const text=await response.text();let data;try{data=JSON.parse(text);}catch{data={message:text.slice(0,200)};}
+ if(!response.ok)throw Error(`GitHub ${response.status}: ${data.message || 'request failed'}`);
+ return data;
 }
-
-async function api(url, options = {}) {
-  const res = await fetch(url.startsWith('http') ? url : API + url, {
-    ...options,
-    headers: {
-      Authorization: 'Bearer ' + TOKEN,
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'TeXora-Publisher',
-      ...(options.headers || {})
-    }
-  });
-  const text = await res.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!res.ok) throw new Error(`${res.status} ${url}\n${String(text).slice(0, 500)}`);
-  return data;
+async function filesIn(dir){
+ const files=[];
+ for(const entry of await fs.readdir(dir,{withFileTypes:true})){
+  if(entry.isSymbolicLink()||entry.name.startsWith('.')||entry.name.includes('Derek'))continue;
+  const file=path.posix.join(dir,entry.name);
+  if(entry.isDirectory()){if(!['node_modules','__pycache__'].includes(entry.name))files.push(...await filesIn(file));}
+  else if(!/\.(?:pdf|aux|bbl|blg|toc|out|fls|fdb_latexmk|log|synctex\.gz|exe|zip|pyc)$/i.test(file))files.push(file);
+ }
+ return files;
 }
-
-async function ensureRepo() {
-  try {
-    return await api(`/repos/${OWNER}/${REPO}`);
-  } catch (err) {
-    if (!String(err.message).startsWith('404')) throw err;
-    const created = await api('/user/repos', {
-      method: 'POST',
-      body: JSON.stringify({ name: REPO, private: false, description: 'TeXora — local-first LaTeX editor for Windows' })
-    });
-    console.log('Created repository', created.html_url);
-    return created;
+async function main(){
+ if(!dry&&!token)throw Error('Set GITHUB_TOKEN before publishing.');
+ const head=await request(prefix+'/git/ref/heads/main');
+ const parent=await request(prefix+'/git/commits/'+head.object.sha);
+ const tree=await request(prefix+'/git/trees/'+parent.tree.sha+'?recursive=1');
+ if(tree.truncated)throw Error('Remote tree is truncated; refusing partial publication.');
+ const remote=new Map(tree.tree.map(e=>[e.path,e.sha]));
+ const files=[...rootFiles,...releaseScripts];for(const root of roots)files.push(...await filesIn(root));
+ const changed=[];
+ for(const file of files){
+  let content;try{content=await fs.readFile(file);}catch(e){if(e.code==='ENOENT'&&file==='package-lock.json')continue;throw e;}
+  const rawHash=crypto.createHash('sha1').update(Buffer.from(`blob ${content.length}\0`)).update(content).digest('hex');
+  if(remote.get(file)===rawHash)continue;
+  if(textExt.test(file)||rootFiles.includes(file)){
+   const text=content.toString('utf8').replace(/\r\n/g,'\n');
+   if(/github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]{25,}/.test(text)&&!file.endsWith('publish-github.cjs'))throw Error('Credential-like value detected in '+file);
+   content=Buffer.from(text);
   }
+  const hash=crypto.createHash('sha1').update(Buffer.from(`blob ${content.length}\0`)).update(content).digest('hex');
+  if(remote.get(file)!==hash)changed.push({file,content});
+ }
+ console.log('Source changes:',changed.map(e=>e.file).join('\n'));
+ if(dry){console.log('DRY RUN: '+changed.length+' files; remote HEAD '+head.object.sha);return;}
+ const installer=`TeXora-Setup-${version}.exe`;
+ const installerBytes=await fs.readFile(path.join('release',installer));
+ const checksum=crypto.createHash('sha256').update(installerBytes).digest('hex')+'  '+installer+'\n';
+ await fs.writeFile('release/SHA256SUMS.txt',checksum);
+ const notes=await fs.readFile('docs/release-'+version+'.md','utf8');
+ // A release version is immutable; never silently reuse another commit's tag.
+ const tags=await request(prefix+'/git/matching-refs/tags/'+tag);
+ if(tags.some(t=>t.ref==='refs/tags/'+tag))throw Error('Version tag already exists; refusing to overwrite it.');
+ const entries=[];
+ for(const {file,content}of changed){
+  const blob=await request(prefix+'/git/blobs','POST',{content:content.toString('base64'),encoding:'base64'});
+  entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
+ }
+ const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
+ const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: reliable saves, project search and accessible dialogs`,tree:nextTree.sha,parents:[head.object.sha]});
+ const latest=await request(prefix+'/git/ref/heads/main');
+ if(latest.object.sha!==head.object.sha)throw Error('Remote main changed during preparation; retry after review.');
+ await request(prefix+'/git/refs/heads/main','PATCH',{sha:commit.sha,force:false});
+ const release=await request(prefix+'/releases','POST',{tag_name:tag,target_commitish:commit.sha,name:'TeXora '+version,body:notes,draft:true,prerelease:false});
+ for(const [name,bytes]of [[installer,installerBytes],['SHA256SUMS.txt',Buffer.from(checksum)]]){
+  const asset=await request(release.upload_url.replace(/\{.*$/,'')+'?name='+encodeURIComponent(name),'POST',bytes,true);
+  if(asset.size!==bytes.length)throw Error('Uploaded asset size mismatch: '+name);
+  console.log('Uploaded',name,asset.size,'bytes');
+ }
+ const published=await request(prefix+'/releases/'+release.id,'PATCH',{draft:false});
+ console.log('Published:',published.html_url,'commit:',commit.sha,'SHA256:',checksum.trim());
 }
-
-async function walk(dir, files) {
-  for (const entry of await fsp.readdir(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith('.git')) continue;
-    if (entry.isSymbolicLink()) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (EXCLUDE_DIRS.has(entry.name)) continue;
-      await walk(full, files);
-    } else if (!EXCLUDE_FILE.test(entry.name)) {
-      files.push(full);
-    }
-  }
-}
-
-async function main() {
-  await ensureRepo();
-  const files = [];
-  await walk(process.cwd(), files);
-  console.log('Uploading', files.length, 'source files…');
-  let parent = null;
-  try {
-    const ref = await api(`/repos/${OWNER}/${REPO}/git/ref/heads/main`);
-    parent = ref.object.sha;
-  } catch (err) {
-    if (!String(err.message).startsWith('404') && !String(err.message).startsWith('409')) throw err;
-  }
-  const tree = [];
-  for (let i = 0; i < files.length; i += 5) {
-    const chunk = files.slice(i, i + 5);
-    const entries = await Promise.all(chunk.map(async (file) => {
-      const rel = path.relative(process.cwd(), file).split(path.sep).join('/');
-      let content;
-      try { content = await fsp.readFile(file); } catch { return null; }
-      if (content.length > 30 * 1024 * 1024) return null;
-      const blob = await api(`/repos/${OWNER}/${REPO}/git/blobs`, {
-        method: 'POST',
-        body: JSON.stringify({ content: content.toString('base64'), encoding: 'base64' })
-      });
-      return { path: rel, mode: '100644', type: 'blob', sha: blob.sha };
-    }));
-    tree.push(...entries.filter(Boolean));
-    process.stdout.write(`\r${Math.min(files.length, i + 5)}/${files.length}`);
-  }
-  process.stdout.write('\n');
-  const treeRes = await api(`/repos/${OWNER}/${REPO}/git/trees`, {
-    method: 'POST',
-    body: JSON.stringify({ tree, ...(parent ? {} : {}) })
-  });
-  const commit = await api(`/repos/${OWNER}/${REPO}/git/commits`, {
-    method: 'POST',
-    body: JSON.stringify({
-      message: `TeXora ${VERSION}`,
-      tree: treeRes.sha,
-      ...(parent ? { parents: [parent] } : {})
-    })
-  });
-  if (parent) {
-    await api(`/repos/${OWNER}/${REPO}/git/refs/heads/main`, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
-  } else {
-    await api(`/repos/${OWNER}/${REPO}/git/refs`, { method: 'POST', body: JSON.stringify({ ref: 'refs/heads/main', sha: commit.sha }) });
-  }
-  console.log('Committed source.');
-
-  const tag = 'v' + VERSION;
-  try {
-    await api(`/repos/${OWNER}/${REPO}/git/refs`, { method: 'POST', body: JSON.stringify({ ref: 'refs/tags/' + tag, sha: commit.sha }) });
-  } catch (err) {
-    if (!String(err.message).includes('Reference already exists')) throw err;
-  }
-  let release;
-  try {
-    release = await api(`/repos/${OWNER}/${REPO}/releases/tags/${tag}`);
-  } catch {
-    release = await api(`/repos/${OWNER}/${REPO}/releases`, {
-      method: 'POST',
-      body: JSON.stringify({
-        tag_name: tag,
-        name: `TeXora ${VERSION}`,
-        body: `TeXora ${VERSION} — 首个 GitHub 发布版本。\n\n见 README 的功能说明。`,
-        draft: false,
-        prerelease: false
-      })
-    });
-  }
-  if (fs.existsSync(RELEASE_FILE)) {
-    console.log('Uploading installer…');
-    const uploadUrl = release.upload_url.replace(/\{.*$/, '') + '?name=' + path.basename(RELEASE_FILE);
-    const buf = await fsp.readFile(RELEASE_FILE);
-    await api(uploadUrl, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: buf });
-  }
-  console.log('Done:', `https://github.com/${OWNER}/${REPO}/releases/tag/${tag}`);
-}
-
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch(error=>{console.error(error.message);process.exitCode=1;});

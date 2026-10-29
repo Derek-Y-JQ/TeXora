@@ -359,3 +359,12 @@
 .overleaf-transfer-line { display:flex;justify-content:space-between;gap:12px;font-size:12px;font-variant-numeric:tabular-nums; }
 .overleaf-transfer-line strong { font-size:13px; }
 .overleaf-transfer progress { display:block;width:100%;height:8px;margin:12px 0;accent-color:var(--accent); }
+
+/* Visible keyboard navigation and compact dialog layouts. */
+.modal :is(button, a, input, textarea, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.overleaf-project > div { min-width: 0; overflow-wrap: anywhere; }
+.overleaf-project > button { flex-shrink: 0; }
+@media (max-width: 760px) {
+  .overleaf-actions, .overleaf-binding, .overleaf-project { flex-wrap: wrap; }
+  .modal-foot { flex-wrap: wrap; gap: 8px; }
+}

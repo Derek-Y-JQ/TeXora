@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
+const root=path.resolve('.capture/verify140-project');
+fs.mkdirSync(root,{recursive:true});
+fs.writeFileSync(path.join(root,'main.tex'),'\\documentclass{article}\n\\begin{document}\ncat scatter cat\n\\input{child}\n\\end{document}\n');
+fs.writeFileSync(path.join(root,'child.tex'),'child\n');
+const temp=path.resolve('.tmp');fs.mkdirSync(temp,{recursive:true});
+const env={...process.env,TEXORA_USER_DATA:path.resolve('.capture/profile140-'+Date.now()),TEXORA_ELECTRON:process.env.TEXORA_ELECTRON||path.resolve('node_modules/electron/dist/electron.exe'),CDP_PORT:process.env.CDP_PORT||'9340',TEMP:temp,TMP:temp};
+const child=spawn(process.execPath,['scripts/cdp.mjs','--script','scripts/verify-140.mjs','--','--project='+root,...process.argv.slice(2)],{env,stdio:'inherit',windowsHide:true});
+child.on('error',error=>{console.error(error.message);process.exitCode=1;});
+child.on('exit',code=>process.exitCode=code??1);

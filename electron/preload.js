@@ -11,15 +11,11 @@ function assetUrl(p) {
   return 'asset://local/?p=' + encodeURIComponent(p);
 }
 
-const listeners = new Map();
 function on(channel, cb) {
   const wrapped = (_event, payload) => cb(payload);
   ipcRenderer.on(channel, wrapped);
-  listeners.set(cb, wrapped);
   return () => {
-    const w = listeners.get(cb);
-    if (w) ipcRenderer.removeListener(channel, w);
-    listeners.delete(cb);
+    ipcRenderer.removeListener(channel, wrapped);
   };
 }
 
