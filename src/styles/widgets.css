@@ -37,8 +37,8 @@
   color: var(--text); font-size: 13.5px; line-height: 1.85; user-select: text;
   max-width: 100%;
 }
-.md-preview h1, .md-preview h2, .md-preview h3, .md-preview h4 {
-  font-family: var(--font-display); color: var(--text); margin: 1.2em 0 0.55em; line-height: 1.35;
+.md-preview h1, .md-preview h2, .md-preview h3, .md-preview h4, .md-preview h5, .md-preview h6 {
+  font-family: var(--font-display); color: inherit; margin: 1.2em 0 0.55em; line-height: 1.35;
 }
 .md-preview h1 { font-size: 22px; }
 .md-preview h2 { font-size: 18px; }
@@ -57,6 +57,8 @@
 .md-preview table.md-table th, .md-preview table.md-table td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 .md-preview table.md-table th { background: var(--surface-2); font-weight: 600; }
 .md-in-pane {
+  --text: #1f2a44; --text-2: #40506b; --surface-2: #e8ebf4; --surface-3: #e8ebf4;
+  --inset: #eef1f8; --border: #c8d0df; --accent: #165da8; --accent-border: #8caed3; --accent-softer: #e8eff8;
   background: var(--paper); color: #1f2a44; border-radius: 6px; box-shadow: var(--paper-shadow);
   padding: 34px 38px; min-height: 100%; max-width: 820px; margin: 0 auto;
 }

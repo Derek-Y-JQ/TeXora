@@ -21,6 +21,15 @@ try {
 
 let counter = 0;
 
+function commandFor(exe,args){
+  if(process.platform!=='win32'||! /\.(bat|cmd)$/i.test(exe))return {exe,args,windowsVerbatimArguments:false};
+  const values=[exe,...args].map(String);
+  // cmd expands percent variables even inside quotes. Never interpolate those,
+  // embedded quotes or newlines into a batch command; keep every value quoted.
+  if(values.some(value=>/["%!\r\n\0]/.test(value)))throw Error('批处理路径或参数包含不支持的双引号、百分号、感叹号或换行');
+  return {exe:process.env.ComSpec||'cmd.exe',args:['/d','/v:off','/s','/c','"'+values.map(value=>'"'+value+'"').join(' ')+'"'],windowsVerbatimArguments:true};
+}
+
 function tmpFile(tag) {
   counter += 1;
   return path.join(tmpRoot, `${tag}-${process.pid}-${Date.now()}-${counter}.log`);
@@ -43,7 +52,9 @@ function run(exe, args, options = {}) {
     }
     let child;
     try {
-      child = spawn(exe, args, {
+      const command=commandFor(exe,args);
+      child = spawn(command.exe, command.args, {
+        windowsVerbatimArguments:command.windowsVerbatimArguments,
         cwd: cwd || undefined,
         env: { ...process.env, ...(env || {}) },
         stdio: [input ? 'ignore' : 'ignore', fd, fd],
@@ -112,4 +123,4 @@ function killTree(pid) {
   }
 }
 
-module.exports = { run, capture, killTree, tmpRoot };
+module.exports = { run, capture, killTree, tmpRoot, commandFor };

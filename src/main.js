@@ -9,6 +9,7 @@ import { packageInsertion } from './js/code-blocks.js';
 import { projectOutline } from './js/project-outline.js';
 import { EditorController, monaco, clearMathPreviewCache } from './js/editor.js';
 import { PreviewController } from './js/preview.js';
+import {texHealth} from './js/tex-health.js';
 import { Sidebar } from './js/sidebar.js';
 import { createCommands } from './js/commands.js';
 import { createRibbon } from './js/ribbon.js';
@@ -1876,11 +1877,11 @@ async function checkTexEnvironment() {
   const res = await api.tex.refresh();
   ctx.state.texInfo = res;
   ctx.ribbon.refresh();
-  const missing = Object.entries(res.tools || {}).filter(([, v]) => !v).map(([k]) => k);
+  const health=texHealth(res);
   toast({
-    type: missing.length ? 'warn' : 'success',
-    title: missing.length ? 'TeX 环境部分可用' : 'TeX 环境正常',
-    body: `${res.distro} · ${res.version || ''}${missing.length ? `\n缺少工具：${missing.join(', ')}` : ''}`,
+    type: health.type,
+    title: health.title,
+    body: `${res.distro} · ${res.version || ''}\n${health.description}`,
     timeout: 7000
   });
   closeSettingsIfOpen();

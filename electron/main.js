@@ -274,7 +274,7 @@ app.whenReady().then(async () => {
   }
   tex.detect();
   try { ai.ensureBuiltinSkill(path.join(__dirname, '..', 'skills', 'lieflat-less-ai-tone.md')); } catch (err) { console.warn('[skill]', err.message); }
-  tex.version().then((v) => { tex.cache.version = v; tex._writeCache(); }).catch(() => {});
+  tex.version().then((v) => { if(v){tex.cache.version = v; tex._writeCache();} }).catch(() => {});
   history.setRoot(project.root, store.get('files.historyMaxDays', 14));
 
   if(cliBuild){

@@ -5,6 +5,7 @@
 import { ctx } from './ctx.js';
 import { $, $$, icon, escapeHtml, toast, formatBytes, debounce } from './util.js';
 import { CODE_THEMES } from './code-themes.js';
+import {texHealth} from './tex-health.js';
 
 const PROVIDER_PRESETS = {
   deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-flash', 'deepseek-reasoner', 'deepseek-chat'] },
@@ -180,6 +181,7 @@ export function createSettingsUI() {
 
   function renderTex() {
     const info = ctx.state.texInfo || {};
+    const health=texHealth(info);
     return `
       <h2 class="settings-section-title">宏包与 TeX 环境</h2>
       <p class="settings-section-desc">自动探测本地 TeX 发行版，管理宏包安装策略、CTAN 镜像与文档排版字体。</p>
@@ -190,7 +192,7 @@ export function createSettingsUI() {
           <div class="setting-control"><span class="chip accent">${escapeHtml((info.distro || 'none').toUpperCase())}</span></div>
         </div>
         <div class="setting-row">
-          <div class="setting-main"><div class="setting-name">可执行工具</div><div class="setting-desc">编译 / 定位 / 预览所需的命令行工具</div></div>
+          <div class="setting-main"><div class="setting-name">编译引擎与文献工具</div><div class="setting-desc">${escapeHtml(health.description)}</div></div>
           <div class="setting-control" style="flex-wrap:wrap;justify-content:flex-end;max-width:420px">
             ${Object.entries(info.engines || {})
               .map(([k, ok]) => `<span class="chip ${ok ? 'accent' : ''}" title="${ok ? '可用' : '未找到'}">${k}</span>`)
@@ -203,6 +205,7 @@ export function createSettingsUI() {
           <div class="setting-control"><button class="btn btn-sm" id="setDetectTex">${icon('refresh')}检测 TeX 环境</button></div>
         </div>
       </div>
+      <div class="field-hint">TeX Live / TinyTeX 使用 tlmgr；MiKTeX 使用 mpm。当前管理器：${escapeHtml(health.manager?health.manager+(info.tools?.[health.manager]?'（可用）':'（未找到）'):'未识别')}。无需补装另一发行版的管理器。</div>
       ${group('缺失宏包自动安装')}
       <div class="setting-card">
         ${selectRow('build.autoInstallMissing', '安装策略', '', [['ask', '安装前询问'], ['auto', '自动下载安装并重连编译'], ['never', '仅提示不安装']])}
@@ -466,6 +469,7 @@ export function createSettingsUI() {
   }
 
   function render() {
+    if(!wrap?.root?.isConnected)return;
     const body = wrap.root.querySelector('.settings-content');
     const nav = wrap.root.querySelector('.settings-nav');
     nav.innerHTML =

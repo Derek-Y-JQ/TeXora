@@ -69,6 +69,16 @@ function exists(p) {
   try { return fs.existsSync(p); } catch { return false; }
 }
 
+function parseMpmList(text){
+  const names=[];
+  for(const line of text.split(/\r?\n/).map(value=>value.trim())){
+    const row=line.match(/^(true|false|i|u|-)\s+\d+\s+\d+\s+([a-zA-Z0-9@_.-]+)$/i);
+    if(row){if(/^(true|i)$/i.test(row[1]))names.push(row[2]);continue;}
+    if(/^[a-zA-Z0-9][a-zA-Z0-9@_.-]*$/.test(line)&&!/^(true|false|listing|packages?|mpm|usage|warning|error)$/i.test(line))names.push(line);
+  }
+  return names;
+}
+
 class TexEnv {
   constructor(store, userDataDir) {
     this.store = store;
@@ -137,6 +147,12 @@ class TexEnv {
     this.binDir = binDir;
     this.tools = found;
     this.distro = this._detectDistro(binDir);
+    const installation=path.resolve(binDir||'.').toLowerCase()+'|'+this.distro;
+    if(this.cache.installation!==installation){
+      for(const key of ['packages','packagesAt','sty','styAt','version'])delete this.cache[key];
+      this.cache.installation=installation;
+      this._writeCache();
+    }
     this.env = this._buildEnv();
     return this.info();
   }
@@ -145,6 +161,7 @@ class TexEnv {
     if (!binDir) return 'none';
     const lower = binDir.toLowerCase();
     if (lower.includes('tinytex')) return 'tinytex';
+    if (lower.includes('texlive')) return 'texlive';
     if (lower.includes('miktex') || exists(path.join(binDir, 'mpm.exe')) || exists(path.join(binDir, 'miktex-console.exe'))) {
       return 'miktex';
     }
@@ -171,6 +188,11 @@ class TexEnv {
     return this.tools[name] || '';
   }
 
+  packageManager(){
+    const name=this.distro==='miktex'?'mpm':['texlive','tinytex'].includes(this.distro)?'tlmgr':'';
+    return name&&this.tools[name]?{name,exe:this.tools[name]}:null;
+  }
+
   info() {
     const tools = this.tools;
     return {
@@ -190,6 +212,7 @@ class TexEnv {
         latexdiff: tools.latexdiff,
         pdftocairo: tools.pdftocairo,
         pdftoppm: tools.pdftoppm,
+        mgs:tools.mgs,
         pdftohtml: tools.pdftohtml,
         pdfinfo: tools.pdfinfo,
         pdftotext: tools.pdftotext,
@@ -202,11 +225,12 @@ class TexEnv {
   }
 
   async version() {
+    const installation=this.cache.installation;
     const exe = this.tools.xelatex || this.tools.pdflatex;
     if (!exe) return '';
     const out = await capture(exe, ['--version'], { timeout: 15000, env: this.env });
     const first = out.split(/\r?\n/).find((l) => /TeX|version/i.test(l)) || out.split(/\r?\n/)[0] || '';
-    return first.trim().slice(0, 120);
+    return installation===this.cache.installation?first.trim().slice(0, 120):'';
   }
 
   /** Installed LaTeX packages, cached for a day. */
@@ -216,25 +240,29 @@ class TexEnv {
       return this.cache.packages;
     }
     let names = [];
+    const installation=this.cache.installation;
+    const manager=this.packageManager();
+    if(!manager)return [];
     try {
-      if (this.tools.mpm) {
-        const out = await capture(this.tools.mpm, ['--list'], { timeout: 60000, env: this.env });
-        names = out
-          .split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter((l) => l && !/^(listing|packages?|mpm|usage|warning|error)/i.test(l))
-          .map((l) => l.split(/\s+/)[0])
-          .filter((n) => /^[a-zA-Z0-9@_\-.]+$/.test(n));
-      } else if (this.tools.tlmgr) {
-        const out = await capture(this.tools.tlmgr, ['info', '--only-installed', '--data', 'name'], {
+      if (manager.name==='mpm') {
+        const result=await run(manager.exe,['--list'],{timeout:60000,env:this.env});
+        if(result.code!==0)throw Error(result.output||'mpm 查询失败');
+        const out=result.file?await fsp.readFile(result.file,'utf8'):result.output;
+        names = parseMpmList(out);
+      } else {
+        const result = await run(manager.exe, ['info', '--only-installed', '--data', 'name'], {
           timeout: 90000,
           env: this.env
         });
+        if(result.code!==0)throw Error(result.output||'tlmgr 查询失败');
+        const out=result.file?await fsp.readFile(result.file,'utf8'):result.output;
         names = out.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^[a-zA-Z0-9@_\-.]+$/.test(l));
       }
     } catch (err) {
       console.warn('[tex] package list failed', err.message);
+      return installation===this.cache.installation?(this.cache.packages||[]):[];
     }
+    if(installation!==this.cache.installation)return [];
     names = Array.from(new Set(names)).sort();
     this.cache.packages = names;
     this.cache.packagesAt = now;
@@ -254,24 +282,26 @@ class TexEnv {
     const policy = this.store.get('build.autoInstallMissing', 'ask');
     const mirror = mirrorOverride || this.store.get('build.mirror', '');
     const pkg = String(name || '').trim();
-    if (!/^[a-zA-Z0-9@_\-.]+$/.test(pkg)) return { ok: false, error: '非法宏包名' };
-    if (!this.tools.mpm && !this.tools.tlmgr) {
-      return { ok: false, error: '未找到可用的宏包管理器（mpm / tlmgr）' };
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9@_\-.]*$/.test(pkg)) return { ok: false, error: '非法宏包名' };
+    if(policy==='never')return {ok:false,error:'当前设置为“仅提示不安装”'};
+    const manager=this.packageManager();
+    if (!manager) {
+      return { ok: false, error: '未找到当前 TeX 发行版的宏包管理器（TeX Live / TinyTeX：tlmgr；MiKTeX：mpm）' };
     }
     let args;
     let exe;
-    if (this.tools.mpm) {
-      exe = this.tools.mpm;
+    if (manager.name==='mpm') {
+      exe = manager.exe;
       args = ['--install', pkg];
       // A CTAN root is not an MPM package repository. Keep MiKTeX's own mirror in that case.
       if (mirror && /miktex\/tm\/packages/i.test(mirror)) args.push('--repository', mirror);
-      if (policy === 'never') return { ok: false, error: '当前设置为“仅提示不安装”' };
     } else {
-      exe = this.tools.tlmgr;
+      exe = manager.exe;
       args = ['install', pkg];
     }
     const res = await run(exe, args, { timeout: 300000, env: this.env });
     const ok = res.code === 0;
+    if(ok){delete this.cache.packages;delete this.cache.packagesAt;delete this.cache.sty;delete this.cache.styAt;this._writeCache();}
     return { ok, code: res.code, output: res.output.slice(-8000), error: ok ? '' : res.output.split(/\r?\n/).slice(-6).join('\n') };
   }
 
@@ -334,6 +364,7 @@ class TexEnv {
   /** Search .sty names actually present on the filesystem (fast fallback). */
   async styFiles(limit = 3000) {
     if (this.cache.sty && Date.now() - (this.cache.styAt || 0) < 86400000) return this.cache.sty;
+    const installation=this.cache.installation;
     const out = [];
     const roots = [];
     if (this.tools.kpsewhich) {
@@ -358,6 +389,7 @@ class TexEnv {
       };
       await walk(root, 0);
     }
+    if(installation!==this.cache.installation)return [];
     this.cache.sty = out;
     this.cache.styAt = Date.now();
     this._writeCache();
@@ -365,4 +397,4 @@ class TexEnv {
   }
 }
 
-module.exports = { TexEnv };
+module.exports = { TexEnv, parseMpmList };
