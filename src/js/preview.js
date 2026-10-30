@@ -4,6 +4,7 @@
  */
 import { ctx } from './ctx.js';
 import { $, clamp, escapeHtml } from './util.js';
+import {openVectorPdf,disposeVectorPdf} from './pdf-viewer.js';
 
 export class PreviewController {
   constructor() {
@@ -77,6 +78,8 @@ export class PreviewController {
   /** Render a build result's page list. */
   render(pages, options = {}) {
     if (!this.stage) return;
+    const position=options.keepZoom?this.capturePosition():null;
+    disposeVectorPdf(this);
     this.pages = Array.isArray(pages) ? pages : [];
     this.pageEls = [];
     this.renderToken++;
@@ -134,9 +137,7 @@ export class PreviewController {
     this.zoom = options.keepZoom ? this.zoom : 1;
     this.relayout();
     if (options.scrollToPage) this.scrollToPage(options.scrollToPage);
-    else this.stage.scrollTop = 0;
-    if (token === this.renderToken) this.current = 1;
-    this.pageCurrent.textContent = '1';
+    else this.restorePosition(position);
   }
 
   relayout() {
@@ -146,7 +147,11 @@ export class PreviewController {
     const gutter = 0;
     const fitWidth = Math.max(120, this.stage.clientWidth - padding - gutter);
     const pageWidth = clamp(fitWidth * this.zoom, 120, 4000);
-    for (const el of this.pageEls) el.style.width = pageWidth + 'px';
+    const position=this.capturePosition();
+    let changed=false;
+    for (const el of this.pageEls) {if(el.style.width!==pageWidth+'px')changed=true;el.style.width = pageWidth + 'px';}
+    if(position)this.restorePosition(position);
+    if(changed)this.drawVector?.();
     this.zoomLabel.textContent = Math.round(this.zoom * 100) + '%';
     this.onScroll();
   }
@@ -220,6 +225,7 @@ export class PreviewController {
   }
 
   async onDoubleClick(event) {
+    if(this.standalone)return;
     const pageEl = event.target.closest('.pdf-page');
     if (!pageEl) return;
     const rect = pageEl.getBoundingClientRect();
@@ -246,16 +252,40 @@ export class PreviewController {
 
   clear() {
     this.renderToken++;
+    disposeVectorPdf(this);
+    this.pdfFile='';this.pdfIdentity='';this.standalone=false;
+    this.documentAt=0;
     this.pages = [];
     this.pageEls = [];
     this.stage?.querySelectorAll('.pdf-page').forEach((n) => n.remove());
+    this.stage?.querySelectorAll('.md-preview').forEach(n=>n.remove());
     this.showPlaceholder('编译后在此显示 PDF 预览');
     this.pageCurrent.textContent = '–';
     this.pageTotal.textContent = '–';
+    this.updateDocumentStatus('');
+  }
+
+  capturePosition(){
+    if(!this.pageEls.length)return null;
+    const top=this.stage.scrollTop;
+    let el=this.pageEls[0];for(const item of this.pageEls){if(item.offsetTop<=top+8)el=item;else break;}
+    return {page:Number(el.dataset.page),ratio:(top-el.offsetTop)/Math.max(1,el.offsetHeight),left:this.stage.scrollLeft};
+  }
+  restorePosition(position){
+    const page=position?Math.min(position.page,this.pageEls.length):1;
+    const el=this.pageEls[page-1];
+    this.stage.scrollTo({top:position&&el?Math.max(0,el.offsetTop+position.ratio*el.offsetHeight):0,left:position?.left||0,behavior:'instant'});
+    this.current=page;this.pageCurrent.textContent=String(page);this.onScroll();
+  }
+  openPdf(file,options={}){return openVectorPdf(this,file,options);}
+  updateDocumentStatus(text,at){
+    const status=$('#pdfDocumentStatus');if(!status)return;
+    if(at!==undefined)this.documentAt=at;
+    status.textContent=text+(this.documentAt?' · '+new Date(this.documentAt).toLocaleTimeString(): '');status.title=this.pdfFile||'';status.hidden=!text;
   }
 
   /** Point the preview at an arbitrary PDF (kept for future pdf.js integration). */
   currentPdf() {
-    return ctx.state.build.result?.pdf || '';
+    return this.pdfFile || ctx.state.build.result?.pdf || '';
   }
 }

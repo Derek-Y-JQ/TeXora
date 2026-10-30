@@ -23,7 +23,7 @@ export async function projectOutline(rootFile, readFile) {
       const line = lines[i].replace(/(?<!\\)(?:\\\\)*%.*/, '');
       if (/\\begin\{(?:verbatim\*?|lstlisting|minted)\}/.test(line)) verbatim = true;
       if (verbatim) { if (/\\end\{(?:verbatim\*?|lstlisting|minted)\}/.test(line)) verbatim = false; continue; }
-      const re = /\\(part|chapter|section|subsection|subsubsection)\*?(?:\[[^\]]*\])?\{([^}]*)\}|\\(input|include|subfile)\s*(?:\{([^}]+)\}|([^\s%]+))/g;
+      const re = /\\(part|chapter|section|subsection|subsubsection)\*?(?:\[[^\]]*\])?\{([^}]*)\}|\\(input|include|subfile)\b\s*(?:\{([^}]+)\}|([^\s%]+))/g;
       let m;
       while ((m = re.exec(line))) {
         if (m[1]) result.push({ file: rootFile.includes('\\') ? file.replace(/\//g, '\\') : file, rel: file.startsWith(base) ? file.slice(base.length) : file, line: i + 1, level: levels[m[1]], title: m[2].trim() });

@@ -25,6 +25,7 @@ const { GitService, findGit } = require('./lib/git');
 const { searchProject, replaceProject } = require('./lib/search');
 const { checkForUpdates } = require('./lib/updater');
 const PKG = require('../package.json');
+const {launchTargets,resolveOpenTarget}=require('./lib/open-target');
 
 const DIST = path.join(__dirname, '..', 'dist');
 app.setName('TeXora');
@@ -34,6 +35,19 @@ const USER_DATA =
   process.env.TEXORA_USER_DATA ||
   (app.isPackaged ? app.getPath('userData') : path.join(app.getPath('appData'), 'TeXora-dev'));
 try { fs.mkdirSync(USER_DATA, { recursive: true }); } catch {}
+app.setPath('userData',USER_DATA);
+const cliBuild=process.argv.includes('--build');
+const pendingOpenTargets=launchTargets(process.argv.slice(app.isPackaged?1:2));
+const primaryInstance=cliBuild||app.requestSingleInstanceLock({openTargets:pendingOpenTargets});
+if(!primaryInstance)app.quit();
+let initialFile='';
+app.on('second-instance',(_event,args,cwd,data)=>{
+  // Chromium can reorder arguments and append the app directory on Windows.
+  const targets=Array.isArray(data?.openTargets)?data.openTargets.filter(file=>typeof file==='string'):launchTargets(args.slice(app.isPackaged?1:2),cwd);
+  if(win&&!win.isDestroyed()){if(win.isMinimized())win.restore();win.show();win.focus();}
+  if(ready)for(const file of targets)send('app:open-target',file);else pendingOpenTargets.push(...targets);
+});
+app.on('open-file',(event,file)=>{event.preventDefault();if(ready)send('app:open-target',file);else pendingOpenTargets.push(file);});
 
 // ---------------------------------------------------------------- CLI options
 const argv = process.argv.slice(1);
@@ -41,7 +55,8 @@ function arg(name, fallback = '') {
   const hit = argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
   if (!hit) return fallback;
   const idx = hit.indexOf('=');
-  return idx >= 0 ? hit.slice(idx + 1) : '1';
+  if(idx>=0)return hit.slice(idx+1);
+  const next=argv[argv.indexOf(hit)+1];return next&&!next.startsWith('-')?next:'1';
 }
 
 const capture = {
@@ -100,6 +115,7 @@ function mimeFor(file) {
 // -------------------------------------------------------------------- services
 const store = new Store(USER_DATA);
 const project = new ProjectService(store, USER_DATA);
+if(cliBuild)project.pushRecent=()=>{};
 const tex = new TexEnv(store, USER_DATA);
 const history = new History('', path.join(USER_DATA, 'history'));
 const ai = new AiService(store);
@@ -214,6 +230,8 @@ function debounce(fn, ms) {
 
 // ---------------------------------------------------------------- app protocol
 app.whenReady().then(async () => {
+  if(!primaryInstance)return;
+  if(cliBuild&&!pendingOpenTargets.length){console.error('请指定 --project=<项目目录或主文档>');app.exit(2);return;}
   protocol.handle('app', async (request) => {
     try {
       const url = new URL(request.url);
@@ -240,9 +258,14 @@ app.whenReady().then(async () => {
     }
   });
 
-  const cliProject = capture.project || arg('project', '');
+  const cliTarget=pendingOpenTargets.shift();
+  const cliProject = capture.project || cliTarget;
   if (cliProject) {
-    try { await project.open(cliProject); } catch (err) { console.error('[startup] project open failed', err.message); }
+    try {
+      const target=await resolveOpenTarget(cliProject);
+      if(target.kind!=='pdf'){await project.open(target.root);if(target.rootFile)project.rootFile=target.rootFile;}
+      initialFile=target.file||'';
+    } catch (err) { pendingOpenTargets.unshift(cliProject);console.error('[startup] project open failed', err.message); }
   } else if (store.get('general.reopenLastProject', true)) {
     const last = store.get('ui.lastProject', '');
     if (last && fs.existsSync(last)) {
@@ -253,6 +276,11 @@ app.whenReady().then(async () => {
   try { ai.ensureBuiltinSkill(path.join(__dirname, '..', 'skills', 'lieflat-less-ai-tone.md')); } catch (err) { console.warn('[skill]', err.message); }
   tex.version().then((v) => { tex.cache.version = v; tex._writeCache(); }).catch(() => {});
   history.setRoot(project.root, store.get('files.historyMaxDays', 14));
+
+  if(cliBuild){
+    try{const result=await compiler.build({engine:arg('engine','')||undefined});console.log(JSON.stringify(result));app.exit(result.ok?0:1);}
+    catch(error){console.error(error.message);app.exit(1);}return;
+  }
 
   createWindow();
   setupMenu();
@@ -386,6 +414,7 @@ handle('app:info', async () => ({
   home: os.homedir(),
   git: findGit() || '',
   initialProject: project.info(),
+  initialFile,
   settings: store.all(),
   capture: { enabled: capture.enabled, view: capture.view, subview: capture.subview, theme: capture.theme }
 }));
@@ -393,6 +422,8 @@ handle('app:ready', async () => {
   ready = true;
   return { ok: true };
 });
+handle('app:takeOpenTargets',async()=>{ready=true;return pendingOpenTargets.splice(0);});
+handle('app:resolveOpenTarget',async file=>({ok:true,...await resolveOpenTarget(file)}));
 handle('window:minimize', async () => { win?.minimize(); return { ok: true }; });
 handle('window:toggleMaximize', async () => {
   if (!win) return { ok: false };
@@ -513,6 +544,7 @@ handle('project:close', async () => {
 handle('project:tree', async () => ({ ok: true, tree: await project.tree(), info: project.info() }));
 handle('project:assets', async () => ({ ok: true, ...(await project.assets()) }));
 handle('project:setRootFile', async (file) => {
+  compiler.stop();compiler.lastResult=null;
   project.rootFile = file;
   store.set('project.rootFile.' + Buffer.from(project.root).toString('hex').slice(0, 12), file);
   return { ok: true, rootFile: file };
@@ -524,6 +556,17 @@ handle('project:refreshRoot', async () => {
 
 // ------------------------------------------------------------------- file ops
 handle('fs:read', async (file) => ({ ok: true, ...(await project.read(file)) }));
+handle('pdf:open',async file=>{
+  if(!/\.pdf$/i.test(file))throw Error('请选择 PDF 文件');
+  const stat=await fsp.stat(file);if(!stat.isFile())throw Error('PDF 文件不存在');
+  let syncable=false;
+  const last=compiler.lastResult,trace=last?.synctexPdf||last?.pdf;
+  if(last?.ok&&last.rootFile===project.rootFile&&trace&&(fs.existsSync(trace.replace(/\.pdf$/i,'.synctex.gz'))||fs.existsSync(trace.replace(/\.pdf$/i,'.synctex')))){
+    const hash=bytes=>require('node:crypto').createHash('sha256').update(bytes).digest('hex');
+    try{syncable=hash(await fsp.readFile(file))===hash(await fsp.readFile(trace));}catch{}
+  }
+  return {ok:true,pdf:path.resolve(file),at:stat.mtimeMs,size:stat.size,syncable};
+});
 handle('fs:write', async (file, text) => {
   const res = await project.write(file, text);
   return { ok: true, ...res };
@@ -578,6 +621,7 @@ handle('clipboard:readText', async () => ({ ok: true, text: clipboard.readText()
 handle('build:run', async (opts = {}) => compiler.build(opts));
 handle('build:stop', async () => { compiler.stop(); return { ok: true }; });
 handle('build:clean', async (all = false) => compiler.clean(!!all));
+handle('build:cleanPlan',async all=>compiler.cleanPlan(!!all));
 handle('build:last', async () => compiler.lastResult || { ok: false });
 handle('build:existing', async () => compiler.loadExisting());
 handle('build:state', async () => ({ running: compiler.running }));

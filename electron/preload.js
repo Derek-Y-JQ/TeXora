@@ -2,7 +2,7 @@
 /**
  * TeXora preload bridge. Keeps the renderer sandboxed: only these calls are reachable.
  */
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 
@@ -21,6 +21,11 @@ function on(channel, cb) {
 
 const api = {
   info: () => invoke('app:info'),
+  resolveOpenTarget: file=>invoke('app:resolveOpenTarget',file),
+  takeOpenTargets: ()=>invoke('app:takeOpenTargets'),
+  onOpenTarget: cb=>on('app:open-target',cb),
+  droppedPath: file=>webUtils.getPathForFile(file),
+  pdf: {open:file=>invoke('pdf:open',file)},
   update: { check: () => invoke('update:check') },
   overleaf: {
     login: () => invoke('overleaf:login'), logout: () => invoke('overleaf:logout'),
@@ -100,6 +105,7 @@ const api = {
     run: (opts) => invoke('build:run', opts),
     stop: () => invoke('build:stop'),
     clean: (all) => invoke('build:clean', all),
+    cleanPlan: all=>invoke('build:cleanPlan',all),
     last: () => invoke('build:last'),
     existing: () => invoke('build:existing'),
     state: () => invoke('build:state'),

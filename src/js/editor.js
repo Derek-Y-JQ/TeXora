@@ -10,6 +10,7 @@ import { mathAtOffset, mathDefinitions, previewEnvironmentAt } from './live-math
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { ctx } from './ctx.js';
+import { toggleFormat, formatContext } from './format-toggle.js';
 import { debounce, escapeHtml, icon, baseName, relPath, extOf, openMenu } from './util.js';
 import {
   COMMANDS, ENVIRONMENTS, SNIPPETS, ENUMITEM_OPTIONS, wrapCommandFor, splitLines,
@@ -1108,7 +1109,7 @@ export class EditorController {
       this.updateDollarGhost();
       this.scheduleLiveMath();
     });
-    this.editor.onDidChangeCursorSelection(() => this.updateSelectionBar());
+    this.editor.onDidChangeCursorSelection(() => {this.updateSelectionBar();this.refreshFormatState();});
     this.editor.onContextMenu((ev) => this.onEditorContextMenu(ev));
     this.editor.onDidScrollChange(() => {
       this.updateBlocks();
@@ -2267,15 +2268,28 @@ export class EditorController {
     if (!sel) return;
     const stack = this.envStackAt(sel.startLineNumber, sel.startColumn);
     const cmdName = wrapCommandFor(cmd, stack);
-    const text = sel.isEmpty() ? '' : this.model.getValueInRange(sel);
-    const snippet = `${cmdName}{${text}}`;
-    this.editor.executeEdits('texora-format', [{ range: sel, text: snippet }]);
-    if (sel.isEmpty()) {
-      this.editor.setPosition({ lineNumber: sel.startLineNumber, column: sel.startColumn + cmdName.length + 1 });
-    }
+    const start=this.model.getOffsetAt(sel.getStartPosition()),end=this.model.getOffsetAt(sel.getEndPosition());
+    const edit=toggleFormat(this.model.getValue(),start,end,cmdName);
+    const a=this.model.getPositionAt(edit.start),b=this.model.getPositionAt(edit.end);
+    this.editor.pushUndoStop();
+    this.editor.executeEdits('texora-format', [{ range: new monaco.Range(a.lineNumber,a.column,b.lineNumber,b.column), text: edit.text }]);
+    const x=this.model.getPositionAt(edit.selectionStart),y=this.model.getPositionAt(edit.selectionEnd);
+    this.editor.setSelection(new monaco.Selection(x.lineNumber,x.column,y.lineNumber,y.column));
+    this.editor.pushUndoStop();
+    this.refreshFormatState();
     this.editor.focus();
-    // collapse cursor into place
-    this.editor.trigger('texora', 'editor.action.triggerSuggest', {});
+  }
+
+  refreshFormatState(){
+    if(!this.model||!this.editor)return;
+    const sel=this.editor.getSelection();if(!sel)return;
+    const start=this.model.getOffsetAt(sel.getStartPosition()),end=this.model.getOffsetAt(sel.getEndPosition());
+    const stack=this.envStackAt(sel.startLineNumber,sel.startColumn);
+    for(const button of document.querySelectorAll('[data-format]')){
+      const command=wrapCommandFor(button.dataset.format,stack);if(!command)continue;
+      const active=!!formatContext(this.model.getValue(),start,end,command);
+      button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+    }
   }
 
   insertText(text, { selectOffset } = {}) {

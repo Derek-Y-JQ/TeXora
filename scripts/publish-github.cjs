@@ -14,14 +14,19 @@ const tag='v'+version;
 const prefix=`https://api.github.com/repos/${owner}/${repo}`;
 const dry=process.env.GITHUB_DRY_RUN==='1';
 const roots=['src','electron','build','docs','skills'];
-const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs','scripts/test-pdf-raster.cjs','scripts/test-cjk-preview.cjs','scripts/verify-141.mjs','scripts/test-overleaf.cjs','scripts/test-overleaf-session.cjs','scripts/verify-142.mjs'];
+const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs','scripts/test-pdf-raster.cjs','scripts/test-cjk-preview.cjs','scripts/verify-141.mjs','scripts/test-overleaf.cjs','scripts/test-overleaf-session.cjs','scripts/verify-142.mjs','scripts/test-143.mjs','scripts/verify-143.mjs','scripts/run-verify-143.mjs','scripts/test-project-preview.cjs'];
 const rootFiles=['package.json','package-lock.json','vite.config.js','.gitignore','README.md','LICENSE','THIRD_PARTY_NOTICES.md'];
 const textExt=/\.(?:js|cjs|mjs|json|html|css|md|tex|bib|sty|cls|yml|yaml|txt|nsh|svg)$/i;
 async function request(url,method='GET',body,raw=false){
+ const retrySafe=method==='GET'||method==='PATCH'||url.endsWith('/git/blobs');
+ for(let attempt=0;;attempt++){
+ try{
  const response=await fetch(url,{method,headers:{Accept:'application/vnd.github+json','User-Agent':'TeXora-Publisher',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':raw?'application/octet-stream':'application/json'}:{})},body:body?(raw?body:JSON.stringify(body)):undefined,signal:AbortSignal.timeout(raw?600000:60000)});
  const text=await response.text();let data;try{data=JSON.parse(text);}catch{data={message:text.slice(0,200)};}
  if(!response.ok)throw Error(`GitHub ${response.status}: ${data.message || 'request failed'}`);
  return data;
+ }catch(error){if(!retrySafe||attempt>=3)throw error;await new Promise(resolve=>setTimeout(resolve,1000*2**attempt));}
+ }
 }
 async function filesIn(dir){
  const files=[];
@@ -64,13 +69,14 @@ async function main(){
  // A release version is immutable; never silently reuse another commit's tag.
  const tags=await request(prefix+'/git/matching-refs/tags/'+tag);
  if(tags.some(t=>t.ref==='refs/tags/'+tag))throw Error('Version tag already exists; refusing to overwrite it.');
- const entries=[];
- for(const {file,content}of changed){
+ const entries=[];let nextBlob=0;
+ await Promise.all(Array.from({length:3},async()=>{while(nextBlob<changed.length){
+  const {file,content}=changed[nextBlob++];
   const blob=await request(prefix+'/git/blobs','POST',{content:content.toString('base64'),encoding:'base64'});
   entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
- }
+ }}));
  const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
- const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: fix Overleaf project permission detection and sync guidance`,tree:nextTree.sha,parents:[head.object.sha]});
+ const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: reliable file opening, original PDF reading, build diagnostics and reusable AI answers`,tree:nextTree.sha,parents:[head.object.sha]});
  const latest=await request(prefix+'/git/ref/heads/main');
  if(latest.object.sha!==head.object.sha)throw Error('Remote main changed during preparation; retry after review.');
  await request(prefix+'/git/refs/heads/main','PATCH',{sha:commit.sha,force:false});

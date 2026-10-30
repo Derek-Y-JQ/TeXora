@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {toggleFormat,formatContext} from '../src/js/format-toggle.js';
+import {projectOutline} from '../src/js/project-outline.js';
+const require=createRequire(import.meta.url);
+const {launchTargets,resolveOpenTarget}=require('../electron/lib/open-target');
+const {AiHistory}=require('../electron/lib/ai-history');
+const root=await fs.mkdtemp(path.resolve('.tmp/test143-'));
+await fs.mkdir(path.join(root,'chapters'));
+await fs.writeFile(path.join(root,'main.tex'),'\\documentclass{article}\n\\begin{document}main\\end{document}');
+const child=path.join(root,'chapters','中文 chapter.tex');await fs.writeFile(child,'child');
+assert.deepEqual(launchTargets(['--original-process-start-time=123','--project='+root]),[root]);
+assert.deepEqual(launchTargets(['open',child]),[child]);
+assert.deepEqual(launchTargets(['--open',child,'--disable-gpu']),[child]);
+let target=await resolveOpenTarget(child);assert.equal(target.root,root);assert.equal(target.file,child);assert.equal(target.rootFile,path.join(root,'main.tex'));
+await fs.writeFile(path.join(root,'other.tex'),'\\documentclass{article}');assert.equal((await resolveOpenTarget(path.join(root,'other.tex'))).rootFile,path.join(root,'other.tex'));
+await fs.writeFile(child,'% !TeX root = ../other.tex\nchild');assert.equal((await resolveOpenTarget(child)).rootFile,path.join(root,'other.tex'));
+await fs.writeFile(path.join(root,'test.pdf'),'%PDF-1.7');assert.equal((await resolveOpenTarget(path.join(root,'test.pdf'))).kind,'pdf');
+assert.equal((await resolveOpenTarget(root)).kind,'project');
+await assert.rejects(resolveOpenTarget(path.join(root,'missing.tex')));
+for(const command of ['\\textbf','\\textit','\\underline','\\texttt','\\emph','\\mathbf']){
+ const text='hello\nworld',edit=toggleFormat(text,0,text.length,command);
+ assert.equal(edit.text,command+'{'+text+'}');
+ const unwrapped=toggleFormat(edit.text,edit.selectionStart,edit.selectionEnd,command);assert.equal(unwrapped.text,text);
+ assert.equal(toggleFormat(edit.text,0,edit.text.length,command).text,text);
+ const cursor=edit.text.indexOf('world')+2;assert.equal(toggleFormat(edit.text,cursor,cursor,command).text,text);
+}
+const nested=String.raw`\textbf{hello \emph{world}}`;
+assert.equal(toggleFormat(nested,10,10,'\\textbf').text,String.raw`hello \emph{world}`);
+assert.equal(formatContext('% \\textbf{ignored}\nplain',22,22,'\\textbf'),null);
+assert.equal(formatContext(String.raw`\textbf{escaped \{ brace}`,12,12,'\\textbf').bodyEnd,24);
+const history=new AiHistory(path.join(root,'history.json'));
+for(let i=0;i<65;i++)assert.equal(history.save({id:'r'+i,projectRoot:root,suggestion:'## Answer '+i+'\n'+'long answer '.repeat(70),snapshot:{},responseMode:'answer',conversation:[{role:'user',content:'Question '+i},{role:'assistant',content:'Complete answer '+i}]}).ok,true);
+const recovered=new AiHistory(history.file).list(root);assert.equal(recovered.length,65);assert.equal(recovered[0].suggestion.length>420,true);assert.equal(recovered[0].conversation[1].content,'Complete answer 0');
+const readPaths=[];
+await projectOutline('C:/project/main.tex',async file=>{readPaths.push(file);return file.endsWith('main.tex')?String.raw`\includegraphics[width=0.5\linewidth]{image.png}\input{child}`:'';});
+assert.deepEqual(readPaths,['C:/project/main.tex','C:/project/child.tex']);
+const nodeFs=require('node:fs'),{replaceFile,replaceFileSync}=require('../electron/lib/atomic-file');
+const from=path.join(root,'replace.tmp'),to=path.join(root,'replace.json');await fs.writeFile(from,'new');await fs.writeFile(to,'old');
+const rename=nodeFs.promises.rename;let attempts=0;
+nodeFs.promises.rename=async(...args)=>{if(attempts++<2)throw Object.assign(Error('temporary lock'),{code:'EPERM'});return rename(...args);};
+try{await replaceFile(from,to);}finally{nodeFs.promises.rename=rename;}
+assert.equal(await fs.readFile(to,'utf8'),'new');assert.equal(attempts,3);
+await fs.writeFile(from,'newer');const renameSync=nodeFs.renameSync;attempts=0;
+nodeFs.renameSync=(...args)=>{if(attempts++<1)throw Object.assign(Error('temporary lock'),{code:'EBUSY'});return renameSync(...args);};
+try{replaceFileSync(from,to);}finally{nodeFs.renameSync=renameSync;}
+assert.equal(await fs.readFile(to,'utf8'),'newer');assert.equal(attempts,2);
+console.log('PASS 1.4.3: shell paths/Chinese names, main and subfile discovery, TeX root directives, standalone PDF routing, nested formatting toggles/cursor/undo offsets, complete persistent AI history.');

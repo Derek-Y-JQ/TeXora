@@ -9,3 +9,17 @@
   Push "HKEY_CURRENT_USER"
   Call uninstallOldVersion
 !macroend
+
+!macro customInstall
+  WriteRegStr SHCTX "Software\Classes\Directory\shell\TeXora" "" "用 TeXora 打开"
+  WriteRegStr SHCTX "Software\Classes\Directory\shell\TeXora" "Icon" '"$INSTDIR\TeXora.exe"'
+  WriteRegStr SHCTX "Software\Classes\Directory\shell\TeXora\command" "" '"$INSTDIR\TeXora.exe" --project="%1"'
+  WriteRegStr SHCTX "Software\Classes\Directory\Background\shell\TeXora" "" "用 TeXora 打开"
+  WriteRegStr SHCTX "Software\Classes\Directory\Background\shell\TeXora" "Icon" '"$INSTDIR\TeXora.exe"'
+  WriteRegStr SHCTX "Software\Classes\Directory\Background\shell\TeXora\command" "" '"$INSTDIR\TeXora.exe" --project="%V"'
+!macroend
+
+!macro customUnInstall
+  DeleteRegKey SHCTX "Software\Classes\Directory\shell\TeXora"
+  DeleteRegKey SHCTX "Software\Classes\Directory\Background\shell\TeXora"
+!macroend

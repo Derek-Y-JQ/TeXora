@@ -27,14 +27,14 @@ Second paragraph with enough text for a useful source location.
   const project = {root:path.dirname(dir), rootFile, revision:1};
   const built = await make(project, tex).build();
   assert.ok(built.ok, built.transcriptTail);
-  assert.ok(built.pages.length);
+  assert.ok(built.previewPdf);assert.deepEqual(built.pages,[],'document previews must not rasterize');
   const reopened = make(project, tex);
   const start = performance.now();
   const result = await reopened.loadExisting();
   const elapsed = Math.round(performance.now()-start);
   assert.ok(result.ok);
   assert.equal(result.synctexPdf, built.pdf, 'root copy must reconnect to matching trace');
-  assert.equal(result.pages[0].file, built.pages[0].file, 'reopen must reuse immutable preview');
+  assert.equal(result.previewPdf, built.previewPdf, 'reopen must reuse immutable PDF bytes');
   reopened.renderUncached = () => { throw new Error('cached reopen must not rasterize'); };
   assert.ok((await reopened.loadExisting()).ok);
   const forward = await reopened.synctexForward(rootFile, 3, 1);
@@ -49,15 +49,15 @@ Second paragraph with enough text for a useful source location.
   const external = make({root:externalDir,rootFile:path.join(externalDir,'main.tex'),revision:2},tex);
   const plain = await external.loadExisting();
   assert.ok(plain.ok); assert.equal(plain.synctexPdf, '', 'do not bind another project trace');
-  assert.ok(plain.pages[0].file.includes(path.join(externalDir,'.latex_cache','preview')));
-  // Hold a raster job while switching projects: it must never replace lastResult.
+  assert.ok(fs.existsSync(plain.previewPdf));
+  // Hold a PDF snapshot while switching projects: it must never replace lastResult.
   let release;
   const delayed = make({...project},tex);
-  delayed.renderPages = () => new Promise(r => {release = r;});
+  delayed.snapshotPdf = () => new Promise(r => {release = r;});
   const pending = delayed.loadExisting();
   while (!release) await new Promise(r=>setTimeout(r,5));
   delayed.project.root = externalDir; delayed.project.rootFile = external.project.rootFile; delayed.project.revision++;
-  release(built.pages);
+  release(built.previewPdf);
   assert.ok((await pending).cancelled); assert.equal(delayed.lastResult,null);
   const service = new ProjectService(store,root);
   let finish;

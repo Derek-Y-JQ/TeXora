@@ -5,6 +5,7 @@
 import { ctx } from './ctx.js';
 import { $, $$, el, icon, escapeHtml, baseName, relPath, fileIcon, extOf, debounce, formatBytes, timeAgo, timeOfDay, toast, openMenu, openPopover, closeMenu, copyText } from './util.js';
 import { contextPolicy } from './ai-context.js';
+import {renderMarkdown} from './markdown.js';
 import { buildStructureIndex, readStructureDocuments, sameSource } from './structure-index.js';
 
 const PANEL_META = {
@@ -952,10 +953,10 @@ export class Sidebar {
     }
     box.innerHTML = this.aiThread.map(m => `<div class="ai-msg ${m.role} ${m.error ? 'error' : ''} ${m.applied ? 'applied' : ''}" ${m.resultId ? `data-result-id="${escapeHtml(m.resultId)}" role="button" tabindex="0" aria-label="打开 AI 建议"` : ''}>
       <div class="ai-msg-head">${m.role === 'user' ? '你' : 'TeXora AI'}${m.time ? ` · ${escapeHtml(m.time)}` : ''}${m.applied ? '<span class="ai-applied-badge">已修改</span>' : ''}</div>
-      <div class="ai-msg-body">${escapeHtml((m.text || '').slice(0, 420))}${(m.text || '').length > 420 ? '…' : ''}</div>
+      <div class="ai-msg-body markdown-body">${m.role==='assistant'&&!m.pending?renderMarkdown(m.text||''):escapeHtml(m.text||'')}</div>
       ${m.resultId ? `<div class="ai-msg-actions"><button class="btn btn-tiny">${m.applied ? '查看已修改内容' : m.responseMode === 'answer' ? '查看回答' : '打开 Diff 建议'}</button></div>` : ''}</div>`).join('');
     for (const message of $$('[data-result-id]', box)) {
-      message.onclick = () => ctx.ai.resultAction({ id: message.dataset.resultId });
+      message.onclick = event => {if(event.target.closest('a')||window.getSelection()?.toString())return;ctx.ai.resultAction({ id: message.dataset.resultId });};
       message.onkeydown = e => { if (e.target === message && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); message.click(); } };
     }
     this.scrollAiToLatest();
@@ -1048,7 +1049,6 @@ export class Sidebar {
 
   pushAiThread(message) {
     this.aiThread.push(message);
-    if (this.aiThread.length > 40) this.aiThread.splice(0, this.aiThread.length - 40);
     this.renderAiThread();
   }
 }

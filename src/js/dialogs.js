@@ -230,9 +230,11 @@ export function createDialogs() {
       },
       onClose: () => {
         try {
-          diffEditor?.getModel()?.original?.dispose();
-          diffEditor?.getModel()?.modified?.dispose();
+          const models=diffEditor?.getModel();
+          diffEditor?.setModel(null);
           diffEditor?.dispose();
+          diffEditor=null;
+          models?.original?.dispose();models?.modified?.dispose();
         } catch {}
       }
     });

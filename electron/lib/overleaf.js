@@ -1,4 +1,5 @@
 'use strict';
+const {replaceFile}=require('./atomic-file');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -69,7 +70,7 @@ function projectAccess(project) {
 class Overleaf {
   constructor({dir,transport}) { this.dir=dir;this.transport=transport;this.plans=new Map();this.busy=false; }
   async records() {try{return JSON.parse(await fs.readFile(path.join(this.dir,'projects.json'),'utf8'));}catch(e){if(e.code==='ENOENT')return {};throw e;} }
-  async save(records) {await fs.mkdir(this.dir,{recursive:true}); const file=path.join(this.dir,'projects.json');await fs.writeFile(file+'.tmp',JSON.stringify(records));await fs.rename(file+'.tmp',file);}
+  async save(records) {await fs.mkdir(this.dir,{recursive:true}); const file=path.join(this.dir,'projects.json');await fs.writeFile(file+'.tmp',JSON.stringify(records));await replaceFile(file+'.tmp',file);}
   async exclusive(fn) {if(this.busy)throw Error('另一个 Overleaf 操作正在进行');this.busy=true;try{return await fn();}finally{this.busy=false;} }
   async projects() {
     const data=typeof this.transport.projectList==='function'?await this.transport.projectList():await this.transport.json('/user/projects');

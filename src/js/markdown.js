@@ -7,8 +7,8 @@ function inline(text) {
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
   out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />');
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m,alt,url)=>/^(asset:|data:image\/(?:png|jpeg|gif|webp);base64,)/i.test(url)?`<img alt="${alt}" src="${url}" />`:`<span>${alt}</span>`);
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m,label,url)=>/^(https?:\/\/|mailto:|#)/i.test(url)?`<a href="${url}">${label}</a>`:label);
   out = out.replace(/&lt;(https?:\/\/[^\s]+)&gt;/g, '<a href="$1">$1</a>');
   return out;
 }

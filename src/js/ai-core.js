@@ -121,7 +121,9 @@ export function createAI() {
       if (active?.cancelled) return null;
       const userPrompt = [built.prompt, `任务（用户指令）：\n${instruction}`].filter(Boolean).join('\n\n');
       const images = options.images || [];
-      const messages = [{ role: 'user', content: images.length ? [{ type: 'text', text: userPrompt }, ...images.map(dataUrl => ({ type: 'image', dataUrl }))] : userPrompt }];
+      const previous=options.followupRecord;
+      const history=previous?(previous.conversation?.length?previous.conversation:[{role:'user',content:previous.instruction},{role:'assistant',content:previous.suggestion}]):[];
+      const messages = [...history,{ role: 'user', content: images.length ? [{ type: 'text', text: userPrompt }, ...images.map(dataUrl => ({ type: 'image', dataUrl }))] : userPrompt }];
       const responseMode = responseModeFor(instruction, options.responseMode || action?.mode);
       const res = await ctx.api.ai.chat({ requestId: id, messages, system: responseMode === 'edit' ? EDIT_OUTPUT_CONTRACT : '', skillIds: built.skillIds, model: options.model, maxTokens: ctx.state.settings.ai.maxTokens });
       if (!samePath(projectRoot, ctx.state.project.root) || active?.cancelled || res.code === 'CANCELLED') return null;
@@ -136,6 +138,7 @@ export function createAI() {
         id, projectRoot, sourcePath, title: options.title || action?.label || (responseMode === 'answer' ? 'AI 回答' : 'AI 建议'), instruction, original, suggestion,
         kind: options.kind || 'text', snapshot: origin, time: time(), applied: false,
         incomplete: !!res.incomplete || built.targetTruncated,
+        conversation:[...messages.filter(m=>typeof m.content==='string'),{role:'assistant',content:String(res.text||'')}],
         request: { actionId: options.actionId, target: options.target, attachments: options.attachments, hasImages: images.length > 0, model: options.model },
         _images: images
       };
@@ -213,10 +216,12 @@ export function createAI() {
     if (record.responseMode === 'answer') return ctx.dialogs.modal({
       title: record.title || 'AI 回答', subtitle: '检查与解释 · 回答不会替换原文', width: 900, height: 'min(80vh, 700px)',
       body: `${record.incomplete ? '<div class="ai-result-warning">回答达到长度上限，可能不完整。</div>' : ''}<div class="ai-answer markdown-body">${renderMarkdown(record.suggestion)}</div>`,
-      foot: '<button class="btn btn-sm" data-answer-close>关闭</button><span class="spacer"></span><button class="btn btn-sm" data-answer-copy>复制回答</button>',
+      foot: '<button class="btn btn-sm" data-answer-close>关闭</button><span class="spacer"></span><button class="btn btn-sm" data-answer-followup>追问 / 改编</button><button class="btn btn-sm" data-answer-continue>继续回答</button><button class="btn btn-sm" data-answer-copy>复制回答</button>',
       onMount: ({ root, close }) => {
         root.querySelector('[data-answer-close]').onclick = close;
         root.querySelector('[data-answer-copy]').onclick = () => copyText(record.suggestion);
+        root.querySelector('[data-answer-followup]').onclick=()=>{close();followup(record);};
+        root.querySelector('[data-answer-continue]').onclick=()=>{close();followup(record,'请接着上一条回答继续，从中断处接续，不重复已经回答的内容。');};
       }
     });
     const applied = !!record.applied;
@@ -246,6 +251,7 @@ export function createAI() {
         }
         root.querySelector('[data-btn="close"]').onclick = close;
         root.querySelector('[data-btn="copy"]').onclick = () => copyText(record.appliedText || record.suggestion);
+        const revise=document.createElement('button');revise.className='btn btn-sm';revise.textContent='追问 / 改编';revise.dataset.btn='revise';root.querySelector('.modal-foot').append(revise);revise.onclick=()=>{close();followup(record);};
         root.querySelector('[data-btn="regen"]')?.addEventListener('click', () => {
           if (!samePath(record.projectRoot, ctx.state.project.root)) return toast({ type: 'warn', title: '请先打开原项目' });
           if (active) return toast({ type: 'info', title: '请等待当前请求完成' });
@@ -260,6 +266,13 @@ export function createAI() {
         };
       }
     });
+  }
+
+  async function followup(record,prompt){
+    if(!samePath(record.projectRoot,ctx.state.project.root))return toast({type:'warn',title:'请先打开原项目'});
+    prompt ||= await ctx.dialogs.prompt({title:'追问 / 改编',label:'补充要求（会附上这条回答和之前的对话）',multiline:true,confirmText:'发送'});
+    if(!prompt)return;
+    return request({...record.request,customPrompt:prompt,code:record.original,sourceRecord:record,followupRecord:record,responseMode:responseModeFor(prompt),title:'后续回答'});
   }
 
   function resultAction({ id, index } = {}) {

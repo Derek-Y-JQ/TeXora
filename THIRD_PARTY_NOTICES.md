@@ -13,12 +13,16 @@ Each is distributed under its own license; this file is informational only.
 | KaTeX | 0.19.1 | MIT | Instant floating math previews |
 | adm-zip | 0.6.1 | MIT | Import and compare Overleaf project archives |
 | Monaco Editor | 0.57.0 | MIT | Source editor |
+| PDF.js / pdfjs-dist | 5.4.624 | Apache-2.0 | Offline PDF reading, scalable rendering and selectable text |
 | Vite | 7.3.1 | MIT | Renderer bundler |
 | electron-builder | 26.18.0 | MIT | Installer packaging |
 
 Monaco Editor and Electron ship with their own `LICENSES.chromium.html` and
 license files inside the installed application directory (`resources/`,
 `LICENSE.electron.txt`, `LICENSES.chromium.html`).
+
+PDF.js is vendored from the official npm distribution. Its license, CMap,
+standard-font and WebAssembly component notices are retained in `dist/pdfjs/`.
 
 ## Invoked from the local TeX toolchain (not bundled)
 

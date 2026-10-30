@@ -17,7 +17,9 @@ English text and mathematics: $\int_0^1 x^2\,dx=\frac13$.
 中文标点：“字体映射”、字形与缓存，均应正常显示。
 \end{document}`);
  const compiler=new Compiler({store,tex,project:{root,rootFile,revision:1},fallbackCacheRoot:root});
- const built=await compiler.build();assert.equal(built.ok,true,built.transcriptTail||built.error);assert.equal(built.pages.length,2);
+ const built=await compiler.build();assert.equal(built.ok,true,built.transcriptTail||built.error);assert.ok(built.previewPdf);
+ // Native rasterization remains the local-snippet fallback, not the document viewer.
+ built.pages=await compiler.renderPages(built.pdf,path.join(root,'poppler-preview'));assert.equal(built.pages.length,2);
  const ghosts={get:n=>n==='mgs'?tex.get(n):'',env:tex.env};
  const alternate=new Compiler({store,tex:ghosts,project:{root,rootFile,revision:1},fallbackCacheRoot:root});
  const pages=await alternate.renderPages(built.pdf,path.join(root,'gs-preview'));assert.equal(pages.length,2);

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 export default defineConfig({
   base: './',
   root: 'src',
-  publicDir: false,
+  publicDir: 'public',
   server: { port: 5273, strictPort: true },
   worker: { format: 'es' },
   resolve: {

@@ -397,7 +397,12 @@ class Compiler {
         });
       }
       const errors = problems.filter((p) => p.severity === 'error');
-      const ok = (pdfFresh && pdfStat && pdfStat.size > 0) && (code === 0 || errors.length === 0 || /Output written on/.test(transcript));
+      const failedStep=results.find(r=>r.code!==0);
+      const ok = !!(pdfFresh && pdfStat && pdfStat.size > 0 && !timedOut && !failedStep && code === 0 && errors.length===0);
+      if(!ok&&!errors.length){
+        const problem={severity:'error',file:rootFile,line:0,source:'texora',message:timedOut?'编译超时，已停止排版':failedStep?`编译进程退出异常（退出码 ${failedStep.code}）`:'编译未生成新的有效 PDF',detail:(transcript||logText||'排版程序未返回日志，请检查引擎路径与文件写入权限。').slice(-6000)};
+        problems.push(problem);errors.push(problem);
+      }
 
       // copy PDF next to sources
       let rootPdf = '';
@@ -419,7 +424,8 @@ class Compiler {
         }
       }
 
-      const pages = ok ? await this.renderPages(pdfPath, previewDir) : await this.readExistingPages(previewDir);
+      const previewPdf=ok?await this.snapshotPdf(pdfPath):'';
+      const pages = [];
       checkCancelled();
       const duration = Date.now() - started;
       const result = {
@@ -433,11 +439,12 @@ class Compiler {
         jobname,
         pdf: ok ? pdfPath : '',
         rootPdf,
+        previewPdf, at:Date.now(),
         pages,
         problems,
         errorCount: errors.length,
         warningCount: problems.filter((p) => p.severity === 'warning').length,
-        transcriptTail: transcript.slice(-4000),
+        transcriptTail: (transcript||logText).slice(-6000),
         autoInstalled
       };
       checkCancelled();
@@ -559,13 +566,12 @@ class Compiler {
       }
     }
     if (tracePdf && tracePdf !== pdfPath) { pdfPath = tracePdf; stat = await fsp.stat(pdfPath); }
-    const cache = await this.resolveCacheDir(projectRoot);
-    const pages = await this.renderPages(pdfPath, path.join(cache, 'preview')).catch(() => []);
+    const previewPdf=await this.snapshotPdf(pdfPath);
+    const pages = [];
     if (!current()) return { ok: false, cancelled: true };
-    if (!pages.length) return { ok: false, error: '已有 PDF，但无法生成预览图片', projectRoot, rootFile };
     const result = { ok: true, cached: true, projectRoot, revision, rootFile,
       pdf: pdfPath, cachedPdf: pdfPath, synctexPdf: tracePdf,
-      rootPdf: path.join(rootDir, jobname + '.pdf'), pages, problems: [],
+      rootPdf: path.join(rootDir, jobname + '.pdf'), previewPdf, pages, problems: [],
       errorCount: 0, warningCount: 0, duration: 0, at: stat.mtimeMs };
     this.lastResult = result;
     return result;
@@ -586,6 +592,15 @@ class Compiler {
     const job = this.renderUncached(pdfPath, previewDir, signature);
     this._renderJobs.set(manifest, job);
     try { return await job; } finally { this._renderJobs.delete(manifest); }
+  }
+
+  async snapshotPdf(pdfPath){
+    const bytes=await fsp.readFile(pdfPath);
+    const hash=crypto.createHash('sha256').update(bytes).digest('hex');
+    const dir=path.join(this.fallbackCacheRoot,'pdf-documents');await fsp.mkdir(dir,{recursive:true});
+    const file=path.join(dir,hash+'.pdf');
+    try{await fsp.writeFile(file,bytes,{flag:'wx'});}catch(e){if(e.code!=='EEXIST')throw e;}
+    return file;
   }
 
   async renderUncached(pdfPath, previewDir, signature) {
@@ -656,7 +671,19 @@ class Compiler {
     // Keep the job busy until its child exits and build() reaches finally.
   }
 
+  cleanPlan(includePdf=false){
+    const cache=path.resolve(this.cacheDir());
+    if(cache===path.resolve(this.root)||cache===path.parse(cache).root||cache===path.resolve(path.dirname(this.project.rootFile||this.root)))throw Error('清理目录与源码目录重合，已停止。请先设置独立的编译缓存目录。');
+    const files=[];
+    const size=file=>{try{const stat=fs.lstatSync(file);if(stat.isSymbolicLink())return 0;if(stat.isDirectory())return fs.readdirSync(file).reduce((n,name)=>n+size(path.join(file,name)),0);return stat.size;}catch{return 0;}};
+    for(const name of fs.existsSync(cache)?fs.readdirSync(cache):[]){if(AUX_EXT.has(path.extname(name))||/\.(synctex\.gz|run\.xml)$/i.test(name)||includePdf){const file=path.join(cache,name);files.push({file,bytes:size(file)});}}
+    if(includePdf&&this.project.rootFile){const file=path.join(path.dirname(this.project.rootFile),this.jobnameFor(this.project.rootFile)+'.pdf');if(fs.existsSync(file)&&!files.some(f=>f.file===file))files.push({file,bytes:size(file)});}
+    return {ok:true,files,bytes:files.reduce((n,f)=>n+f.bytes,0)};
+  }
+
   clean(includePdf = false) {
+    if(this.running)return {ok:false,error:'编译进行中，不能清理正在使用的文件'};
+    try{this.cleanPlan(includePdf);}catch(error){return {ok:false,error:error.message};}
     const cache = this.cacheDir();
     let removed = 0;
     try {

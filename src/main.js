@@ -67,6 +67,14 @@ async function boot() {
   wireProblems();
   wireShortcutsExtras();
   wireIpc();
+  let openQueue=Promise.resolve();
+  api.onOpenTarget(file=>{openQueue=openQueue.then(()=>openTarget(file)).catch(err=>toast({type:'error',title:'打开失败',body:err.message}));});
+  document.addEventListener('dragover',e=>{if(e.dataTransfer?.types.includes('Files'))e.preventDefault();});
+  document.addEventListener('drop',e=>{
+    if(!e.dataTransfer?.files.length)return;e.preventDefault();
+    for(const file of e.dataTransfer.files){const target=api.droppedPath(file);if(target)openQueue=openQueue.then(()=>openTarget(target)).catch(error=>toast({type:'error',title:'打开失败',body:error.message}));}
+  });
+  document.addEventListener('click',event=>{const link=event.target.closest('.markdown-body a,.md-preview a');if(link){event.preventDefault();if(/^(https?:|mailto:)/i.test(link.getAttribute('href')||''))api.openExternal(link.getAttribute('href'));}});
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
     if (ctx.state.settings?.appearance?.theme === 'system') applyAppearance();
   });
@@ -94,6 +102,8 @@ async function boot() {
   if (info.capture?.enabled) await applyCaptureView();
 
   window.__texora = ctx;
+  if(info.initialFile)await openDocument(info.initialFile,{silent:true});
+  for(const target of await api.takeOpenTargets())await openTarget(target);
   api.ready();
   setTimeout(() => {
     const g = ctx.state.settings?.general || {};
@@ -178,9 +188,7 @@ function wireTitlebar() {
           icon: 'folder',
           tooltip: r.path,
           onClick: async () => {
-            const res = await api.project.open(r.path);
-            if (res.ok) await onProjectOpened(res, { openRoot: true });
-            else toast({ type: 'error', title: '无法打开项目', body: res.error || '' });
+            await openProject(r.path);
           }
         });
       }
@@ -641,6 +649,9 @@ function resetProjectPreview() {
   ctx.state.build.running = false;
   lastPages = [];
   ctx.state.build.result = null;
+  ctx.state.externalPdf='';
+  ctx.state.problems=[];ctx.state.log='';ctx.state.build.stopping=false;
+  setBuildStatus('idle','空闲');updateBadges();renderProblems();ctx.editor?.setProblems([]);
   ctx.preview.clear();
   ctx.preview.setBusy(false);
 }
@@ -650,6 +661,7 @@ async function onProjectOpened(proj, { openRoot = true, silent = false } = {}) {
   resetProjectPreview();
   const generation = previewGeneration;
   const current = () => generation === previewGeneration;
+  closeAllDocuments();
   ctx.state.project = { ...proj };
   previewSuspended = false;
   void openPreviewOnLoad(generation);
@@ -700,6 +712,28 @@ async function openProject(path) {
   }
   if (!res.ok) return toast({ type: 'error', title: '打开项目失败', body: res.error || '' });
   await onProjectOpened(res, { openRoot: true });
+  return true;
+}
+
+async function openTarget(file){
+  if(!file){const choice=await api.dialog.openFiles({title:'打开文档或 PDF',filters:[{name:'文档与 PDF',extensions:['tex','ltx','sty','cls','bib','md','txt','pdf']},{name:'所有文件',extensions:['*']}]});if(!choice.ok)return;file=choice.paths[0];}
+  const target=await api.resolveOpenTarget(file);if(!target.ok)return toast({type:'error',title:'打开失败',body:target.error});
+  if(target.kind==='pdf')return openPdf(target.file);
+  const same=(a,b)=>String(a||'').replace(/\\/g,'/').toLowerCase()===String(b||'').replace(/\\/g,'/').toLowerCase();
+  if(!same(target.root,ctx.state.project.root)){if(!await openProject(target.root))return;}
+  if(target.rootFile&&!same(target.rootFile,ctx.state.project.rootFile)){
+    resetProjectPreview();await api.project.setRootFile(target.rootFile);ctx.state.project.rootFile=target.rootFile;$('#sbRootName').textContent=baseName(target.rootFile);previewSuspended=false;void openPreviewOnLoad();
+  }
+  if(target.file)await openDocument(target.file);
+}
+
+async function openPdf(file){
+  if(!file){const choice=await api.dialog.openFiles({title:'打开 PDF',filters:[{name:'PDF 文档',extensions:['pdf']}]});if(!choice.ok)return;file=choice.paths[0];}
+  const result=await api.pdf.open(file);if(!result.ok)return toast({type:'error',title:'无法打开 PDF',body:result.error});
+  ctx.state.previewMode='pdf';mdMode=false;
+  ctx.state.externalPdf=result.pdf;
+  $('#previewPane').classList.remove('collapsed');
+  await ctx.preview.openPdf(result.pdf,{identity:result.pdf,standalone:!result.syncable,at:result.at});
 }
 
 async function closeProject() {
@@ -815,8 +849,7 @@ function renderEmptyRecent(recent) {
     .join('')}`;
   for (const item of $$('.empty-recent-item', box)) {
     item.addEventListener('click', async () => {
-      const res = await api.project.open(item.dataset.path);
-      if (res.ok) await onProjectOpened(res, { openRoot: true });
+      await openProject(item.dataset.path);
     });
   }
 }
@@ -825,6 +858,7 @@ function renderEmptyRecent(recent) {
 async function openDocument(path, opts = {}) {
   const generation = previewGeneration;
   if (!path) return;
+  if(/\.pdf$/i.test(path))return openPdf(path);
   if (!/\.(tex|ltx|sty|cls|bib|md|txt|cfg|def|dtx|ins|json|latexmkrc|bst)$/i.test(path) && extOf(path)) {
     if (['png', 'jpg', 'jpeg', 'pdf', 'gif', 'svg', 'webp', 'eps'].includes(extOf(path))) {
       return toast({ type: 'info', title: '二进制文件', body: baseName(path) + ' 无法在编辑器中打开' });
@@ -1123,7 +1157,7 @@ async function loadCachedPreview(generation = previewGeneration) {
     const res = await api.build.existing();
     if (generation !== previewGeneration) return false;
     window.__cachedDebug = res;
-    if (res?.ok && res.pages?.length) {
+    if (res?.ok && (res.pdf || res.pages?.length)) {
       handleBuildDone({ ...res, ok: true, cached: true, live: true, problems: [], duration: 0 });
       return true;
     }
@@ -1203,15 +1237,10 @@ async function runBuild(opts = {}) {
     const res = await api.build.run({ file: ctx.state.activePath, live: !!opts.live });
     if (generation !== previewGeneration) return;
     if (res && res.error) {
-      ctx.state.build.running = false;
-      setBuildStatus('error', '编译失败');
-      ctx.preview.setBusy(false);
-      toast({ type: 'error', title: '无法启动编译', body: res.error });
+      if(ctx.state.build.state!=='error')handleBuildDone({...res,ok:false,rootFile:ctx.state.project.rootFile});
     }
   } catch (err) {
-    setBuildStatus('error', '编译失败');
-    ctx.preview.setBusy(false);
-    toast({ type: 'error', title: '无法启动编译', body: err.message });
+    handleBuildDone({ok:false,error:err.message,rootFile:ctx.state.project.rootFile});
   } finally {
     buildPreparing = false;
   }
@@ -1225,6 +1254,7 @@ async function stopBuild() {
     await api.build.stop();
     if (!(await api.build.state()).running) {
       setBuildStatus('idle', '已停止');
+      if(ctx.preview.currentPdf())ctx.preview.updateDocumentStatus('编译已停止 · 当前显示上次成功的 PDF');
       ctx.preview.setBusy(false);
     }
   } catch (err) {
@@ -1235,6 +1265,10 @@ async function stopBuild() {
 }
 
 async function cleanBuild(all = false) {
+  const plan=await api.build.cleanPlan(all);
+  if(!plan.ok)return toast({type:'error',title:'无法清理',body:plan.error});
+  if(!plan.files.length)return toast({type:'info',title:'没有可清理的文件'});
+  if(!await ctx.dialogs.confirm({title:'清理编译产物',message:`将清理 ${plan.files.length} 项，共 ${formatBytes(plan.bytes)}。${all?'包含生成的 PDF。':'保留 PDF。'}`,detail:plan.files.map(f=>f.file).join('\n'),confirmText:'清理',danger:true}))return;
   const res = await api.build.clean(all);
   if (res.ok) toast({ type: 'success', title: '已清理过程文件', body: `删除 ${res.removed} 项` });
   else toast({ type: 'error', title: '清理失败', body: res.error });
@@ -1259,17 +1293,26 @@ function setBuildStatus(state, text) {
 
 function handleBuildDone(result) {
   if (previewSuspended) return;
+  if(result.cached&&ctx.state.externalPdf)return;
   if (result.projectRoot && (result.projectRoot !== ctx.state.project.root || result.revision !== ctx.state.project.revision)) return;
   if (result.rootFile && result.rootFile !== ctx.state.project.rootFile) return;
   ctx.state.build.running = false;
   ctx.state.build.result = result;
   ctx.state.build.state = result.ok ? 'ok' : 'error';
-  ctx.state.problems = result.problems || [];
+  ctx.state.problems = [...(result.problems || [])];
+  if(!result.ok&&!ctx.state.problems.some(p=>p.severity==='error'))ctx.state.problems.push({severity:'error',file:result.rootFile||ctx.state.project.rootFile,line:0,message:result.error||'编译未成功，请查看原始日志末尾',source:'texora'});
+  const errorCount=ctx.state.problems.filter(p=>p.severity==='error').length;
+  if(!result.ok)ctx.state.log+='\n— 本次失败的日志末尾 —\n'+(result.transcriptTail||result.error||'未收到排版日志，请检查引擎与文件写入权限。')+'\n';
   ctx.preview.setBusy(false);
-  setBuildStatus(result.ok ? 'ok' : 'error', result.cached ? '已加载 PDF' : result.ok ? `编译成功 · ${(result.duration / 1000).toFixed(1)}s` : `编译失败 · ${result.errorCount || 0} 个错误`);
+  setBuildStatus(result.ok ? 'ok' : 'error', result.cached ? '已加载 PDF' : result.ok ? `编译成功 · ${(result.duration / 1000).toFixed(1)}s` : `编译失败 · ${errorCount} 个错误`);
   lastPages = result.pages || [];
   if (ctx.state.previewMode !== 'markdown') {
-    if (result.pages?.length) ctx.preview.render(result.pages, { keepZoom: true });
+    if(result.ok&&result.pdf){
+      ctx.state.externalPdf='';
+      void ctx.preview.openPdf(result.previewPdf||result.pdf,{identity:ctx.state.project.rootFile,at:result.at||Date.now()});
+    }
+    else if (result.ok&&result.pages?.length) ctx.preview.render(result.pages, { keepZoom: true });
+    else if(!result.ok&&ctx.preview.currentPdf())ctx.preview.hidePlaceholder();
     else {
       ctx.preview.showPlaceholder(result.ok ? 'PDF 已生成，但预览渲染失败；请查看编译日志或用外部阅读器打开' : '编译失败，请查看问题面板');
     }
@@ -1282,6 +1325,8 @@ function handleBuildDone(result) {
   ctx.ribbon.refresh();
   const firstErr = ctx.state.problems.find((p) => p.severity === 'error');
   if (!result.ok) {
+    if(ctx.preview.currentPdf())ctx.preview.updateDocumentStatus('编译失败 · 当前显示上次成功的 PDF');
+    problemsTab='log';
     openProblems(true);
     if (!ctx.state.build.lastToast || Date.now() - ctx.state.build.lastToast > 4000) {
       ctx.state.build.lastToast = Date.now();
@@ -1292,9 +1337,8 @@ function handleBuildDone(result) {
         timeout: 6000
       });
     }
-    if (result.pages?.length) ctx.preview.render(result.pages, { keepZoom: true });
   } else if (!result.live && !result.cached) {
-    toast({ type: 'success', title: '编译成功', body: `${result.pages?.length || 0} 页 · ${((result.duration || 0) / 1000).toFixed(1)}s`, timeout: 2600 });
+    toast({ type: 'success', title: '编译成功', body: `${((result.duration || 0) / 1000).toFixed(1)}s`, timeout: 2600 });
   }
   // missing package prompt
   const missing = (result.problems || []).find((p) => p.missingFile && /\.sty$/.test(p.missingFile));
@@ -1723,7 +1767,9 @@ function beautifyDocument() {
   const doc = ctx.state.docs.get(ctx.state.activePath);
   if (!doc) return;
   const cfg = ctx.state.settings.editor.formatter || {};
-  const before = doc.model.getValue();
+  const selection=ctx.editor.editor.getSelection();
+  const range=selection&&!selection.isEmpty()?selection:doc.model.getFullModelRange();
+  const before = doc.model.getValueInRange(range);
   const after = beautify(before, {
     indentSize: ctx.state.settings.editor.indentSize || 2,
     mergeParagraphLines: cfg.mergeParagraphLines !== false,
@@ -1732,8 +1778,13 @@ function beautifyDocument() {
     preambleDivider: cfg.preambleDivider !== false,
     collapseBlankLines: cfg.collapseBlankLines !== false
   });
-  doc.model.pushEditOperations([], [{ range: doc.model.getFullModelRange(), text: after }], () => null);
-  toast({ type: 'success', title: '格式整理完成', body: '已规范化环境缩进、段落与分界线' });
+  if(before===after)return toast({type:'info',title:'格式无需调整'});
+  const preview=ctx.dialogs.showDiff({title:'预览格式整理',subtitle:selection&&!selection.isEmpty()?'仅整理所选源码；确认后应用，可撤销':'整理当前文件；确认后应用，可撤销',left:before,right:after,onRestore:()=>{
+    if(!ctx.state.docs.has(doc.path)||doc.model.getValueInRange(range)!==before)return toast({type:'warn',title:'源码已改变，请重新整理'});
+    doc.model.pushStackElement();doc.model.pushEditOperations([], [{range,text:after}], () => null);doc.model.pushStackElement();
+    toast({type:'success',title:'格式整理完成'});
+  }});
+  preview.root.querySelector('#dlgRestore').textContent='应用整理';
 }
 
 function normalizePunctuationDocument(direction = 'half') {
@@ -1809,16 +1860,16 @@ async function exportLatexdiff() {
         const res = await api.tex.latexdiff(a, b, out);
         if (!res.ok) return toast({ type: 'error', title: 'latexdiff 失败', body: res.error, timeout: 7000 });
         toast({ type: 'success', title: '对比 PDF 已生成', body: baseName(res.pdf) });
-        api.app.openPath(res.pdf);
+        api.openPath(res.pdf);
       });
     }
   });
 }
 
 async function openPdfExternal() {
-  const pdf = ctx.state.build.result?.rootPdf || ctx.state.build.result?.pdf;
+  const pdf = ctx.preview.currentPdf();
   if (!pdf) return toast({ type: 'info', title: '尚未生成 PDF' });
-  api.app.openPath(pdf);
+  api.openPath(pdf);
 }
 
 async function checkTexEnvironment() {
@@ -1845,14 +1896,17 @@ function showMarkdownPane() {
   const doc = ctx.state.docs.get(ctx.state.activePath);
   const stage = ctx.preview.stage;
   if (!stage || !doc) return;
-  stage.innerHTML = `<div class="md-preview md-in-pane">${renderMarkdown(doc.model.getValue())}</div>`;
+  ctx.preview.clear();
+  const markdown=document.createElement('div');markdown.className='md-preview md-in-pane';markdown.innerHTML=renderMarkdown(doc.model.getValue());stage.append(markdown);ctx.preview.hidePlaceholder();
   stage.scrollTop = 0;
 }
 
 function restorePdfPane() {
   if (!mdMode) return;
   mdMode = false;
-  if (lastPages?.length) ctx.preview.render(lastPages, { keepZoom: true });
+  const pdf=ctx.state.build.result;
+  if(pdf?.ok&&pdf.pdf)void ctx.preview.openPdf(pdf.previewPdf||pdf.pdf,{identity:ctx.state.project.rootFile,at:pdf.at});
+  else if (lastPages?.length) ctx.preview.render(lastPages, { keepZoom: true });
   else ctx.preview.showPlaceholder('编译后在此显示 PDF 预览');
 }
 
@@ -1967,6 +2021,8 @@ async function applyCaptureView() {
 ctx.app = {
   // projects
   openProject,
+  openTarget,
+  openPdf,
   closeProject,
   onProjectOpened,
   refreshRootFile: async () => {

@@ -38,7 +38,8 @@ export function createCommands() {
   register({ id: 'templates.open', title: '模板中心', group: '项目', icon: 'layers', run: () => ctx.dialogs.openTemplates() });
 
   /* ------------------------------------------------------------ documents */
-  register({ id: 'doc.open', title: '打开文件', group: '文件', icon: 'file', run: (path) => ctx.app.openDocument(path) });
+  register({ id: 'doc.open', title: '打开文件 / PDF', group: '文件', icon: 'file', keys: 'Ctrl+Shift+O', run: (path) => ctx.app.openTarget(path) });
+  register({ id: 'preview.open', title: '打开 PDF', group: '预览', icon: 'paper', run: () => ctx.app.openPdf() });
   register({ id: 'doc.new', title: '新建 LaTeX 文件', group: '文件', icon: 'plus', run: () => ctx.app.newDocument() });
   register({ id: 'doc.save', title: '保存', group: '文件', icon: 'download', keys: 'Ctrl+S', run: () => ctx.app.saveDocument() });
   register({ id: 'doc.saveAll', title: '全部保存', group: '文件', icon: 'download', keys: 'Ctrl+Shift+S', run: () => ctx.app.saveAll() });
@@ -100,7 +101,7 @@ export function createCommands() {
   register({ id: 'format.bold', title: '加粗', group: '格式', icon: 'bold', run: () => ctx.editor.wrapSelection('bold') });
   register({ id: 'format.italic', title: '斜体', group: '格式', icon: 'italic', run: () => ctx.editor.wrapSelection('italic') });
   register({ id: 'format.underline', title: '下划线', group: '格式', icon: 'underline', run: () => ctx.editor.wrapSelection('underline') });
-  register({ id: 'format.strike', title: '删除线', group: '格式', icon: 'strike', run: () => ctx.app.wrapWith('\\sout') });
+  register({ id: 'format.strike', title: '删除线', group: '格式', icon: 'strike', run: () => ctx.editor.wrapSelection('strike') });
   register({ id: 'format.emph', title: '强调', group: '格式', icon: 'emph', run: () => ctx.editor.wrapSelection('emph') });
   register({ id: 'format.texttt', title: '等宽字体', group: '格式', icon: 'tt', run: () => ctx.editor.wrapSelection('texttt') });
   register({ id: 'format.size', title: '设置字号', group: '格式', icon: 'type', run: (size) => ctx.app.applyFontSize(size) });
@@ -156,6 +157,7 @@ export function createCommands() {
     ['ctrl+s', 'doc.save'],
     ['ctrl+shift+s', 'doc.saveAll'],
     ['ctrl+o', 'project.open'],
+    ['ctrl+shift+o', 'doc.open'],
     ['ctrl+n', 'project.new'],
     ['ctrl+w', 'doc.close'],
     ['ctrl+,', 'settings.open'],

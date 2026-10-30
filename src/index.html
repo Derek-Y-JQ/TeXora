@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' app: asset:; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' asset: data:; connect-src 'self' asset:; worker-src 'self' blob:;"
+      content="default-src 'self' app: asset:; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' asset: data: blob:; connect-src 'self' asset:; worker-src 'self' blob:;"
     />
     <title>TeXora</title>
     <link rel="stylesheet" href="./styles/theme.css" />
@@ -317,6 +317,7 @@
         <div class="splitter" id="splitterPreview" data-split="preview"></div>
 
         <section class="preview" id="previewPane">
+          <div id="pdfDocumentStatus" class="pdf-document-status" role="status" hidden></div>
           <div class="preview-toolbar">
             <div class="pv-group">
               <button class="icon-btn sm" data-cmd="preview.prev" title="上一页"><svg class="ico"><use href="#i-chevron-left" /></svg></button>
@@ -333,6 +334,7 @@
               <button class="icon-btn sm" data-cmd="preview.invert" id="invertBtn" title="夜间护眼反色"><svg class="ico"><use href="#i-moon" /></svg></button>
               <button class="icon-btn sm" data-cmd="preview.refresh" title="刷新预览"><svg class="ico"><use href="#i-refresh" /></svg></button>
               <button class="icon-btn sm" data-cmd="preview.external" title="用外部程序打开 PDF"><svg class="ico"><use href="#i-external" /></svg></button>
+              <button class="icon-btn sm" data-cmd="preview.open" title="打开 PDF"><svg class="ico"><use href="#i-files" /></svg></button>
             </div>
           </div>
           <div class="preview-stage" id="previewStage">
