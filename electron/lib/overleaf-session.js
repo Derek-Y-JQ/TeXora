@@ -38,7 +38,7 @@ class OverleafSession {
   }
   async logout(){if(this.active)throw Error('请等待当前 Overleaf 操作完成再退出');this.loginWindow?.close();this.worker?.close();await this.session.clearStorageData();await this.session.clearAuthCache();}
   async request(route,options={}){
-    if(!/^\/(?:user\/projects$|project\/[a-f\d]{24}(?:\/|$))/.test(route))throw Error('无效的 Overleaf 请求');
+    if(!/^\/(?:user\/projects$|api\/project$|project$|project\/[a-f\d]{24}(?:\/|$))/.test(route))throw Error('无效的 Overleaf 请求');
     let url=new URL(route,ORIGIN);
     if(url.origin!==ORIGIN)throw Error('无效的 Overleaf 请求');
     const method=(options.method||'GET').toUpperCase();
@@ -65,10 +65,33 @@ class OverleafSession {
         if(response.headers.get('cf-mitigated')==='challenge')throw Error('Overleaf 需要网页验证，请打开登录窗口完成验证后刷新');
         throw Error('Overleaf 拒绝访问，请在登录窗口确认账号、项目权限或网页验证状态');
       }
-      if(!response.ok)throw Error('Overleaf 请求失败（'+response.status+'）');
+      if(!response.ok){const error=Error('Overleaf 请求失败（'+response.status+'）');error.status=response.status;throw error;}
       return response;
     }
     throw Error('Overleaf 重定向次数过多，请在登录窗口检查登录状态');
+  }
+  async projectList() {
+    // The current dashboard returns accessLevel via its read-only POST API.
+    // The legacy GET list can omit it even when the account owns a project.
+    try {
+      const page = await this.request('/project');
+      const html = await page.text();
+      const tags = html.match(/<meta\b[^>]*>/gi) || [];
+      let csrf = '';
+      for (const tag of tags) {
+        const name = tag.match(/\bname\s*=\s*(["'])(.*?)\1/i)?.[2];
+        if (name !== 'ol-csrfToken') continue;
+        csrf = tag.match(/\bcontent\s*=\s*(["'])(.*?)\1/i)?.[2] || '';
+      }
+      if (!csrf) throw Error('无法读取 Overleaf 项目权限，请打开登录窗口完成网页验证后刷新');
+      const response = await this.request('/api/project', {method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json','X-CSRF-Token':csrf},body:'{}'});
+      if (!response.headers.get('content-type')?.includes('json')) throw Error('Overleaf 项目列表接口未返回 JSON，请完成网页验证后重试');
+      return await response.json();
+    } catch(error) {
+      // Older self-hosted versions may not expose the dashboard API.
+      if (error.status === 404 || error.status === 405) return this.json('/user/projects');
+      throw error;
+    }
   }
   async json(route){const r=await this.request(route);if(!r.headers.get('content-type')?.includes('json'))throw Error('Overleaf 未返回项目数据，请打开登录窗口检查是否需要网页验证后刷新');return r.json();}
   async zip(route,onProgress){

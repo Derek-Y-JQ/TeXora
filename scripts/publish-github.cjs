@@ -14,7 +14,7 @@ const tag='v'+version;
 const prefix=`https://api.github.com/repos/${owner}/${repo}`;
 const dry=process.env.GITHUB_DRY_RUN==='1';
 const roots=['src','electron','build','docs','skills'];
-const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs','scripts/test-pdf-raster.cjs','scripts/test-cjk-preview.cjs','scripts/verify-141.mjs'];
+const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs','scripts/test-pdf-raster.cjs','scripts/test-cjk-preview.cjs','scripts/verify-141.mjs','scripts/test-overleaf.cjs','scripts/test-overleaf-session.cjs','scripts/verify-142.mjs'];
 const rootFiles=['package.json','package-lock.json','vite.config.js','.gitignore','README.md','LICENSE','THIRD_PARTY_NOTICES.md'];
 const textExt=/\.(?:js|cjs|mjs|json|html|css|md|tex|bib|sty|cls|yml|yaml|txt|nsh|svg)$/i;
 async function request(url,method='GET',body,raw=false){
@@ -70,14 +70,20 @@ async function main(){
   entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
  }
  const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
- const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: fix CJK PDF preview with font diagnostics and renderer fallback`,tree:nextTree.sha,parents:[head.object.sha]});
+ const commit=await request(prefix+'/git/commits','POST',{message:`Release TeXora ${version}: fix Overleaf project permission detection and sync guidance`,tree:nextTree.sha,parents:[head.object.sha]});
  const latest=await request(prefix+'/git/ref/heads/main');
  if(latest.object.sha!==head.object.sha)throw Error('Remote main changed during preparation; retry after review.');
  await request(prefix+'/git/refs/heads/main','PATCH',{sha:commit.sha,force:false});
  const release=await request(prefix+'/releases','POST',{tag_name:tag,target_commitish:commit.sha,name:'TeXora '+version,body:notes,draft:true,prerelease:false});
  for(const [name,bytes]of [[installer,installerBytes],['SHA256SUMS.txt',Buffer.from(checksum)]]){
-  const asset=await request(release.upload_url.replace(/\{.*$/,'')+'?name='+encodeURIComponent(name),'POST',bytes,true);
+  // curl streams large Windows installers reliably; credentials enter via stdin only.
+  const {execFileSync}=require('node:child_process');
+  const assetPath=path.resolve('release',name);
+  const config=`url = "${release.upload_url.replace(/\{.*$/,'')+'?name='+encodeURIComponent(name)}"\nheader = "Authorization: Bearer ${token}"\nheader = "Content-Type: application/octet-stream"\nheader = "User-Agent: TeXora-Publisher"\n`;
+  const output=execFileSync('curl.exe',['--config','-','--http1.1','--silent','--show-error','--fail-with-body','--connect-timeout','20','--max-time','300','--request','POST','--data-binary','@'+assetPath],{input:config,encoding:'utf8',timeout:310000,windowsHide:true,maxBuffer:1048576});
+  const asset=JSON.parse(output);
   if(asset.size!==bytes.length)throw Error('Uploaded asset size mismatch: '+name);
+  if(asset.digest!=='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex'))throw Error('Uploaded asset checksum mismatch: '+name);
   console.log('Uploaded',name,asset.size,'bytes');
  }
  const published=await request(prefix+'/releases/'+release.id,'PATCH',{draft:false});

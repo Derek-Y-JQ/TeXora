@@ -58,7 +58,7 @@ export async function openOverleaf(){
   closeProgressListener=unsubscribe;
   const render=()=>{
     const q=m.root.querySelector('[data-filter]').value.toLowerCase();
-    list.innerHTML=projects.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`<div class="overleaf-project"><div><strong>${esc(p.name)}</strong><div class="field-hint">${esc(p.id)} · ${['owner','readAndWrite','read-write'].includes(p.access)?'可编辑同步':'云端只读'}</div></div><button class="btn btn-outline" data-load="${esc(p.id)}">加载本地编辑</button></div>`).join('')||'<p>没有匹配的项目。</p>';
+    list.innerHTML=projects.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`<div class="overleaf-project"><div><strong>${esc(p.name)}</strong><div class="field-hint">${esc(p.id)} · ${p.access==='unknown'?'权限未识别，请刷新项目':['owner','readAndWrite','read-write'].includes(p.access)?'可编辑同步':'云端只读'}</div></div><button class="btn btn-outline" data-load="${esc(p.id)}">加载本地编辑</button></div>`).join('')||'<p>没有匹配的项目。</p>';
     list.querySelectorAll('[data-load]').forEach(b=>b.onclick=()=>run(async()=>{
       activeLoad=crypto.randomUUID();transfer={receivedBytes:0,totalBytes:null,elapsedSeconds:0};updateTransfer({phase:'checking'});
       try{
@@ -81,7 +81,7 @@ function showPlan(plan,root){
   const conflicts=plan.rows.filter(r=>r.action==='conflict');
   const m=ctx.dialogs.modal({title:'确认同步原 Overleaf 项目',width:720,body:`
     <p>${conflicts.length?'下列冲突文件未上传。请先在本地或 Overleaf 中合并，再重新检查。':plan.rows.length?'请检查本次文件变更；确认后才会写入云端和本地。':'本地与云端内容一致。'}</p>
-    ${!plan.writable?'<p>当前账号对云端项目只有读取权限。</p>':''}
+    ${!plan.writable?(plan.access==='unknown'?'<p>未能识别当前账号的编辑权限。请刷新项目或重新登录后重试；尚未确认前不会上传文件。</p>':'<p>当前账号对云端项目只有读取权限。</p>'):''}
     <div class="overleaf-projects">${plan.rows.map(r=>`<div class="overleaf-project ${r.action==='conflict'?'overleaf-conflict':''}"><code>${esc(r.name)}</code><span>${labels[r.action]}</span></div>`).join('')}</div>
     <p class="field-hint">同步前会再次检查变更。请让协作者在回传期间暂缓编辑同一文件；此功能采用手动文件同步。替换或删除的本地内容会先备份。</p>`,foot:`<button class="btn btn-outline" data-cancel>取消</button><button class="btn btn-primary" data-apply ${!plan.canApply||!plan.rows.length?'disabled':''}>确认同步 ${plan.rows.length} 个文件</button>`});
   m.root.querySelector('[data-cancel]').onclick=m.close;

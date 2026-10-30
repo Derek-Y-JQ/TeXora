@@ -1,11 +1,11 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');const path=require('node:path');const os=require('node:os');
-const AdmZip=require('adm-zip');const {Overleaf,compare,unzip,safeName}=require('../electron/lib/overleaf');
+const AdmZip=require('adm-zip');const {Overleaf,compare,unzip,safeName,projectAccess}=require('../electron/lib/overleaf');
 (async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'texora-ol-')); const id='123456789012345678901234';
- let cloud=new Map([['main.tex',Buffer.from('original\n')],['sections/a.tex',Buffer.from('section')],['image.png',Buffer.from([0,1,2])]]),uploads=0,access='owner',fail=false;
+ let cloud=new Map([['main.tex',Buffer.from('original\n')],['sections/a.tex',Buffer.from('section')],['image.png',Buffer.from([0,1,2])]]),uploads=0,access='owner',accessField='accessLevel',fail=false;
  const zip=()=>{const z=new AdmZip();for(const [n,b]of cloud)z.addFile(n,b);return z.toBuffer();};
- const transport={json:async()=>({projects:[{_id:id,name:'论文',accessLevel:access}]}),zip:async()=>zip(),tree:async()=>({}),upload:async(_id,_tree,n,b)=>{if(fail)throw Error('network');uploads++;cloud.set(n,b);},remove:async(_id,_tree,n)=>cloud.delete(n)};
+ const transport={json:async()=>({projects:[{_id:id,name:'论文',[accessField]:access}]}),zip:async()=>zip(),tree:async()=>({}),upload:async(_id,_tree,n,b)=>{if(fail)throw Error('network');uploads++;cloud.set(n,b);},remove:async(_id,_tree,n)=>cloud.delete(n)};
  const service=new Overleaf({dir,transport});
  const events=[];const {root}=await service.load(id,e=>events.push(e));assert.equal(events[0].phase,'checking');assert.ok(events.some(e=>e.phase==='extracting'));assert.equal(events.at(-1).phase,'ready');assert.equal(events.at(-1).totalFiles,3);assert.equal(events.at(-1).filesCompleted,3);const cached=[];await service.load(id,e=>cached.push(e));assert.equal(cached.at(-1).phase,'cached');assert.equal((await fs.readFile(path.join(root,'main.tex'),'utf8')),'original\n');
  await fs.writeFile(path.join(root,'main.tex'),'edited\r\n');await fs.mkdir(path.join(root,'.latex_cache'));await fs.writeFile(path.join(root,'.latex_cache','x.pdf'),'ignored');await fs.writeFile(path.join(root,'main.aux'),'ignored');
@@ -25,5 +25,20 @@ const AdmZip=require('adm-zip');const {Overleaf,compare,unzip,safeName}=require(
  for(const n of ['../escape','/root','a/../b','C:bad','a\\b','CON.tex','a.','a//b'])assert.throws(()=>safeName(n));
  const z=new AdmZip();z.addFile('MAIN.tex',Buffer.from('a'));z.addFile('main.tex',Buffer.from('b'));assert.throws(()=>unzip(z.toBuffer()),/重复/);
  assert.deepEqual(compare({'a':'base'},{'a':'same'},{'a':'same'}),[]);
+ const modern=new Overleaf({dir,transport:{projectList:async()=>({projects:[{id,name:'modern',accessLevel:'owner'}]}),json:async()=>{throw Error('legacy list must not be used');}}});
+ assert.deepEqual(await modern.projects(),[{id,name:'modern',access:'owner'}]);
+ for(const field of ['accessLevel','privilegeLevel']) {
+  for(const role of ['owner','readAndWrite','readOnly'])assert.equal(projectAccess({[field]:role}),role);
+ }
+ assert.equal(projectAccess({accessLevel:'readOnly',privilegeLevel:'owner'}),'readOnly');
+ assert.equal(projectAccess({}), 'unknown');assert.equal(projectAccess({accessLevel:'unexpected'}),'unknown');
+ accessField='privilegeLevel';access='owner';await fs.writeFile(path.join(root,'main.tex'),'legacy owner edit');
+ p=await service.plan(root);assert.equal(p.access,'owner');assert.equal(p.canApply,true);await service.apply(p.token);
+ access='readAndWrite';await fs.writeFile(path.join(root,'main.tex'),'legacy collaborator edit');
+ p=await service.plan(root);assert.equal(p.canApply,true);await service.apply(p.token);
+ access='unexpected';await fs.writeFile(path.join(root,'main.tex'),'unknown permission edit');
+ p=await service.plan(root);assert.equal(p.access,'unknown');assert.equal(p.canApply,false);const beforeUploads=uploads;
+ await assert.rejects(service.apply(p.token),/未能识别/);assert.equal(uploads,beforeUploads);
+ access='readOnly';p=await service.plan(root);assert.equal(p.canApply,false);await assert.rejects(service.apply(p.token),/只读/);
  console.log('PASS Overleaf: import, binary/nested files, explicit apply, 3-way conflicts, pull/backups, deletion, stale plan, readonly, retry, unsafe archives.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

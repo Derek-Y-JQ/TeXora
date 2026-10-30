@@ -57,15 +57,24 @@ function compare(base, local, remote) {
   }
   return rows;
 }
+function projectAccess(project) {
+  // Project listings and editor metadata use different permission field names.
+  // Missing/unrecognized permissions are unknown, not evidence of read-only access.
+  const raw = project.accessLevel ?? project.privilegeLevel;
+  if (['owner', 'readAndWrite', 'readOnly', 'review', 'none'].includes(raw)) return raw;
+  if (raw === 'read-write') return 'readAndWrite';
+  if (raw === 'read-only') return 'readOnly';
+  return 'unknown';
+}
 class Overleaf {
   constructor({dir,transport}) { this.dir=dir;this.transport=transport;this.plans=new Map();this.busy=false; }
   async records() {try{return JSON.parse(await fs.readFile(path.join(this.dir,'projects.json'),'utf8'));}catch(e){if(e.code==='ENOENT')return {};throw e;} }
   async save(records) {await fs.mkdir(this.dir,{recursive:true}); const file=path.join(this.dir,'projects.json');await fs.writeFile(file+'.tmp',JSON.stringify(records));await fs.rename(file+'.tmp',file);}
   async exclusive(fn) {if(this.busy)throw Error('另一个 Overleaf 操作正在进行');this.busy=true;try{return await fn();}finally{this.busy=false;} }
   async projects() {
-    const data=await this.transport.json('/user/projects');
+    const data=typeof this.transport.projectList==='function'?await this.transport.projectList():await this.transport.json('/user/projects');
     if(!Array.isArray(data.projects))throw Error('Overleaf 项目列表格式已变化，请重新登录或更新 TeXora');
-    return data.projects.map(p=>({id:p._id||p.id,name:String(p.name||'Untitled'),access:p.accessLevel})).filter(p=>ID.test(p.id));
+    return data.projects.map(p=>({id:p._id||p.id,name:String(p.name||'Untitled'),access:projectAccess(p)})).filter(p=>ID.test(p.id));
   }
   async remote(id,onProgress) {if(!ID.test(id))throw Error('无效的项目编号');const data=await this.transport.zip(`/project/${id}/download/zip`,onProgress);onProgress?.({phase:'extracting',filesCompleted:0,totalFiles:null});return unzip(data);}
   async load(id,onProgress) {return this.exclusive(async()=>{
@@ -98,7 +107,7 @@ class Overleaf {
     const rows=compare(record.base,lh,rh);
     const writable=['owner','readAndWrite','read-write'].includes(p.access);
     const token=crypto.randomUUID();this.plans.clear();this.plans.set(token,{root,record,lh,rh,rows,expires:Date.now()+10*60*1000});
-    return {token,rows,writable,canApply:!rows.some(r=>r.action==='conflict')&&(writable||!rows.some(r=>['upload','deleteRemote'].includes(r.action)))};
+    return {token,rows,access:p.access,writable,canApply:!rows.some(r=>r.action==='conflict')&&(writable||!rows.some(r=>['upload','deleteRemote'].includes(r.action)))};
   });}
   async apply(token) {return this.exclusive(async()=>{
     const p=this.plans.get(token);this.plans.delete(token);
@@ -107,6 +116,7 @@ class Overleaf {
     if(rows.some(r=>r.action==='conflict'))throw Error('存在冲突，请先处理后重新检查');
     const projects=await this.projects(),access=projects.find(x=>x.id===record.id)?.access;
     if(!access)throw Error('账号无法访问此项目');
+    if(access==='unknown'&&rows.some(r=>['upload','deleteRemote'].includes(r.action)))throw Error('未能识别 Overleaf 编辑权限，请刷新项目或重新登录后重试');
     if(rows.some(r=>['upload','deleteRemote'].includes(r.action))&&!['owner','readAndWrite','read-write'].includes(access))throw Error('当前项目为只读权限');
     const remote=await this.remote(record.id),local=await localFiles(root,new Set(Object.keys(record.base)));
     if(JSON.stringify(Object.entries(hashes(local)).sort())!==JSON.stringify(Object.entries(p.lh).sort()) || JSON.stringify(Object.entries(hashes(remote)).sort())!==JSON.stringify(Object.entries(p.rh).sort()))throw Error('确认期间本地或云端内容已变化，请重新检查');
@@ -142,4 +152,4 @@ class Overleaf {
     }catch(e){throw Error(`同步停止（已完成 ${completed.length} 个文件）：${e.message}。请重新检查后继续。`);}
   });}
 }
-module.exports={Overleaf,unzip,compare,safeName,digest};
+module.exports={Overleaf,unzip,compare,safeName,digest,projectAccess};

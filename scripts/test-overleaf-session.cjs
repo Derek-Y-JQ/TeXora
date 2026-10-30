@@ -35,6 +35,17 @@ const original=Module._load;Module._load=function(n,...args){return n==='electro
  const failed=[];queue=[new Response(new ReadableStream({start(controller){controller.error(new Error('fixture network failure'));}}),{headers:{'content-type':'application/zip'}})];await assert.rejects(client.zip('/project/'+id+'/download/zip',e=>failed.push(e)),/fixture network failure/);count=failed.length;await new Promise(r=>setTimeout(r,550));assert.equal(failed.length,count,'download heartbeat stops on error');assert.ok(!failed.some(e=>e.phase==='downloaded'));
  console.log('PASS download progress: chunked bytes/speed, known/unknown total, decoded content length, and heartbeat cleanup after success/failure.');
  console.log('PASS login regression: empty Electron response URL, shared-session credentials, safe redirects, expired session vs permission/challenge, and no replay of writes.');
+ const listing=new OverleafSession(()=>null,'C:/test');const listingCalls=[];
+ listing.request=async(route,options={})=>{listingCalls.push({route,options});return route==='/project'?new Response('<meta content="fixture-csrf" name="ol-csrfToken">',{headers:{'content-type':'text/html'}}):jsonResponse();};
+ assert.equal((await listing.projectList()).projects[0].accessLevel,'owner');
+ assert.deepEqual(listingCalls.map(c=>c.route),['/project','/api/project']);
+ assert.equal(listingCalls[1].options.method,'POST');assert.equal(listingCalls[1].options.body,'{}');assert.equal(listingCalls[1].options.headers['X-CSRF-Token'],'fixture-csrf');
+ listing.request=async route=>{if(route==='/project')return new Response('<meta name="ol-csrfToken" content="csrf">');if(route==='/api/project'){const e=Error('unsupported');e.status=404;throw e;}return jsonResponse();};
+ assert.equal((await listing.projectList()).projects[0].accessLevel,'owner');
+ let requests=0;listing.request=async()=>{requests++;return new Response('<html>challenge</html>');};
+ await assert.rejects(listing.projectList(),/网页验证/);assert.equal(requests,1);
+ listing.request=async()=>{throw Error('Overleaf 登录已过期');};await assert.rejects(listing.projectList(),/登录已过期/);
+ console.log('PASS project permissions: dashboard API, CSRF, legacy fallback, and no permission guessing on missing metadata.');
  const service=new OverleafSession(()=>null,'C:/test');let observed;
  service.request=async(route,options)=>{observed={route,options};return {json:async()=>({success:true})};};
  const tree={csrf:'csrf-token',project:{rootFolder:[{_id:id,folders:[{name:'sub',docs:[{_id:id,name:'a.tex'}]}]}]}};
