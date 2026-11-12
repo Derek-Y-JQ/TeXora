@@ -1,0 +1,1270 @@
+% =====================================================================
+%  第 2 章  条件数学期望
+% =====================================================================
+\chapter{条件数学期望}
+\label{ch:2}
+
+随机分析处处在问同一个问题: 已知到目前为止的信息, 对未来的随机量能作出怎样的估计? 赌徒根据已有的输赢决定下一次的赌注; 交易者为衍生品定价时需要依据历史价格, 物理学家则由粒子的当前位置预测其未来分布. 把 ``已知信息'' 表示为一个子 $\sigma$-代数 $\mathcal{G}$, 把 ``估计'' 理解为均方意义下的最佳预测, 就得到条件数学期望 $\E[X\,|\,\mathcal{G}]$. 它是全书最核心的工具: 第~3~章的鞅、第~4~章布朗运动的马尔可夫性、第~5~章 Itô 积分的鞅性质, 都用条件期望来表述.
+
+本章先从初等的条件期望出发, 说明为什么条件期望应当是一个\emph{随机变量} (2.1 节); 然后给出一般定义并证明其存在唯一性 (2.2 节); 2.3 节系统推导条件期望的运算法则; 2.4 节对正态随机向量给出条件分布的显式公式; 最后 2.5 节引入随机过程、信息流与马尔可夫性.
+
+% =====================================================================
+\section{从初等条件期望到正交投影}
+\label{sec:2-1}
+
+% ---------------------------------------------------------------------
+\subsection{对分割取条件}
+
+在初等概率论中, 若 $\P(B)>0$, 事件 $A$ 在 $B$ 发生条件下的概率是 $\P(A\,|\,B)=\frac{\P(A\cap B)}{\P(B)}$. 同样地, 对可积随机变量 $X$, 定义 $X$ 在 $B$ 发生条件下的期望为
+\begin{equation}\label{eq:elementary-ce}
+\E[X\,|\,B]=\frac{\E[X;B]}{\P(B)},
+\end{equation}
+即 $X$ 在 $B$ 上的平均值. 例如掷一颗均匀骰子, $X$ 为点数, $B=\{2,4,6\}$, 则 $\E[X\,|\,B]=\frac{(2+4+6)/6}{1/2}=4$.
+
+现在设观察者掌握的信息是 ``结果落在分割 $\{D_1,D_2,\dots\}$ 的哪一块中'' (例~\ref{ex:sigma-examples} (4)), 即 $\mathcal{G}=\sigma(\{D_1,D_2,\dots\})$. 观察者事先并不知道会落在哪一块, 所以他的预测应当是一个\emph{规则}: ``若结果落在 $D_i$ 中, 就报告 $X$ 在 $D_i$ 上的平均值''. 这个规则就是一个随机变量.
+
+\begin{definition}[对可数分割的条件期望]\label{def:ce-partition}
+设 $\{D_i\}_{i\ge1}$ 是 $\Omega$ 的有限或可列分割, $D_i\in\mathcal{F}$ 且 $\P(D_i)>0$, $\mathcal{G}=\sigma(\{D_i\}_{i\ge1})$, $X\in L^1$. 定义
+\[
+\E[X\,|\,\mathcal{G}](\omega)=\sum_{i\ge1}\E[X\,|\,D_i]\,\1_{D_i}(\omega)=\sum_{i\ge1}\frac{\E[X;D_i]}{\P(D_i)}\1_{D_i}(\omega).
+\]
+\end{definition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11cm, height=5.6cm, xmin=0, xmax=1.06, ymin=0, ymax=2.2,
+  xtick={0.3,0.55,1}, xticklabels={$0.3$,$0.55$,$1$}, ytick=\empty, xlabel={$\omega$},
+  legend style={draw=none,fill=none,font=\small,at={(0.5,-0.2)},anchor=north,legend columns=2,/tikz/every even column/.append style={column sep=1em}}]
+  \addplot[SABlue,very thick,domain=0:1,samples=200] {1.0+0.6*sin(deg(9*x))+0.5*x};
+  \addlegendentry{$X(\omega)$}
+  % block averages computed: see caption
+  \addplot[SARed,very thick] coordinates {(0,1.4981) (0.3,1.4981)};
+  \addlegendentry{$\E[X\,|\,\mathcal{G}](\omega)$}
+  \addplot[SARed,very thick,forget plot] coordinates {(0.3,0.9086) (0.55,0.9086)};
+  \addplot[SARed,very thick,forget plot] coordinates {(0.55,1.5574) (1,1.5574)};
+  \addplot[SADark!30,dashed,forget plot] coordinates {(0.3,0) (0.3,2.1)};
+  \addplot[SADark!30,dashed,forget plot] coordinates {(0.55,0) (0.55,2.1)};
+  \node[font=\small] at (axis cs:0.15,0.2) {$D_1$};
+  \node[font=\small] at (axis cs:0.425,0.2) {$D_2$};
+  \node[font=\small] at (axis cs:0.775,0.2) {$D_3$};
+\end{axis}
+\end{tikzpicture}
+\caption{对分割取条件期望 (取 $\Omega=[0,1]$, $\P$ 为均匀分布): 在每一块 $D_i$ 上, $\E[X\,|\,\mathcal{G}]$ 取常值, 等于 $X$ 在该块上的平均. 它 ``抹平'' 了 $X$ 在块内的变化, 只保留观察者能区分的信息}
+\label{fig:ce-partition}
+\end{figure}
+
+\begin{example}\label{ex:ce-partition}
+\begin{enumerate}
+\item 掷一颗骰子, $X$ 为点数, $\mathcal{G}=\sigma(\{1,3,5\},\{2,4,6\})$ 表示只知道奇偶性. 则 $\E[X\,|\,\mathcal{G}]$ 在奇数点上取 $3$, 在偶数点上取 $4$.
+\item 掷两颗骰子, 点数分别为 $X_1,X_2$, $S=X_1+X_2$. 取 $\mathcal{G}=\sigma(S)$, 它由分割 $\{S=s\}$ ($s=2,\dots,12$) 生成. 由于 $(X_1,X_2)$ 与 $(X_2,X_1)$ 同分布, $\E[X_1;S=s]=\E[X_2;S=s]$, 而二者之和为 $\E[S;S=s]=s\,\P(S=s)$. 所以 $\E[X_1\,|\,S=s]=\frac{s}{2}$, 即
+\[
+\E[X_1\,|\,\sigma(S)]=\frac{S}{2}.
+\]
+知道两颗骰子的点数之和, 对第一颗骰子的最佳估计是和的一半.
+\end{enumerate}
+\end{example}
+
+对分割的条件期望有两个基本性质, 它们将分别引出一般条件期望的两种定义.
+
+\begin{proposition}\label{prop:ce-partition-properties}
+在定义~\ref{def:ce-partition} 的记号下, 记 $Y=\E[X\,|\,\mathcal{G}]$. 则
+\begin{enumerate}
+\item $Y$ 是 $\mathcal{G}$-可测的, 且对每个 $G\in\mathcal{G}$, $\E[Y;G]=\E[X;G]$;
+\item 若 $X\in L^2$, 则对每个 $\mathcal{G}$-可测的 $Z\in L^2$, $\E[(X-Y)^2]\le\E[(X-Z)^2]$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+先说明: $\mathcal{G}$ 中的集合恰是若干块 $D_i$ 之并, 且 $\mathcal{G}$-可测的随机变量在每块 $D_i$ 上取常值. 前者是因为 ``若干块之并'' 的全体构成包含每个 $D_i$ 的 $\sigma$-代数 (与例~\ref{ex:sigma-examples} (4) 相同), 且它包含于 $\mathcal{G}$. 后者: 若 $Z$ 是 $\mathcal{G}$-可测的, $\omega\in D_i$, 则 $\{Z=Z(\omega)\}\in\mathcal{G}$ 是若干块之并且含有 $\omega$, 从而包含整个 $D_i$.
+
+(1) $Y$ 在每块上取常值, $\{Y\in B\}$ 是若干块之并, 故 $Y$ 是 $\mathcal{G}$-可测的. 设 $G=\bigcup_{i\in I}D_i$. 由于 $\abs{X\1_{\bigcup_{i\in I,i\le n}D_i}}\le\abs{X}$, 由控制收敛定理~\ref{thm:dct}, $\E[X;G]=\sum_{i\in I}\E[X;D_i]$, 于是
+\[
+\E[Y;G]=\sum_{i\in I}\frac{\E[X;D_i]}{\P(D_i)}\P(D_i)=\sum_{i\in I}\E[X;D_i]=\E[X;G].
+\]
+(对 $Y$ 交换求和与期望同样由控制收敛定理保证, 控制函数为 $\abs{Y}$, 而 $\E\abs{Y}\le\sum_i\E[\abs{X};D_i]=\E\abs{X}$.)
+
+(2) $Z$ 在 $D_i$ 上取常值 $z_i$. 于是 $\E[(X-Z)^2]=\sum_i\E[(X-z_i)^2;D_i]$, 而每一项
+\[
+\E[(X-z_i)^2;D_i]=\E[X^2;D_i]-2z_i\E[X;D_i]+z_i^2\P(D_i)
+\]
+是 $z_i$ 的二次函数, 在 $z_i=\frac{\E[X;D_i]}{\P(D_i)}$, 即 $Z=Y$ 时取得最小值.
+\end{proof}
+
+\begin{intuition}
+(1) 表明, $Y$ 只依赖于信息 $\mathcal{G}$, 并且在 $\mathcal{G}$ 能分辨的每个事件上, $Y$ 与 $X$ 的 ``总量'' 相同. (2) 表明, 在只能利用信息 $\mathcal{G}$ 的预测中, $Y$ 的均方误差最小. 这两条都不再涉及分割, 因此可以推广到任意子 $\sigma$-代数. 之所以需要推广, 是因为若 $\mathcal{G}=\sigma(Y)$ 而 $Y$ 是连续型随机变量, 则每个 $\{Y=y\}$ 的概率都是 $0$, 公式 \eqref{eq:elementary-ce} 已经失效, 但 ``已知 $Y$ 的值时对 $X$ 的估计'' 显然是有意义的问题.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{\texorpdfstring{$L^2$}{L2} 中的条件期望: 正交投影}
+
+设 $\mathcal{G}\subseteq\mathcal{F}$ 是子 $\sigma$-代数. 由例~\ref{ex:closed-subspaces} (2), 只依赖于信息 $\mathcal{G}$ 的平方可积随机变量全体
+\[
+L^2(\mathcal{G})=L^2(\Omega,\mathcal{G},\P)
+\]
+是 $L^2=L^2(\Omega,\mathcal{F},\P)$ 的闭子空间. 命题~\ref{prop:ce-partition-properties} (2) 提示我们: 条件期望应当是 $L^2(\mathcal{G})$ 中离 $X$ 最近的元素, 而正交投影定理~\ref{thm:projection} 保证了这样的元素存在且唯一.
+
+\begin{definition}[$L^2$ 中的条件期望]\label{def:ce-L2}
+设 $X\in L^2$. 称 $X$ 在闭子空间 $L^2(\mathcal{G})$ 上的正交投影为 $X$ 关于 $\mathcal{G}$ 的\textbf{条件期望}, 记为 $\E[X\,|\,\mathcal{G}]$. 它是满足以下两条的唯一元素 $Y$ (定理~\ref{thm:projection}):
+\begin{equation}\label{eq:ce-orthogonality}
+Y\in L^2(\mathcal{G}),\qquad \E[(X-Y)Z]=0\quad\text{对一切 }Z\in L^2(\mathcal{G}).
+\end{equation}
+\end{definition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+  \fill[SABlue!10] (-0.5,-0.6) -- (5.2,-0.6) -- (6.6,1.4) -- (0.9,1.4) -- cycle;
+  \draw[SABlue!60] (-0.5,-0.6) -- (5.2,-0.6) -- (6.6,1.4) -- (0.9,1.4) -- cycle;
+  \node[SABlue!80!black,font=\small] at (5.55,0.3) {$L^2(\mathcal{G})$};
+  \coordinate (O) at (0.6,0);
+  \coordinate (Y) at (3.6,0.5);
+  \coordinate (X) at (3.6,3.1);
+  \fill (O) circle (1.2pt) node[below left,font=\small] {$0$};
+  \draw[->,SADark,very thick] (O) -- (X) node[above,font=\small] {$X$};
+  \draw[->,SABlue,very thick] (O) -- (Y) node[below right,font=\small] {$\E[X\,|\,\mathcal{G}]$};
+  \draw[SARed,very thick,dashed] (Y) -- (X) node[midway,right,font=\small,align=left] {预测误差 $X-\E[X\,|\,\mathcal{G}]$\\ 与一切 $\mathcal{G}$-可测变量正交};
+  \draw[SARed] ($(Y)+(0,0.22)$) -- ($(Y)+(-0.24,0.18)$) -- ($(Y)+(-0.24,-0.04)$);
+\end{tikzpicture}
+\caption{$L^2$ 中的条件期望: 向 ``只依赖于信息 $\mathcal{G}$'' 的随机变量构成的闭子空间作正交投影}
+\label{fig:ce-projection}
+\end{figure}
+
+在 \eqref{eq:ce-orthogonality} 中取 $Z=\1_G$ ($G\in\mathcal{G}$), 得到 $\E[Y;G]=\E[X;G]$, 这正是命题~\ref{prop:ce-partition-properties} (1) 中的积分恒等式. 由命题~\ref{prop:projection-properties}, $L^2$ 中的条件期望直接继承了投影的性质: 它是线性的; $\norm{\E[X\,|\,\mathcal{G}]}_2\le\norm{X}_2$; 若 $\mathcal{H}\subseteq\mathcal{G}$, 则 $L^2(\mathcal{H})\subseteq L^2(\mathcal{G})$, 从而由投影的塔性质 $\E\big[\E[X\,|\,\mathcal{G}]\,\big|\,\mathcal{H}\big]=\E[X\,|\,\mathcal{H}]$.
+
+投影定义的缺点是只适用于 $X\in L^2$, 而许多重要的随机变量 (例如鞅) 只是可积的. 下一节以积分恒等式为定义, 把条件期望推广到 $L^1$, 并证明在 $L^2$ 中两种定义一致.
+
+% =====================================================================
+\section{一般条件期望}
+\label{sec:2-2}
+
+% ---------------------------------------------------------------------
+\subsection{Kolmogorov 定义}
+
+\begin{definition}[条件期望, Kolmogorov]\label{def:ce}
+设 $X\in L^1(\Omega,\mathcal{F},\P)$, $\mathcal{G}\subseteq\mathcal{F}$ 是子 $\sigma$-代数. 若随机变量 $Y$ 满足
+\begin{enumerate}
+\item $Y$ 是 $\mathcal{G}$-可测的, 且 $Y\in L^1$;
+\item 对每个 $G\in\mathcal{G}$, $\E[Y;G]=\E[X;G]$,
+\end{enumerate}
+则称 $Y$ 为 $X$ 关于 $\mathcal{G}$ 的\textbf{条件期望}, 记为 $\E[X\,|\,\mathcal{G}]$.
+\end{definition}
+
+条件期望只在几乎必然相等的意义下确定 (见下面的推论~\ref{cor:ce-uniqueness}): 满足定义的任何一个 $Y$ 称为条件期望的一个\textbf{版本}. 涉及条件期望的等式与不等式因此都理解为几乎必然成立, 后文不再逐一注明 ``$\as$''.
+
+下面的比较引理是证明条件期望各种性质的基本工具.
+
+\begin{lemma}[比较引理]\label{lem:ce-compare}
+设 $Y_1,Y_2$ 是 $\mathcal{G}$-可测的可积随机变量, 且对每个 $G\in\mathcal{G}$, $\E[Y_1;G]\le\E[Y_2;G]$. 则 $Y_1\le Y_2$ $\as$
+\end{lemma}
+
+\begin{proof}
+对 $n\ge1$, 令 $G_n=\{Y_1-Y_2>\frac{1}{n}\}$. 由于 $Y_1-Y_2$ 是 $\mathcal{G}$-可测的, $G_n\in\mathcal{G}$. 一方面由假设 $\E[Y_1-Y_2;G_n]\le0$; 另一方面在 $G_n$ 上 $Y_1-Y_2>\frac{1}{n}$, 所以 $\E[Y_1-Y_2;G_n]\ge\frac{1}{n}\P(G_n)$. 于是 $\P(G_n)=0$, 进而
+$\P(Y_1>Y_2)=\P\big(\bigcup_nG_n\big)\le\sum_n\P(G_n)=0$.
+\end{proof}
+
+\begin{corollary}[唯一性]\label{cor:ce-uniqueness}
+若 $Y$ 与 $Y'$ 都满足定义~\ref{def:ce}, 则 $Y=Y'$ $\as$
+\end{corollary}
+
+\begin{proof}
+二者在每个 $G\in\mathcal{G}$ 上的积分都等于 $\E[X;G]$. 由比较引理~\ref{lem:ce-compare}, $Y\le Y'$ 且 $Y'\le Y$ $\as$
+\end{proof}
+
+验证一个随机变量是条件期望时, 往往不必检查全部 $G\in\mathcal{G}$, 检查一个生成 $\pi$-系就够了.
+
+\begin{lemma}\label{lem:ce-pi-system}
+设 $X\in L^1$, $Y$ 是 $\mathcal{G}$-可测的可积随机变量, $\mathcal{P}$ 是包含 $\Omega$ 的 $\pi$-系, 且 $\sigma(\mathcal{P})=\mathcal{G}$. 若 $\E[Y;G]=\E[X;G]$ 对一切 $G\in\mathcal{P}$ 成立, 则 $Y=\E[X\,|\,\mathcal{G}]$.
+\end{lemma}
+
+\begin{proof}
+令 $\mathcal{L}=\{G\in\mathcal{G}: \E[Y;G]=\E[X;G]\}$, 则 $\mathcal{P}\subseteq\mathcal{L}$. 验证 $\mathcal{L}$ 是 $\lambda$-系: (a) $\Omega\in\mathcal{P}\subseteq\mathcal{L}$. (b) 若 $A,B\in\mathcal{L}$, $A\subseteq B$, 则由 $\1_{B\setminus A}=\1_B-\1_A$ 与期望的线性, $\E[Y;B\setminus A]=\E[Y;B]-\E[Y;A]=\E[X;B]-\E[X;A]=\E[X;B\setminus A]$. (c) 若 $A_n\in\mathcal{L}$, $A_n\uparrow A$, 则 $X\1_{A_n}\to X\1_A$, 且 $\abs{X\1_{A_n}}\le\abs{X}$, 由控制收敛定理~\ref{thm:dct}, $\E[X;A_n]\to\E[X;A]$; 对 $Y$ 同理. 由 $\pi$-$\lambda$ 定理~\ref{thm:pi-lambda}, $\mathcal{G}=\sigma(\mathcal{P})\subseteq\mathcal{L}$.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{存在性}
+
+\begin{theorem}[条件期望的存在唯一性]\label{thm:ce-existence}
+对任意 $X\in L^1$ 与子 $\sigma$-代数 $\mathcal{G}\subseteq\mathcal{F}$, 条件期望 $\E[X\,|\,\mathcal{G}]$ 存在, 且在几乎必然相等的意义下唯一. 若 $X\in L^2$, 则它与定义~\ref{def:ce-L2} 中的正交投影一致.
+\end{theorem}
+
+\begin{proof}
+唯一性即推论~\ref{cor:ce-uniqueness}. 存在性分四步证明.
+
+\emph{第一步: $X\in L^2$.} 令 $Y$ 为 $X$ 在 $L^2(\mathcal{G})$ 上的正交投影, 取其 $\mathcal{G}$-可测的代表元. 由于 $L^2\subseteq L^1$, $Y$ 可积. 对 $G\in\mathcal{G}$, $\1_G\in L^2(\mathcal{G})$, 由 \eqref{eq:ce-orthogonality}, $\E[(X-Y)\1_G]=0$, 即 $\E[Y;G]=\E[X;G]$. 所以 $Y$ 满足定义~\ref{def:ce}. 反过来, 由唯一性, 满足定义~\ref{def:ce} 的任何版本都几乎必然等于这个投影. 这证明了 $L^2$ 中两种定义一致.
+
+\emph{第二步: 保序性.} 设 $X_1,X_2\in L^2$, $X_1\le X_2$ $\as$, 则 $\E[X_1\,|\,\mathcal{G}]\le\E[X_2\,|\,\mathcal{G}]$. 事实上, 对 $G\in\mathcal{G}$,
+\[
+\E\big[\E[X_1\,|\,\mathcal{G}];G\big]=\E[X_1;G]\le\E[X_2;G]=\E\big[\E[X_2\,|\,\mathcal{G}];G\big],
+\]
+由比较引理~\ref{lem:ce-compare} 即得.
+
+\emph{第三步: $X\ge0$, $X\in L^1$.} 令 $X_n=X\wedge n$, 它有界, 故属于 $L^2$, 且 $0\le X_n\uparrow X$. 令 $Y_n=\E[X_n\,|\,\mathcal{G}]$ (由第一步). 由第二步, 对每个 $n$, $0\le Y_n\le Y_{n+1}$ 在 $\mathcal{G}$-可测集 $\Omega\setminus N_n$ 上成立, 其中 $\P(N_n)=0$. 令 $N=\bigcup_nN_n\in\mathcal{G}$, 定义
+\[
+Y=\begin{cases}\lim_{n\to\infty}Y_n, & \text{在 } N^c \text{ 上},\\ 0, & \text{在 } N \text{ 上}.\end{cases}
+\]
+$Y$ 是 $\mathcal{G}$-可测的非负广义随机变量 (命题~\ref{prop:rv-operations} (3)). 对 $G\in\mathcal{G}$, 在 $\Omega$ 上 $Y_n\1_{G\cap N^c}\uparrow Y\1_{G\cap N^c}$, $X_n\1_G\uparrow X\1_G$, 由单调收敛定理~\ref{thm:mct} 与 $\P(N)=0$,
+\[
+\E[Y;G]=\lim_{n\to\infty}\E[Y_n;G]=\lim_{n\to\infty}\E[X_n;G]=\E[X;G].
+\]
+取 $G=\Omega$ 得 $\E[Y]=\E[X]<\infty$, 所以 $Y$ 可积, 且 $Y<\infty$ $\as$; 把 $Y$ 在 $\mathcal{G}$-可测零概率集 $\{Y=\infty\}$ 上改为 $0$, 积分不变. 于是 $Y$ 满足定义~\ref{def:ce}.
+
+\emph{第四步: 一般的 $X\in L^1$.} 由第三步, $Y^+=\E[X^+\,|\,\mathcal{G}]$ 与 $Y^-=\E[X^-\,|\,\mathcal{G}]$ 存在. 令 $Y=Y^+-Y^-$, 它是 $\mathcal{G}$-可测且可积的, 并且对 $G\in\mathcal{G}$, 由期望的线性,
+$\E[Y;G]=\E[X^+;G]-\E[X^-;G]=\E[X;G]$.
+\end{proof}
+
+\begin{intuition}
+$\E[X\,|\,\mathcal{G}]$ 是 $X$ 的一个 ``粗化'' 版本: 它只能利用 $\mathcal{G}$ 中的信息, 却在 $\mathcal{G}$ 能分辨的每个事件上保持与 $X$ 相同的总量. 粗化的程度由 $\mathcal{G}$ 决定: $\mathcal{G}$ 越小, 能分辨的事件越少, 条件期望越 ``平滑''. 两个极端是 $\E[X\,|\,\{\varnothing,\Omega\}]=\E[X]$ (毫无信息, 只能报告常数) 与 $\E[X\,|\,\mathcal{F}]=X$ (完全信息, 无需估计). 这两个等式可以直接由定义验证.
+\end{intuition}
+
+\begin{remark}[Radon-Nikodym 定理的观点]
+条件期望的存在性也可以由 Radon-Nikodym 定理得到: 对 $X\ge0$, $\nu(G)=\E[X;G]$ 是 $(\Omega,\mathcal{G})$ 上的有限测度, 且关于 $\P$ 在 $\mathcal{G}$ 上的限制绝对连续 ($\P(G)=0\Rightarrow\nu(G)=0$). 定义~\ref{def:ce} (2) 恰好说明 $\E[X\,|\,\mathcal{G}]$ 是 Radon-Nikodym 导数 $\frac{\dd\nu}{\dd\P|_{\mathcal{G}}}$. 上面的证明利用 1.6 节的 Hilbert 空间结构, 避开了 Radon-Nikodym 定理; 第~5~章讨论测度变换时, 我们将从另一个方向用到 Radon-Nikodym 导数.
+\end{remark}
+
+由定义~\ref{def:ce-partition} 与命题~\ref{prop:ce-partition-properties} (1), 在可数分割的情形, 一般定义与初等定义一致. 若某块 $D_i$ 满足 $\P(D_i)=0$, 条件期望在该块上的取值还可以任意指定, 这正体现了 ``版本'' 的不唯一性.
+
+% ---------------------------------------------------------------------
+\subsection{关于随机变量的条件期望}
+
+最常见的情形是以另一个随机变量 (或随机向量) 的信息为条件.
+
+\begin{definition}\label{def:ce-rv}
+设 $X\in L^1$, $\rvec{Y}$ 是随机向量. 定义 $\E[X\,|\,\rvec{Y}]=\E[X\,|\,\sigma(\rvec{Y})]$. 对随机变量族, $\E[X\,|\,Y_1,\dots,Y_n]=\E[X\,|\,\sigma(Y_1,\dots,Y_n)]$.
+\end{definition}
+
+由于 $\E[X\,|\,\rvec{Y}]$ 是 $\sigma(\rvec{Y})$-可测的, 由 Doob-Dynkin 引理~\ref{lem:doob-dynkin} (及其后的注), 存在 Borel 函数 $g$ 使
+\[
+\E[X\,|\,\rvec{Y}]=g(\rvec{Y}).
+\]
+记 $\E[X\,|\,\rvec{Y}=\rvec{y}]=g(\rvec{y})$, 称为\textbf{条件期望函数} (或回归函数). 它由以下性质刻画: $g$ 是 Borel 函数, 且对一切 Borel 集 $B$,
+\begin{equation}\label{eq:regression-function}
+\E[X;\rvec{Y}\in B]=\E[g(\rvec{Y});\rvec{Y}\in B].
+\end{equation}
+$g$ 在 $\mu_{\rvec{Y}}$-几乎处处的意义下唯一: 若 $g_1,g_2$ 都满足 \eqref{eq:regression-function}, 则由唯一性 $g_1(\rvec{Y})=g_2(\rvec{Y})$ $\as$, 即 $\mu_{\rvec{Y}}(\{g_1\ne g_2\})=\P(g_1(\rvec{Y})\ne g_2(\rvec{Y}))=0$. 这就是 ``条件于零概率事件 $\{\rvec{Y}=\rvec{y}\}$'' 的严格含义: 单个点上的值没有意义, 但作为 $\rvec{y}$ 的函数, $g$ 几乎处处是确定的.
+
+若 $(X,Y)$ 有联合密度, 条件期望函数有显式公式.
+
+\begin{proposition}[条件密度]\label{prop:conditional-density}
+设 $(X,Y)$ 有联合密度 $f(x,y)$, $Y$ 的边缘密度为 $f_Y(y)=\int_{\R}f(x,y)\dd x$. 定义\textbf{条件密度}
+\[
+f_{X|Y}(x\,|\,y)=\begin{cases}\dfrac{f(x,y)}{f_Y(y)}, & f_Y(y)>0,\\[2mm] 0, & f_Y(y)=0.\end{cases}
+\]
+若 $h$ 是 Borel 函数且 $h(X)\in L^1$, 则 $\E[h(X)\,|\,Y]=g(Y)$, 其中
+\[
+g(y)=\int_{\R}h(x)f_{X|Y}(x\,|\,y)\dd x\qquad(\text{当此积分绝对收敛时; 否则令 }g(y)=0).
+\]
+\end{proposition}
+
+\begin{proof}
+由 Tonelli 定理~\ref{thm:fubini}, $y\mapsto\int\abs{h(x)}f(x,y)\dd x$ 是 Borel 函数, 且
+\[
+\int_{\R}\Big(\int_{\R}\abs{h(x)}f(x,y)\dd x\Big)\dd y=\E\abs{h(X)}<\infty,
+\]
+所以对几乎每个 $y$ (关于 Lebesgue 测度), 内层积分有限; 由 Fubini 定理, $g$ 是 Borel 函数. 对 Borel 集 $B$, 由 Fubini 定理与 $f(x,y)=f_{X|Y}(x\,|\,y)f_Y(y)$ (当 $f_Y(y)=0$ 时, 对几乎每个 $x$ 有 $f(x,y)=0$, 两边都为 $0$),
+\begin{align*}
+\E[h(X);Y\in B]&=\int_B\Big(\int_{\R}h(x)f(x,y)\dd x\Big)\dd y=\int_B\Big(\int_{\R}h(x)f_{X|Y}(x\,|\,y)\dd x\Big)f_Y(y)\dd y\\
+&=\int_Bg(y)f_Y(y)\dd y=\E[g(Y);Y\in B].
+\end{align*}
+$g(Y)$ 的可积性: $\E\abs{g(Y)}\le\int\int\abs{h(x)}f(x,y)\dd x\dd y=\E\abs{h(X)}<\infty$. 由 \eqref{eq:regression-function} 即得.
+\end{proof}
+
+\begin{example}[三角形上的均匀分布]\label{ex:triangle}
+设 $(X,Y)$ 在三角形 $\{(x,y): 0<x<y<1\}$ 上均匀分布, 联合密度为 $f=2$. 则 $f_Y(y)=\int_0^y2\dd x=2y$ ($0<y<1$), 条件密度 $f_{X|Y}(x\,|\,y)=\frac{1}{y}\1_{(0,y)}(x)$: 已知 $Y=y$ 时, $X$ 在 $(0,y)$ 上均匀分布. 于是
+\[
+\E[X\,|\,Y]=\frac{Y}{2},\qquad \E[X^2\,|\,Y]=\frac{Y^2}{3}.
+\]
+反过来, $f_X(x)=2(1-x)$, $f_{Y|X}(y\,|\,x)=\frac{1}{1-x}\1_{(x,1)}(y)$, 所以 $\E[Y\,|\,X]=\frac{1+X}{2}$.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=3.6]
+  \fill[SABlue!12] (0,0) -- (1,1) -- (0,1) -- cycle;
+  \draw[SABlue!70] (0,0) -- (1,1) -- (0,1) -- cycle;
+  \draw[->,SADark!70] (0,0) -- (1.15,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!70] (0,0) -- (0,1.15) node[above,font=\small] {$y$};
+  \draw[SARed,very thick] (0,0.7) -- (0.7,0.7);
+  \fill[SARed] (0.35,0.7) circle (0.5pt);
+  \node[SARed,font=\small,anchor=west] at (0.74,0.7) {$\E[X\,|\,Y=y]=\frac{y}{2}$};
+  \draw[SARed,->,thin] (0.73,0.66) to[bend left=20] (0.37,0.68);
+  \node[left,font=\small] at (0,0.7) {$y$};
+  \draw[SAGreenText,thick,dashed] (0,0) -- (0.5,1);
+  \node[SAGreenText,font=\small,anchor=west] at (0.52,0.98) {$x=\frac{y}{2}$};
+  \node[font=\small] at (0.25,0.38) {$f=2$};
+  \node[below,font=\small] at (1,0) {$1$};
+\end{tikzpicture}
+\caption{例~\ref{ex:triangle}: 已知 $Y=y$, $X$ 在水平线段 $(0,y)$ 上均匀分布, 条件期望是线段中点. 所有中点连成回归直线 $x=\frac{y}{2}$}
+\label{fig:triangle}
+\end{figure}
+
+\begin{example}[信息的不对称]\label{ex:info-asymmetry}
+设 $X\sim N(0,1)$. 则 $\E[X^2\,|\,X]=X^2$ (它是 $\sigma(X)$-可测的), 但 $\E[X\,|\,X^2]=0$. 事实上, 对 Borel 集 $B$, 函数 $x\mapsto x\1_B(x^2)$ 是奇函数, 而 $X\overset{d}{=}-X$, 所以 $\E[X;X^2\in B]=\E[-X;X^2\in B]$, 从而为 $0=\E[0;X^2\in B]$. 直观地, 知道 $X$ 就知道 $X^2$; 但知道 $X^2$ 只知道 $\abs{X}$, 而 $X$ 的两个可能取值 $\pm\abs{X}$ 等可能, 平均为 $0$.
+\end{example}
+
+% =====================================================================
+\section{条件期望的性质}
+\label{sec:2-3}
+
+本节推导条件期望的运算法则. 证明几乎都遵循同一个模式: 要证 $Y=\E[X\,|\,\mathcal{G}]$, 就验证 $Y$ 是 $\mathcal{G}$-可测且可积的, 并且 $\E[Y;G]=\E[X;G]$ 对一切 $G\in\mathcal{G}$ (或一个生成 $\pi$-系中的 $G$) 成立, 再由唯一性得出结论. 以下设 $\mathcal{G},\mathcal{H}\subseteq\mathcal{F}$ 是子 $\sigma$-代数, 随机变量都可积, 等式与不等式都在几乎必然的意义下成立.
+
+% ---------------------------------------------------------------------
+\subsection{基本性质}
+
+\begin{theorem}[条件期望的基本性质]\label{thm:ce-basic}
+设 $X,Y\in L^1$, $a,b\in\R$. 则
+\begin{enumerate}
+\item 线性: $\E[aX+bY\,|\,\mathcal{G}]=a\E[X\,|\,\mathcal{G}]+b\E[Y\,|\,\mathcal{G}]$;
+\item 单调性: 若 $X\le Y$, 则 $\E[X\,|\,\mathcal{G}]\le\E[Y\,|\,\mathcal{G}]$; 特别地, 若 $X\ge0$, 则 $\E[X\,|\,\mathcal{G}]\ge0$;
+\item 三角不等式: $\abs{\E[X\,|\,\mathcal{G}]}\le\E[\abs{X}\,|\,\mathcal{G}]$, 从而 $\E\abs{\E[X\,|\,\mathcal{G}]}\le\E\abs{X}$;
+\item 全期望公式: $\E\big[\E[X\,|\,\mathcal{G}]\big]=\E[X]$;
+\item 若 $X$ 是 $\mathcal{G}$-可测的, 则 $\E[X\,|\,\mathcal{G}]=X$; 特别地, 常数的条件期望是它自身;
+\item 独立性化简: 若 $X$ 与 $\mathcal{G}$ 独立, 则 $\E[X\,|\,\mathcal{G}]=\E[X]$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 右端是 $\mathcal{G}$-可测且可积的. 对 $G\in\mathcal{G}$, 由期望的线性与定义,
+\[
+\E\big[a\E[X\,|\,\mathcal{G}]+b\E[Y\,|\,\mathcal{G}];G\big]=a\E[X;G]+b\E[Y;G]=\E[aX+bY;G].
+\]
+
+(2) 对 $G\in\mathcal{G}$, $\E\big[\E[X\,|\,\mathcal{G}];G\big]=\E[X;G]\le\E[Y;G]=\E\big[\E[Y\,|\,\mathcal{G}];G\big]$, 由比较引理~\ref{lem:ce-compare} 即得. 取 $X=0$ 得第二个论断.
+
+(3) 由 $-\abs{X}\le X\le\abs{X}$ 与 (1)(2), $-\E[\abs{X}\,|\,\mathcal{G}]\le\E[X\,|\,\mathcal{G}]\le\E[\abs{X}\,|\,\mathcal{G}]$. 两边取期望并用 (4) 得第二式.
+
+(4) 在定义~\ref{def:ce} (2) 中取 $G=\Omega$.
+
+(5) $X$ 自身满足定义~\ref{def:ce} 的两个条件.
+
+(6) 常数 $\E[X]$ 是 $\mathcal{G}$-可测的. 对 $G\in\mathcal{G}$, $X$ 与 $\1_G$ 独立, 由定理~\ref{thm:indep-product}, $\E[X;G]=\E[X]\P(G)=\E\big[\E[X];G\big]$.
+\end{proof}
+
+\begin{intuition}
+(4) 是 ``先分情况求平均, 再对各情况加权平均, 等于直接求平均'', 即初等概率中的全概率公式. (6) 说: 与 $X$ 无关的信息对预测 $X$ 毫无帮助, 最佳预测仍是无条件期望. (3) 的第二式说明条件期望是 $L^1$ 上的压缩映射: 若 $X_n\xrightarrow{L^1}X$, 则 $\E[X_n\,|\,\mathcal{G}]\xrightarrow{L^1}\E[X\,|\,\mathcal{G}]$.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{塔性质与 ``提出已知因子''}
+
+下面两个性质刻画了条件期望与信息结构的关系, 在鞅论与随机积分中几乎每一步都要用到.
+
+\begin{theorem}[塔性质]\label{thm:tower}
+若 $\mathcal{H}\subseteq\mathcal{G}$, 则
+\[
+\E\big[\E[X\,|\,\mathcal{G}]\,\big|\,\mathcal{H}\big]=\E[X\,|\,\mathcal{H}]=\E\big[\E[X\,|\,\mathcal{H}]\,\big|\,\mathcal{G}\big].
+\]
+\end{theorem}
+
+\begin{proof}
+第二个等号: $\E[X\,|\,\mathcal{H}]$ 是 $\mathcal{H}$-可测的, 从而是 $\mathcal{G}$-可测的, 由定理~\ref{thm:ce-basic} (5) 即得.
+
+第一个等号: $\E[X\,|\,\mathcal{H}]$ 是 $\mathcal{H}$-可测且可积的. 对 $H\in\mathcal{H}$, 由于 $H\in\mathcal{G}$, 两次使用定义~\ref{def:ce} (2),
+\[
+\E\big[\E[X\,|\,\mathcal{G}];H\big]=\E[X;H]=\E\big[\E[X\,|\,\mathcal{H}];H\big].
+\]
+所以 $\E[X\,|\,\mathcal{H}]$ 满足 $\E[X\,|\,\mathcal{G}]$ 关于 $\mathcal{H}$ 的条件期望的定义.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11cm, height=5.8cm, xmin=0, xmax=1.06, ymin=0, ymax=2.3,
+  xtick={0.25,0.5,0.75,1}, ytick=\empty, xlabel={$\omega$},
+  legend style={draw=none,fill=none,font=\small,at={(0.5,-0.2)},anchor=north,legend columns=3,/tikz/every even column/.append style={column sep=1em}}]
+  \addplot[SABlue!60,thick,domain=0:1,samples=200] {1.0+0.6*sin(deg(9*x))+0.5*x};
+  \addlegendentry{$X$}
+  \addplot[SAGreenText,very thick] coordinates {(0,1.4967) (0.25,1.4967)};
+  \addlegendentry{$\E[X\,|\,\mathcal{G}]$}
+  \addplot[SARed,very thick,dashed] coordinates {(0,1.2864) (0.5,1.2864)};
+  \addlegendentry{$\E[X\,|\,\mathcal{H}]$}
+  \addplot[SAGreenText,very thick,forget plot] coordinates {(0.25,1.0762) (0.5,1.0762)};
+  \addplot[SAGreenText,very thick,forget plot] coordinates {(0.5,1.0182) (0.75,1.0182)};
+  \addplot[SAGreenText,very thick,forget plot] coordinates {(0.75,1.9186) (1,1.9186)};
+  \addplot[SARed,very thick,dashed,forget plot] coordinates {(0.5,1.4684) (1,1.4684)};
+  \addplot[SADark!25,forget plot] coordinates {(0.25,0) (0.25,2.2)};
+  \addplot[SADark!50,thick,forget plot] coordinates {(0.5,0) (0.5,2.2)};
+  \addplot[SADark!25,forget plot] coordinates {(0.75,0) (0.75,2.2)};
+\end{axis}
+\end{tikzpicture}
+\caption{塔性质 ($\Omega=[0,1]$, $\mathcal{G}$ 由四个等长区间生成, $\mathcal{H}\subseteq\mathcal{G}$ 由两个等长区间生成): 先在细分割上平均, 再把相邻两块的平均值再平均, 结果等于直接在粗分割上平均}
+\label{fig:tower}
+\end{figure}
+
+\begin{intuition}
+塔性质可以概括为 ``信息少的一方说了算'': 先用较多的信息 $\mathcal{G}$ 预测, 再用较少的信息 $\mathcal{H}$ 预测这个预测, 等于直接用 $\mathcal{H}$ 预测; 而用较少信息得到的预测, 在较多信息下已经完全已知, 不会再改变. 在 $L^2$ 中, 这就是投影的塔性质 (命题~\ref{prop:projection-properties} (5)).
+\end{intuition}
+
+\begin{theorem}[提出已知因子]\label{thm:take-out}
+设 $Z$ 是 $\mathcal{G}$-可测的随机变量, 且 $X$ 与 $ZX$ 都可积. 则
+\[
+\E[ZX\,|\,\mathcal{G}]=Z\,\E[X\,|\,\mathcal{G}].
+\]
+\end{theorem}
+
+\begin{proof}
+按 $Z$ 的复杂程度分步.
+
+\emph{第一步: $Z=\1_{G_0}$, $G_0\in\mathcal{G}$.} 右端 $\1_{G_0}\E[X\,|\,\mathcal{G}]$ 是 $\mathcal{G}$-可测且可积的. 对 $G\in\mathcal{G}$, 由于 $G\cap G_0\in\mathcal{G}$,
+\[
+\E\big[\1_{G_0}\E[X\,|\,\mathcal{G}];G\big]=\E\big[\E[X\,|\,\mathcal{G}];G\cap G_0\big]=\E[X;G\cap G_0]=\E[\1_{G_0}X;G].
+\]
+
+\emph{第二步: $Z$ 是 $\mathcal{G}$-可测的简单随机变量.} 由第一步与条件期望的线性 (定理~\ref{thm:ce-basic} (1)).
+
+\emph{第三步: $Z\ge0$, $X\ge0$.} 由引理~\ref{lem:simple-approx}, 取 $\mathcal{G}$-可测的非负简单随机变量 $Z_n\uparrow Z$. 由定理~\ref{thm:ce-basic} (2), $\E[X\,|\,\mathcal{G}]\ge0$, 所以 $Z_n\E[X\,|\,\mathcal{G}]\uparrow Z\E[X\,|\,\mathcal{G}]$, 同时 $Z_nX\uparrow ZX$. 对 $G\in\mathcal{G}$, 由单调收敛定理~\ref{thm:mct} 与第二步,
+\[
+\E\big[Z\E[X\,|\,\mathcal{G}];G\big]=\lim_{n\to\infty}\E\big[Z_n\E[X\,|\,\mathcal{G}];G\big]=\lim_{n\to\infty}\E[Z_nX;G]=\E[ZX;G].
+\]
+取 $G=\Omega$ 知 $\E\big[Z\E[X\,|\,\mathcal{G}]\big]=\E[ZX]<\infty$, 故 $Z\E[X\,|\,\mathcal{G}]$ 可积, 它满足 $\E[ZX\,|\,\mathcal{G}]$ 的定义.
+
+\emph{第四步: 一般情形.} 记 $Z=Z^+-Z^-$, $X=X^+-X^-$. 对 $a,b\in\{+,-\}$, $Z^a$ 是 $\mathcal{G}$-可测的非负随机变量, $Z^aX^b$ 非负且 $\abs{Z^aX^b}\le\abs{ZX}$, 所以可积. 由第三步, $\E[Z^aX^b\,|\,\mathcal{G}]=Z^a\E[X^b\,|\,\mathcal{G}]$. 展开 $ZX=Z^+X^+-Z^+X^--Z^-X^++Z^-X^-$, 由线性,
+\[
+\E[ZX\,|\,\mathcal{G}]=\big(Z^+-Z^-\big)\big(\E[X^+\,|\,\mathcal{G}]-\E[X^-\,|\,\mathcal{G}]\big)=Z\,\E[X\,|\,\mathcal{G}].\qedhere
+\]
+\end{proof}
+
+\begin{intuition}
+在信息 $\mathcal{G}$ 下, $Z$ 的值已经知道, 它像常数一样可以提到条件期望外面. 例如在第~3~章中, 时刻 $n-1$ 决定的赌注 $H_n$ 乘以下一局的输赢 $\xi_n$, 其条件期望为 $\E[H_n\xi_n\,|\,\mathcal{F}_{n-1}]=H_n\E[\xi_n\,|\,\mathcal{F}_{n-1}]$; 若每一局都是公平的, 这一项为零, 这就是 ``公平赌博中任何策略都无法获利'' 的根源.
+\end{intuition}
+
+\begin{corollary}[条件期望的自伴性]\label{cor:ce-selfadjoint}
+若 $X,Z\in L^2$, 或 $X\in L^1$ 且 $Z$ 有界, 则
+\[
+\E\big[Z\,\E[X\,|\,\mathcal{G}]\big]=\E\big[\E[Z\,|\,\mathcal{G}]\,\E[X\,|\,\mathcal{G}]\big]=\E\big[\E[Z\,|\,\mathcal{G}]\,X\big].
+\]
+\end{corollary}
+
+\begin{proof}
+所涉及的乘积都可积: 在 $L^2$ 情形, 由 Cauchy-Schwarz 不等式及 $\norm{\E[\cdot\,|\,\mathcal{G}]}_2\le\norm{\cdot}_2$ (定理~\ref{thm:ce-existence} 与命题~\ref{prop:projection-properties} (3)); 在 $Z$ 有界情形, 由 $\abs{\E[Z\,|\,\mathcal{G}]}\le\sup\abs{Z}$ (定理~\ref{thm:ce-basic} (2)). 由全期望公式与提出已知因子 (提出 $\mathcal{G}$-可测的 $\E[X\,|\,\mathcal{G}]$),
+\[
+\E\big[Z\,\E[X\,|\,\mathcal{G}]\big]=\E\Big[\E\big[Z\,\E[X\,|\,\mathcal{G}]\,\big|\,\mathcal{G}\big]\Big]=\E\big[\E[Z\,|\,\mathcal{G}]\,\E[X\,|\,\mathcal{G}]\big].
+\]
+交换 $X$ 与 $Z$ 的角色即得第二个等号.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{条件极限定理与条件 Jensen 不等式}
+
+1.3 节的三个积分收敛定理都有条件版本. 与无条件情形不同, 结论是随机变量之间的几乎必然收敛.
+
+\begin{theorem}[条件单调收敛定理]\label{thm:cmct}
+若 $0\le X_n\uparrow X$, 且 $X\in L^1$, 则 $\E[X_n\,|\,\mathcal{G}]\uparrow\E[X\,|\,\mathcal{G}]$.
+\end{theorem}
+
+\begin{proof}
+由于 $0\le X_n\le X$, 每个 $X_n$ 可积. 记 $Y_n=\E[X_n\,|\,\mathcal{G}]$. 由单调性 (定理~\ref{thm:ce-basic} (2)), $0\le Y_n\le Y_{n+1}\le\E[X\,|\,\mathcal{G}]$ (除去一个 $\mathcal{G}$-可测零概率集, 与定理~\ref{thm:ce-existence} 第三步相同处理). 令 $Y=\lim_nY_n$, 它是 $\mathcal{G}$-可测的, 且 $Y\le\E[X\,|\,\mathcal{G}]$, 所以可积. 对 $G\in\mathcal{G}$, 两次使用单调收敛定理~\ref{thm:mct},
+\[
+\E[Y;G]=\lim_{n\to\infty}\E[Y_n;G]=\lim_{n\to\infty}\E[X_n;G]=\E[X;G].
+\]
+所以 $Y=\E[X\,|\,\mathcal{G}]$.
+\end{proof}
+
+\begin{theorem}[条件 Fatou 引理]\label{thm:cfatou}
+若 $X_n\ge0$ 且 $X_n$ 与 $\liminf_nX_n$ 都可积, 则
+\[
+\E\Big[\liminf_{n\to\infty}X_n\,\Big|\,\mathcal{G}\Big]\le\liminf_{n\to\infty}\E[X_n\,|\,\mathcal{G}].
+\]
+\end{theorem}
+
+\begin{proof}
+令 $Z_m=\inf_{n\ge m}X_n$, 则 $0\le Z_m\uparrow\liminf_nX_n$, 且 $Z_m\le\liminf_nX_n$, 故 $Z_m$ 可积. 对 $n\ge m$, $Z_m\le X_n$, 由单调性 $\E[Z_m\,|\,\mathcal{G}]\le\E[X_n\,|\,\mathcal{G}]$; 对可列个 $n$ 取下确界 (例外零概率集的可列并仍为零概率集), $\E[Z_m\,|\,\mathcal{G}]\le\inf_{n\ge m}\E[X_n\,|\,\mathcal{G}]$. 令 $m\to\infty$, 由条件单调收敛定理~\ref{thm:cmct},
+\[
+\E\Big[\liminf_{n\to\infty}X_n\,\Big|\,\mathcal{G}\Big]=\lim_{m\to\infty}\E[Z_m\,|\,\mathcal{G}]\le\lim_{m\to\infty}\inf_{n\ge m}\E[X_n\,|\,\mathcal{G}]=\liminf_{n\to\infty}\E[X_n\,|\,\mathcal{G}].\qedhere
+\]
+\end{proof}
+
+\begin{theorem}[条件控制收敛定理]\label{thm:cdct}
+若 $X_n\to X$ $\as$, 且存在 $Y\in L^1$ 使 $\abs{X_n}\le Y$, 则 $\E[X_n\,|\,\mathcal{G}]\to\E[X\,|\,\mathcal{G}]$ $\as$
+\end{theorem}
+
+\begin{proof}
+令 $W_n=\sup_{k\ge n}\abs{X_k-X}$. 则 $0\le W_n\le2Y$, 且 $W_n\downarrow0$ $\as$ 由条件期望的线性、三角不等式与单调性 (定理~\ref{thm:ce-basic}),
+\[
+\abs{\E[X_n\,|\,\mathcal{G}]-\E[X\,|\,\mathcal{G}]}\le\E[\abs{X_n-X}\,|\,\mathcal{G}]\le\E[W_n\,|\,\mathcal{G}].
+\]
+由单调性, $\E[W_n\,|\,\mathcal{G}]$ 关于 $n$ 单调不增且非负, 设其极限为 $W\ge0$. 由全期望公式与 $W\le\E[W_n\,|\,\mathcal{G}]$, $\E[W]\le\E[W_n]$ 对一切 $n$ 成立, 而由控制收敛定理~\ref{thm:dct} (控制函数 $2Y$), $\E[W_n]\to0$. 所以 $\E[W]=0$, 由推论~\ref{cor:nonneg-properties} (3), $W=0$ $\as$, 即得结论.
+\end{proof}
+
+为了证明条件 Jensen 不等式, 需要把凸函数写成\emph{可列个}仿射函数的上确界: 每个仿射函数对应一个例外零概率集, 只有可列个零概率集之并才仍是零概率集. 回忆实分析中的事实: 若 $\phi:\R\to\R$ 是凸函数, 则对 $s<t<u$ 有三弦不等式
+\[
+\frac{\phi(t)-\phi(s)}{t-s}\le\frac{\phi(u)-\phi(s)}{u-s}\le\frac{\phi(u)-\phi(t)}{u-t};
+\]
+因此右导数 $\phi'_+(x)$ 处处存在且单调不减, $\phi$ 连续, 并且 $\phi(y)\ge\phi(x)+\phi'_+(x)(y-x)$ 对一切 $x,y$ 成立 (这就是 \eqref{eq:support-line}).
+
+\begin{lemma}\label{lem:convex-countable}
+设 $\phi:\R\to\R$ 是凸函数. 对 $q\in\Q$ 令 $\ell_q(x)=\phi(q)+\phi'_+(q)(x-q)$. 则 $\phi(x)=\sup_{q\in\Q}\ell_q(x)$ 对一切 $x\in\R$ 成立.
+\end{lemma}
+
+\begin{proof}
+由支撑直线不等式, $\ell_q\le\phi$, 故 $\sup_q\ell_q\le\phi$. 反过来, 固定 $x$, 取有理数 $q_k\to x$ 且 $q_k\in[x-1,x+1]$. 由 $\phi'_+$ 单调不减, $\abs{\phi'_+(q_k)}\le M=\max\{\abs{\phi'_+(x-1)},\abs{\phi'_+(x+1)}\}$. 于是
+\[
+\sup_{q\in\Q}\ell_q(x)\ge\ell_{q_k}(x)\ge\phi(q_k)-M\abs{x-q_k}\xrightarrow{k\to\infty}\phi(x),
+\]
+最后一步用到 $\phi$ 的连续性.
+\end{proof}
+
+\begin{theorem}[条件 Jensen 不等式]\label{thm:cjensen}
+设 $\phi:\R\to\R$ 是凸函数, $X$ 与 $\phi(X)$ 都可积. 则
+\[
+\phi\big(\E[X\,|\,\mathcal{G}]\big)\le\E[\phi(X)\,|\,\mathcal{G}].
+\]
+\end{theorem}
+
+\begin{proof}
+对每个 $q\in\Q$, 由 $\ell_q(X)\le\phi(X)$ 及条件期望的线性与单调性,
+\[
+\ell_q\big(\E[X\,|\,\mathcal{G}]\big)=\phi(q)+\phi'_+(q)\big(\E[X\,|\,\mathcal{G}]-q\big)=\E[\ell_q(X)\,|\,\mathcal{G}]\le\E[\phi(X)\,|\,\mathcal{G}]
+\]
+在某个零概率集 $N_q$ 之外成立. 在 $\big(\bigcup_{q\in\Q}N_q\big)^c$ 上对 $q$ 取上确界, 由引理~\ref{lem:convex-countable} 即得.
+\end{proof}
+
+\begin{corollary}[$L^p$ 压缩性]\label{cor:ce-Lp}
+设 $p\ge1$, $X\in L^p$. 则 $\abs{\E[X\,|\,\mathcal{G}]}^p\le\E[\abs{X}^p\,|\,\mathcal{G}]$, 从而 $\norm{\E[X\,|\,\mathcal{G}]}_p\le\norm{X}_p$. 特别地, $\big(\E[X\,|\,\mathcal{G}]\big)^2\le\E[X^2\,|\,\mathcal{G}]$.
+\end{corollary}
+
+\begin{proof}
+$\phi(x)=\abs{x}^p$ 是凸函数, 由条件 Jensen 不等式~\ref{thm:cjensen} 得第一式, 取期望并用全期望公式得第二式.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{独立性与代入引理}
+
+定理~\ref{thm:ce-basic} (6) 处理了 ``$X$ 与 $\mathcal{G}$ 独立'' 的情形. 实际中更常见的是混合情形, 例如随机游动 $S_{n+1}=S_n+\xi_{n+1}$: $S_n$ 在时刻 $n$ 已知, 而 $\xi_{n+1}$ 与过去独立. 计算 $\E[f(S_n+\xi_{n+1})\,|\,\mathcal{F}_n]$ 的直观做法是把已知的 $S_n$ ``冻结'' 为常数 $x$, 对独立的 $\xi_{n+1}$ 求期望, 再把 $x$ 换回 $S_n$. 本小节证明这一做法是正确的. 证明需要一个函数形式的单调类定理.
+
+\begin{theorem}[函数形式的单调类定理]\label{thm:functional-mct}
+设 $\mathcal{H}$ 是 $\Omega$ 上一族有界实函数, 满足
+\begin{enumerate}
+\item $\mathcal{H}$ 是线性空间, 且常数函数 $1\in\mathcal{H}$;
+\item 若 $f_n\in\mathcal{H}$, $0\le f_n\uparrow f$, 且 $f$ 有界, 则 $f\in\mathcal{H}$.
+\end{enumerate}
+若 $\mathcal{P}$ 是 $\pi$-系, 且 $\1_A\in\mathcal{H}$ 对一切 $A\in\mathcal{P}$ 成立, 则 $\mathcal{H}$ 包含全体有界 $\sigma(\mathcal{P})$-可测函数.
+\end{theorem}
+
+\begin{proof}
+令 $\mathcal{L}=\{A\subseteq\Omega: \1_A\in\mathcal{H}\}$. 由假设 $\mathcal{P}\subseteq\mathcal{L}$. 验证 $\mathcal{L}$ 是 $\lambda$-系: (a) $\1_\Omega=1\in\mathcal{H}$; (b) 若 $A,B\in\mathcal{L}$, $A\subseteq B$, 则 $\1_{B\setminus A}=\1_B-\1_A\in\mathcal{H}$ (线性空间); (c) 若 $A_n\in\mathcal{L}$, $A_n\uparrow A$, 则 $0\le\1_{A_n}\uparrow\1_A$, 由条件 (2), $\1_A\in\mathcal{H}$. 由 $\pi$-$\lambda$ 定理~\ref{thm:pi-lambda}, $\sigma(\mathcal{P})\subseteq\mathcal{L}$.
+
+于是 $\sigma(\mathcal{P})$-可测集的示性函数都属于 $\mathcal{H}$, 由线性性, $\sigma(\mathcal{P})$-可测的简单函数都属于 $\mathcal{H}$. 若 $f\ge0$ 是有界 $\sigma(\mathcal{P})$-可测函数, 由引理~\ref{lem:simple-approx}, 存在 $\sigma(\mathcal{P})$-可测的非负简单函数 $f_n\uparrow f$, 由条件 (2), $f\in\mathcal{H}$. 一般的有界可测函数 $f=f^+-f^-$ 由线性性也属于 $\mathcal{H}$.
+\end{proof}
+
+\begin{intuition}
+这是 ``好函数原理'': 要证明某个关于函数的线性性质对全体有界可测函数成立, 只需对一个生成 $\pi$-系中集合的示性函数验证, 再验证该性质在单调极限下保持. 它与 $\pi$-$\lambda$ 定理的关系, 就像积分的四步构造与示性函数的关系.
+\end{intuition}
+
+\begin{lemma}[代入引理]\label{lem:freezing}
+设 $\rvec{X}$ 是取值于 $\R^k$ 的随机向量, 与 $\mathcal{G}$ 独立; $\rvec{Y}$ 是取值于 $\R^m$ 的 $\mathcal{G}$-可测随机向量; $\phi:\R^k\times\R^m\to\R$ 是 Borel 函数.
+\begin{enumerate}
+\item 若 $\phi$ 有界, 令 $\psi(\rvec{y})=\E[\phi(\rvec{X},\rvec{y})]$, 则 $\psi$ 是有界 Borel 函数, 且
+\[
+\E[\phi(\rvec{X},\rvec{Y})\,|\,\mathcal{G}]=\psi(\rvec{Y}).
+\]
+\item 若 $\phi(\rvec{X},\rvec{Y})\in L^1$, 则对 $\mu_{\rvec{Y}}$-几乎每个 $\rvec{y}$, $\phi(\rvec{X},\rvec{y})\in L^1$; 令 $\psi(\rvec{y})=\E[\phi(\rvec{X},\rvec{y})]$ (在其余的 $\rvec{y}$ 处令 $\psi=0$), 则上式仍成立.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) 令 $\mathcal{H}$ 为满足以下条件的有界 Borel 函数 $\phi$ 全体: $\psi_\phi(\rvec{y})=\E[\phi(\rvec{X},\rvec{y})]$ 是 Borel 函数, 且对一切 $G\in\mathcal{G}$,
+\begin{equation}\label{eq:freezing-H}
+\E[\phi(\rvec{X},\rvec{Y});G]=\E[\psi_\phi(\rvec{Y});G].
+\end{equation}
+我们用函数形式的单调类定理~\ref{thm:functional-mct} 证明 $\mathcal{H}$ 包含全体有界 Borel 函数.
+\begin{itemize}
+\item \emph{矩形的示性函数.} 设 $\phi=\1_{A\times B}$, $A\in\mathcal{B}(\R^k)$, $B\in\mathcal{B}(\R^m)$. 则 $\phi(\rvec{x},\rvec{y})=\1_A(\rvec{x})\1_B(\rvec{y})$, $\psi_\phi(\rvec{y})=\P(\rvec{X}\in A)\1_B(\rvec{y})$ 是 Borel 函数. 由于 $\1_A(\rvec{X})$ 是 $\sigma(\rvec{X})$-可测的, $\1_B(\rvec{Y})\1_G$ 是 $\mathcal{G}$-可测的, 而 $\sigma(\rvec{X})$ 与 $\mathcal{G}$ 独立, 由定理~\ref{thm:indep-product},
+\[
+\E[\1_A(\rvec{X})\1_B(\rvec{Y})\1_G]=\P(\rvec{X}\in A)\,\E[\1_B(\rvec{Y})\1_G]=\E[\psi_\phi(\rvec{Y});G].
+\]
+矩形 $A\times B$ 全体构成 $\pi$-系, 且生成 $\mathcal{B}(\R^{k+m})$ (定理~\ref{thm:indep-product-measure} 的证明).
+\item \emph{线性空间且含常数.} $\phi\mapsto\psi_\phi$ 是线性的, \eqref{eq:freezing-H} 两边关于 $\phi$ 线性; 常数 $1$ 是 $\Omega$ 的示性函数, 已包含在上一条中.
+\item \emph{单调极限.} 若 $\phi_n\in\mathcal{H}$, $0\le\phi_n\uparrow\phi$, $\phi$ 有界, 则对每个 $\rvec{y}$, 由单调收敛定理 $\psi_{\phi_n}(\rvec{y})\uparrow\psi_\phi(\rvec{y})$, 所以 $\psi_\phi$ 是 Borel 函数; 再对 \eqref{eq:freezing-H} 两边用单调收敛定理, 得到 $\phi\in\mathcal{H}$.
+\end{itemize}
+由定理~\ref{thm:functional-mct}, $\mathcal{H}$ 包含全体有界 Borel 函数. 对有界 Borel 函数 $\phi$, $\psi_\phi(\rvec{Y})$ 是 $\mathcal{G}$-可测的有界随机变量, 而 \eqref{eq:freezing-H} 正是条件期望的定义.
+
+(2) 先设 $\phi\ge0$. 对 $\phi\wedge n$ 用 (1): $\E[\phi(\rvec{X},\rvec{Y})\wedge n\,|\,\mathcal{G}]=\psi_n(\rvec{Y})$, 其中 $\psi_n(\rvec{y})=\E[\phi(\rvec{X},\rvec{y})\wedge n]$. 由单调收敛定理, $\psi_n(\rvec{y})\uparrow\psi(\rvec{y})=\E[\phi(\rvec{X},\rvec{y})]\in[0,\infty]$, $\psi$ 是 Borel 函数. 由条件单调收敛定理~\ref{thm:cmct}, $\E[\phi(\rvec{X},\rvec{Y})\,|\,\mathcal{G}]=\lim_n\psi_n(\rvec{Y})=\psi(\rvec{Y})$. 左端可积, 所以 $\psi(\rvec{Y})<\infty$ $\as$, 即 $\mu_{\rvec{Y}}(\{\psi=\infty\})=0$. 对一般的 $\phi$, 分别对 $\phi^+$ 与 $\phi^-$ 使用上述结论再相减.
+\end{proof}
+
+\begin{example}\label{ex:freezing}
+设 $\xi$ 与 $\mathcal{G}$ 独立, $Y$ 是 $\mathcal{G}$-可测的.
+\begin{enumerate}
+\item 若 $f$ 有界 Borel, 则 $\E[f(Y+\xi)\,|\,\mathcal{G}]=\psi(Y)$, 其中 $\psi(y)=\E[f(y+\xi)]=\int f(y+z)\,\mu_\xi(\dd z)$. 特别地, 若 $\xi\sim N(0,\sigma^2)$, 则
+\[
+\E[f(Y+\xi)\,|\,\mathcal{G}]=\int_{\R}f(Y+z)\frac{1}{\sqrt{2\pi}\sigma}e^{-z^2/(2\sigma^2)}\dd z.
+\]
+第~4~章中取 $Y=B_s$, $\xi=B_t-B_s$, 这就是布朗运动马尔可夫性的计算公式.
+\item 若 $\E e^{\lambda\xi}<\infty$, 则 $\E[e^{\lambda(Y+\xi)}\,|\,\mathcal{G}]=e^{\lambda Y}\E[e^{\lambda\xi}]$ (当左端可积时). 这也可以由提出已知因子与独立性化简直接得到.
+\item \textbf{独立性的条件不能减弱.} 引理要求 $\xi$ 与整个 $\mathcal{G}$ 独立, 仅与 $Y$ 独立是不够的. 例如设 $\xi,Y$ 是独立的 $N(0,1)$ 随机变量, $\mathcal{G}=\sigma(Y,\xi)$, 则 $\E[(Y+\xi)^2\,|\,\mathcal{G}]=(Y+\xi)^2$, 而 ``代入'' 会给出 $\E[(y+\xi)^2]|_{y=Y}=Y^2+1$.
+\end{enumerate}
+\end{example}
+
+下面的推论在验证马尔可夫性时很有用: 与所关心的量独立的额外信息可以去掉.
+
+\begin{proposition}[去掉独立的信息]\label{prop:drop-independent}
+设 $X\in L^1$. 若 $\sigma\big(\sigma(X)\cup\mathcal{H}\big)$ 与 $\mathcal{G}$ 独立, 则
+\[
+\E\big[X\,\big|\,\sigma(\mathcal{G}\cup\mathcal{H})\big]=\E[X\,|\,\mathcal{H}].
+\]
+\end{proposition}
+
+\begin{proof}
+$\E[X\,|\,\mathcal{H}]$ 是 $\sigma(\mathcal{G}\cup\mathcal{H})$-可测且可积的. 集族 $\mathcal{P}=\{G\cap H: G\in\mathcal{G},H\in\mathcal{H}\}$ 是包含 $\Omega$ 的 $\pi$-系, 且生成 $\sigma(\mathcal{G}\cup\mathcal{H})$. 由引理~\ref{lem:ce-pi-system}, 只需对 $G\cap H\in\mathcal{P}$ 验证积分恒等式. 由于 $X\1_H$ 与 $\E[X\,|\,\mathcal{H}]\1_H$ 都是 $\sigma(\sigma(X)\cup\mathcal{H})$-可测的, 它们与 $\1_G$ 独立, 由定理~\ref{thm:indep-product},
+\[
+\E[X;G\cap H]=\E[X\1_H]\P(G)=\E\big[\E[X\,|\,\mathcal{H}]\1_H\big]\P(G)=\E\big[\E[X\,|\,\mathcal{H}];G\cap H\big],
+\]
+其中第二个等号是条件期望的定义 ($H\in\mathcal{H}$).
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{条件方差}
+
+\begin{definition}[条件方差]\label{def:conditional-variance}
+设 $X\in L^2$. 定义 $X$ 关于 $\mathcal{G}$ 的\textbf{条件方差}
+\[
+\Var(X\,|\,\mathcal{G})=\E\big[(X-\E[X\,|\,\mathcal{G}])^2\,\big|\,\mathcal{G}\big]=\E[X^2\,|\,\mathcal{G}]-\big(\E[X\,|\,\mathcal{G}]\big)^2.
+\]
+\end{definition}
+
+第二个等号: 展开平方, 并对交叉项 $\E\big[X\E[X\,|\,\mathcal{G}]\,\big|\,\mathcal{G}\big]$ 用提出已知因子 (定理~\ref{thm:take-out}) 得 $(\E[X\,|\,\mathcal{G}])^2$. 由条件 Jensen 不等式 (推论~\ref{cor:ce-Lp}), $\Var(X\,|\,\mathcal{G})\ge0$.
+
+\begin{theorem}[全方差公式]\label{thm:total-variance}
+设 $X\in L^2$. 则
+\[
+\Var(X)=\E\big[\Var(X\,|\,\mathcal{G})\big]+\Var\big(\E[X\,|\,\mathcal{G}]\big).
+\]
+\end{theorem}
+
+\begin{proof}
+记 $Y=\E[X\,|\,\mathcal{G}]$, 则 $\E Y=\E X$. 写 $X-\E X=(X-Y)+(Y-\E Y)$. 由于 $Y-\E Y\in L^2(\mathcal{G})$, 而 $X-Y$ 与 $L^2(\mathcal{G})$ 正交 (定义~\ref{def:ce-L2}), 由勾股定理,
+\[
+\Var(X)=\E[(X-Y)^2]+\E[(Y-\E Y)^2]=\E\Big[\E\big[(X-Y)^2\,\big|\,\mathcal{G}\big]\Big]+\Var(Y),
+\]
+最后一步用到全期望公式. 由定义, $\E[(X-Y)^2\,|\,\mathcal{G}]=\Var(X\,|\,\mathcal{G})$.
+\end{proof}
+
+\begin{intuition}
+总的不确定性 = ``已知信息之后仍剩下的不确定性的平均'' + ``信息本身带来的变化''. 在 $L^2$ 的几何中, 这就是图~\ref{fig:ce-projection} 中直角三角形的勾股定理.
+\end{intuition}
+
+\begin{example}[随机和]\label{ex:random-sum}
+设 $\xi_1,\xi_2,\dots$ 是 $\iid$ 随机变量, $\E\xi_1=\mu$, $\Var(\xi_1)=\sigma^2$; $N$ 取非负整数值, $N\in L^2$, 且 $N$ 与 $\{\xi_k\}$ 独立. 令 $S=\sum_{k=1}^N\xi_k$ (约定 $N=0$ 时 $S=0$), 例如 $N$ 是一天中的理赔次数, $\xi_k$ 是每次理赔的金额. 记 $S_n=\sum_{k=1}^n\xi_k$, 则在 $\{N=n\}$ 上 $S=S_n$.
+
+$\sigma(N)$ 由可数分割 $\{N=n\}$ 生成. 对 $\P(N=n)>0$, 由于 $S_n$ 与 $\{N=n\}$ 独立,
+\begin{align*}
+\E[S\,|\,N=n]&=\frac{\E[S_n;N=n]}{\P(N=n)}=\E[S_n]=n\mu,\\
+\E[S^2\,|\,N=n]&=\frac{\E[S_n^2;N=n]}{\P(N=n)}=\E[S_n^2]=n\sigma^2+n^2\mu^2.
+\end{align*}
+所以 $\E[S\,|\,N]=N\mu$, $\Var(S\,|\,N)=N\sigma^2+N^2\mu^2-N^2\mu^2=N\sigma^2$. 由全期望公式与全方差公式~\ref{thm:total-variance},
+\[
+\E[S]=\mu\,\E[N],\qquad \Var(S)=\E[N\sigma^2]+\Var(N\mu)=\sigma^2\E[N]+\mu^2\Var(N).
+\]
+方差分成两部分: 每次理赔金额的波动, 以及理赔次数本身的波动. 第~3~章研究分支过程时将用到同样的计算.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{条件概率与正则条件分布}
+
+\begin{definition}[条件概率]\label{def:conditional-probability}
+对 $A\in\mathcal{F}$, 称 $\P(A\,|\,\mathcal{G})=\E[\1_A\,|\,\mathcal{G}]$ 为 $A$ 关于 $\mathcal{G}$ 的\textbf{条件概率}.
+\end{definition}
+
+由定理~\ref{thm:ce-basic} 与条件单调收敛定理~\ref{thm:cmct}, 条件概率具有概率的各条性质, 但每条都只在一个零概率集之外成立: $0\le\P(A\,|\,\mathcal{G})\le1$; $\P(\Omega\,|\,\mathcal{G})=1$; 对两两不交的 $A_1,A_2,\dots$, $\P\big(\bigcup_nA_n\,\big|\,\mathcal{G}\big)=\sum_n\P(A_n\,|\,\mathcal{G})$. 但最后一条的例外零概率集依赖于序列 $\{A_n\}$, 而这样的序列有不可数多个, 其例外集之并未必是零概率集. 所以对固定的 $\omega$, $A\mapsto\P(A\,|\,\mathcal{G})(\omega)$ 未必是概率测度. 为了能把条件概率当作测度来积分, 需要选取一个 ``好的版本''.
+
+\begin{definition}[正则条件分布]\label{def:regular-conditional}
+设 $\rvec{X}$ 是取值于 $\R^k$ 的随机向量. 称 $\mu:\Omega\times\mathcal{B}(\R^k)\to[0,1]$ 为 $\rvec{X}$ 关于 $\mathcal{G}$ 的\textbf{正则条件分布}, 如果
+\begin{enumerate}
+\item 对每个 $\omega$, $\mu(\omega,\cdot)$ 是 $(\R^k,\mathcal{B}(\R^k))$ 上的概率测度;
+\item 对每个 $B\in\mathcal{B}(\R^k)$, $\mu(\cdot,B)$ 是 $\P(\rvec{X}\in B\,|\,\mathcal{G})$ 的一个版本 (特别地, 它是 $\mathcal{G}$-可测的).
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[正则条件分布的存在性]\label{thm:regular-existence}
+取值于 $\R^k$ 的随机向量关于任意子 $\sigma$-代数的正则条件分布总存在. (证明见~\cite{durrett} 定理 4.1.18; 其要点是利用 $\R^k$ 有可数稠密子集, 先在有理点上确定条件分布函数, 再扩张为测度.)
+\end{theorem}
+
+\begin{proposition}\label{prop:regular-integral}
+设 $\mu$ 是 $\rvec{X}$ 关于 $\mathcal{G}$ 的正则条件分布, $h$ 是 Borel 函数且 $h(\rvec{X})\in L^1$. 则
+\[
+\E[h(\rvec{X})\,|\,\mathcal{G}](\omega)=\int_{\R^k}h(\rvec{x})\,\mu(\omega,\dd\rvec{x})\qquad\as
+\]
+\end{proposition}
+
+\begin{proof}
+按 $h$ 的复杂程度分步. 若 $h=\1_B$, 这就是定义~\ref{def:regular-conditional} (2). 若 $h$ 是非负简单函数, 由两边的线性得到. 若 $h\ge0$, 取非负简单函数 $h_n\uparrow h$: 对每个 $\omega$, 由单调收敛定理 $\int h_n\dd\mu(\omega,\cdot)\uparrow\int h\dd\mu(\omega,\cdot)$, 所以右端作为 $\mathcal{G}$-可测函数的极限是 $\mathcal{G}$-可测的; 左端由条件单调收敛定理~\ref{thm:cmct}, $\E[h_n(\rvec{X})\,|\,\mathcal{G}]\uparrow\E[h(\rvec{X})\,|\,\mathcal{G}]$. 两端的极限相等. 一般情形对 $h^+$、$h^-$ 分别处理 (二者积分在几乎每个 $\omega$ 处有限, 因为其期望有限).
+\end{proof}
+
+\begin{example}\label{ex:regular-examples}
+\begin{enumerate}
+\item 若 $\rvec{X}$ 与 $\mathcal{G}$ 独立, 则 $\mu(\omega,\cdot)=\mu_{\rvec{X}}$ (与 $\omega$ 无关) 是正则条件分布 (定理~\ref{thm:ce-basic} (6)).
+\item 若 $\rvec{X}$ 是 $\mathcal{G}$-可测的, 则 $\mu(\omega,\cdot)=\delta_{\rvec{X}(\omega)}$ (集中在点 $\rvec{X}(\omega)$ 的测度) 是正则条件分布 (定理~\ref{thm:ce-basic} (5)).
+\item 若 $(X,Y)$ 有联合密度, 则 $\mu(\omega,B)=\int_Bf_{X|Y}(x\,|\,Y(\omega))\dd x$ 是 $X$ 关于 $\sigma(Y)$ 的正则条件分布: 对每个 $\omega$, 若 $f_Y(Y(\omega))>0$, 它是以 $f_{X|Y}(\cdot\,|\,Y(\omega))$ 为密度的概率测度 (在 $f_Y(Y(\omega))=0$ 这一零概率事件上可改为任意固定的概率测度); 条件 (2) 由命题~\ref{prop:conditional-density} (取 $h=\1_B$) 给出.
+\item 在代入引理~\ref{lem:freezing} 的条件下, $\mu(\omega,B)=\P\big(\phi(\rvec{X},\rvec{y})\in B\big)\big|_{\rvec{y}=\rvec{Y}(\omega)}$ 是 $\phi(\rvec{X},\rvec{Y})$ 关于 $\mathcal{G}$ 的正则条件分布 (对 $\1_B\circ\phi$ 用代入引理).
+\end{enumerate}
+\end{example}
+
+% =====================================================================
+\section{正态随机向量的条件分布}
+\label{sec:2-4}
+
+通常条件期望 $\E[X\,|\,Y]$ 是 $Y$ 的非线性函数, 条件分布也可以与无条件分布完全不同. 正态随机向量则是例外: 条件期望是线性的, 条件分布仍是正态的, 而且条件协方差不依赖于观测值. 这使得正态模型下的预测、滤波与插值都可以显式计算. 例~\ref{ex:gaussian-regression} 已经给出了这一结论的雏形, 本节用条件期望的语言完整地叙述它.
+
+\begin{theorem}[正态向量的条件分布]\label{thm:gaussian-conditional}
+设 $(\rvec{X},\rvec{Y})$ 是正态随机向量, $\rvec{X}\in\R^k$, $\rvec{Y}\in\R^m$, 期望向量为 $(\rvec{\mu}_{\rvec{X}},\rvec{\mu}_{\rvec{Y}})$, 协方差矩阵分块为
+\[
+\begin{pmatrix}\mat{\Sigma}_{\rvec{X}\rvec{X}}&\mat{\Sigma}_{\rvec{X}\rvec{Y}}\\ \mat{\Sigma}_{\rvec{Y}\rvec{X}}&\mat{\Sigma}_{\rvec{Y}\rvec{Y}}\end{pmatrix},
+\]
+其中 $\mat{\Sigma}_{\rvec{X}\rvec{Y}}=\Cov(\rvec{X},\rvec{Y})=\E[(\rvec{X}-\rvec{\mu}_{\rvec{X}})(\rvec{Y}-\rvec{\mu}_{\rvec{Y}})^\T]$, $\mat{\Sigma}_{\rvec{Y}\rvec{X}}=\mat{\Sigma}_{\rvec{X}\rvec{Y}}^\T$. 设 $\mat{\Sigma}_{\rvec{Y}\rvec{Y}}$ 可逆, 令
+\[
+\mat{K}=\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1},\qquad \rvec{m}(\rvec{y})=\rvec{\mu}_{\rvec{X}}+\mat{K}(\rvec{y}-\rvec{\mu}_{\rvec{Y}}),\qquad \mat{\Sigma}_{\rvec{X}|\rvec{Y}}=\mat{\Sigma}_{\rvec{X}\rvec{X}}-\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}\mat{\Sigma}_{\rvec{Y}\rvec{X}}.
+\]
+则
+\begin{enumerate}
+\item $\E[\rvec{X}\,|\,\rvec{Y}]=\rvec{m}(\rvec{Y})$ (按分量理解);
+\item $\mu(\omega,\cdot)=N\big(\rvec{m}(\rvec{Y}(\omega)),\mat{\Sigma}_{\rvec{X}|\rvec{Y}}\big)$ 是 $\rvec{X}$ 关于 $\sigma(\rvec{Y})$ 的正则条件分布; 特别地, 条件协方差矩阵 $\E\big[(\rvec{X}-\rvec{m}(\rvec{Y}))(\rvec{X}-\rvec{m}(\rvec{Y}))^\T\,\big|\,\rvec{Y}\big]=\mat{\Sigma}_{\rvec{X}|\rvec{Y}}$ 是确定性的矩阵.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+令 $\rvec{W}=\rvec{X}-\rvec{\mu}_{\rvec{X}}-\mat{K}(\rvec{Y}-\rvec{\mu}_{\rvec{Y}})$.
+
+\emph{$\rvec{W}$ 与 $\rvec{Y}$ 独立.} $(\rvec{W},\rvec{Y})$ 是 $(\rvec{X},\rvec{Y})$ 的仿射变换, 由命题~\ref{prop:gaussian-operations} (1), 它是正态随机向量. 由协方差的双线性,
+\[
+\Cov(\rvec{W},\rvec{Y})=\mat{\Sigma}_{\rvec{X}\rvec{Y}}-\mat{K}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}=\mat{\Sigma}_{\rvec{X}\rvec{Y}}-\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}=\mat{0}.
+\]
+由定理~\ref{thm:gaussian-uncorrelated}, $\rvec{W}$ 与 $\rvec{Y}$ 独立.
+
+\emph{$\rvec{W}$ 的分布.} $\E\rvec{W}=\rvec{0}$; 由命题~\ref{prop:covariance-matrix} (2) (把 $\rvec{W}$ 写成 $(\mat{I},-\mat{K})$ 乘以 $(\rvec{X},\rvec{Y})$ 再平移),
+\begin{align*}
+\Cov(\rvec{W})&=\mat{\Sigma}_{\rvec{X}\rvec{X}}-\mat{K}\mat{\Sigma}_{\rvec{Y}\rvec{X}}-\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{K}^\T+\mat{K}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}\mat{K}^\T\\
+&=\mat{\Sigma}_{\rvec{X}\rvec{X}}-2\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}\mat{\Sigma}_{\rvec{Y}\rvec{X}}+\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}\mat{\Sigma}_{\rvec{Y}\rvec{X}}=\mat{\Sigma}_{\rvec{X}|\rvec{Y}},
+\end{align*}
+这里用到 $\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}$ 对称. 所以 $\rvec{W}\sim N(\rvec{0},\mat{\Sigma}_{\rvec{X}|\rvec{Y}})$.
+
+\emph{代入.} $\rvec{X}=\rvec{m}(\rvec{Y})+\rvec{W}$, 其中 $\rvec{W}$ 与 $\sigma(\rvec{Y})$ 独立, $\rvec{Y}$ 是 $\sigma(\rvec{Y})$-可测的. 对 Borel 集 $B\subseteq\R^k$, 对有界函数 $\phi(\rvec{w},\rvec{y})=\1_B(\rvec{m}(\rvec{y})+\rvec{w})$ 使用代入引理~\ref{lem:freezing} (1),
+\[
+\P(\rvec{X}\in B\,|\,\rvec{Y})=\P\big(\rvec{m}(\rvec{y})+\rvec{W}\in B\big)\big|_{\rvec{y}=\rvec{Y}}=N\big(\rvec{m}(\rvec{Y}),\mat{\Sigma}_{\rvec{X}|\rvec{Y}}\big)(B),
+\]
+最后一步用到命题~\ref{prop:gaussian-operations} (1): $\rvec{m}(\rvec{y})+\rvec{W}\sim N(\rvec{m}(\rvec{y}),\mat{\Sigma}_{\rvec{X}|\rvec{Y}})$. 对每个 $\omega$, 右端是概率测度, 这证明了 (2) 的第一部分. 对 $\rvec{X}$ 的每个分量 $X_i=m_i(\rvec{Y})+W_i$ 用 $\mathcal{G}$-可测变量的条件期望 (定理~\ref{thm:ce-basic} (5)) 与独立性化简 (定理~\ref{thm:ce-basic} (6)), $\E[X_i\,|\,\rvec{Y}]=m_i(\rvec{Y})+\E[W_i]=m_i(\rvec{Y})$, 这是 (1). 最后, $(\rvec{X}-\rvec{m}(\rvec{Y}))(\rvec{X}-\rvec{m}(\rvec{Y}))^\T=\rvec{W}\rvec{W}^\T$ 与 $\sigma(\rvec{Y})$ 独立, 其条件期望等于 $\E[\rvec{W}\rvec{W}^\T]=\mat{\Sigma}_{\rvec{X}|\rvec{Y}}$.
+\end{proof}
+
+\begin{intuition}
+定理把 $\rvec{X}$ 分解为两部分: $\rvec{m}(\rvec{Y})$ 是 $\rvec{Y}$ 能解释的部分, $\rvec{W}$ 是与 $\rvec{Y}$ 完全无关的噪声. 对正态向量, 这个 ``线性解释 + 独立噪声'' 的分解是精确的, 所以第一章的最佳\emph{线性}预测 (例~\ref{ex:best-linear}) 就是最佳预测, 不存在任何非线性改进的余地. 矩阵 $\mat{\Sigma}_{\rvec{X}|\rvec{Y}}$ 是协方差矩阵的 Schur 补, 它半正定, 且 $\mat{\Sigma}_{\rvec{X}|\rvec{Y}}\le\mat{\Sigma}_{\rvec{X}\rvec{X}}$ (差为半正定矩阵 $\mat{\Sigma}_{\rvec{X}\rvec{Y}}\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}\mat{\Sigma}_{\rvec{Y}\rvec{X}}$): 观测只会减少不确定性, 而且减少的幅度与观测到的具体数值无关.
+\end{intuition}
+
+\begin{remark}
+若 $\mat{\Sigma}_{\rvec{Y}\rvec{Y}}$ 奇异, 把 $\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}$ 换成 Moore-Penrose 广义逆, 定理仍然成立. 这是因为此时 $\rvec{Y}$ 几乎必然落在 $\mat{\Sigma}_{\rvec{Y}\rvec{Y}}$ 的值域 (平移后) 上 (命题~\ref{prop:covariance-matrix} (3)), 证明中只需在该子空间上进行计算.
+\end{remark}
+
+二维情形最常用. 设 $(X,Y)$ 是二维正态随机向量, $\E X=\mu_X$, $\E Y=\mu_Y$, $\Var(X)=\sigma_X^2$, $\Var(Y)=\sigma_Y^2>0$, 相关系数为 $\rho$. 由定理~\ref{thm:gaussian-conditional}, 已知 $Y$ 时 $X$ 的条件分布为
+\begin{equation}\label{eq:bivariate-conditional}
+N\Big(\mu_X+\rho\frac{\sigma_X}{\sigma_Y}(Y-\mu_Y),\ \sigma_X^2(1-\rho^2)\Big).
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \begin{scope}
+    \clip (-3.3,-2.4) rectangle (3.3,2.4);
+    \foreach \c/\o in {1.45/10, 1/22, 0.55/40} {
+      \fill[SABlue!\o,rotate=37.98] (0,0) ellipse ({1.6676*\c} and {0.8481*\c});
+    }
+    \foreach \c in {0.55,1,1.45} {
+      \draw[SABlue!80!black,rotate=37.98] (0,0) ellipse ({1.6676*\c} and {0.8481*\c});
+    }
+    \draw[SADark!60,dashed,thick] (-3.3,{-3.3*0.7808}) -- (3.3,{3.3*0.7808});
+    \draw[SARed,very thick] (-3.3,-1.65) -- (3.3,1.65);
+  \end{scope}
+  \draw[->,SADark!70] (-3.4,0) -- (3.5,0) node[right,font=\small] {$y$};
+  \draw[->,SADark!70] (0,-2.5) -- (0,2.6) node[above,font=\small] {$x$};
+  \foreach \s in {1,-1} {
+    \fill[SARed] ({\s*2.0506},{\s*1.0253}) circle (1.8pt);
+    \draw[SARed!60,thin] ({\s*2.0506},-2.4) -- ({\s*2.0506},2.4);
+  }
+  \node[SARed,font=\small,anchor=west] at (3.35,1.65) {$x=\E[X\,|\,Y=y]$};
+  \node[SADark!80,font=\small,anchor=west] at (3.35,2.45) {主轴};
+\end{tikzpicture}
+\caption{二维正态分布的等高椭圆 ($\Var(Y)=2$, $\Var(X)=1.5$, $\Cov(X,Y)=1$). 回归直线 $x=\E[X\,|\,Y=y]=\frac{1}{2}y$ (实线) 经过椭圆上竖直切线的切点, 斜率小于椭圆主轴 (虚线) 的斜率: 这就是 ``向均值回归''}
+\label{fig:regression}
+\end{figure}
+
+\begin{intuition}
+图~\ref{fig:regression} 解释了 Galton 发现的 ``回归'' 现象: 父亲身高 ($Y$) 比平均高出 $d$ 时, 儿子身高 ($X$) 的条件期望只比平均高出 $\rho\frac{\sigma_X}{\sigma_Y}d$, 当 $\sigma_X=\sigma_Y$ 时就是 $\rho d<d$. 这并不意味着下一代的差异会缩小: 条件方差 $\sigma_X^2(1-\rho^2)$ 补上了被 ``回归'' 掉的那部分方差, 总方差由全方差公式~\ref{thm:total-variance} 保持为 $\rho^2\sigma_X^2+\sigma_X^2(1-\rho^2)=\sigma_X^2$.
+\end{intuition}
+
+\begin{example}[带噪声的观测]\label{ex:signal-noise}
+设未知量 $X\sim N(m,\sigma^2)$, 我们对它作 $n$ 次独立的带噪声观测 $Y_i=X+\varepsilon_i$, 其中 $\varepsilon_1,\dots,\varepsilon_n$ 是 $\iid$ 的 $N(0,\tau^2)$, 且与 $X$ 独立. 由命题~\ref{prop:gaussian-operations} (2), $(X,\varepsilon_1,\dots,\varepsilon_n)$ 是正态随机向量, 从而 $(X,Y_1,\dots,Y_n)$ 也是. 记 $\rvec{1}=(1,\dots,1)^\T\in\R^n$, $\rvec{Y}=(Y_1,\dots,Y_n)^\T$, 则
+\[
+\mat{\Sigma}_{X\rvec{Y}}=\sigma^2\rvec{1}^\T,\qquad \mat{\Sigma}_{\rvec{Y}\rvec{Y}}=\tau^2\mat{I}+\sigma^2\rvec{1}\rvec{1}^\T.
+\]
+我们断言
+\[
+\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}=\frac{1}{\tau^2}\Big(\mat{I}-\frac{\sigma^2}{\tau^2+n\sigma^2}\rvec{1}\rvec{1}^\T\Big).
+\]
+事实上, 记 $c=\frac{\sigma^2}{\tau^2+n\sigma^2}$, 利用 $\rvec{1}\rvec{1}^\T\rvec{1}\rvec{1}^\T=n\,\rvec{1}\rvec{1}^\T$ 直接相乘,
+\begin{align*}
+\big(\tau^2\mat{I}+\sigma^2\rvec{1}\rvec{1}^\T\big)\big(\mat{I}-c\,\rvec{1}\rvec{1}^\T\big)
+&=\tau^2\mat{I}+\big(\sigma^2-c\tau^2-cn\sigma^2\big)\rvec{1}\rvec{1}^\T\\
+&=\tau^2\mat{I}+\big(\sigma^2-c(\tau^2+n\sigma^2)\big)\rvec{1}\rvec{1}^\T=\tau^2\mat{I}.
+\end{align*}
+于是 (再次利用 $\rvec{1}^\T\rvec{1}\rvec{1}^\T=n\rvec{1}^\T$)
+\[
+\mat{K}=\sigma^2\rvec{1}^\T\mat{\Sigma}_{\rvec{Y}\rvec{Y}}^{-1}=\frac{\sigma^2}{\tau^2}\Big(1-\frac{n\sigma^2}{\tau^2+n\sigma^2}\Big)\rvec{1}^\T=\frac{\sigma^2}{\tau^2+n\sigma^2}\rvec{1}^\T.
+\] 记 $\bar Y=\frac{1}{n}\sum_iY_i$, 由定理~\ref{thm:gaussian-conditional},
+\begin{align*}
+\E[X\,|\,Y_1,\dots,Y_n]&=m+\frac{n\sigma^2}{\tau^2+n\sigma^2}(\bar Y-m),\\
+\Var(X\,|\,Y_1,\dots,Y_n)&=\sigma^2-\frac{n\sigma^4}{\tau^2+n\sigma^2}=\frac{\sigma^2\tau^2}{\tau^2+n\sigma^2}.
+\end{align*}
+\begin{itemize}
+\item 估计值是先验均值 $m$ 与样本均值 $\bar Y$ 的加权平均, 权重 $\frac{n\sigma^2}{\tau^2+n\sigma^2}$ 随观测次数增加而趋于 $1$, 即数据越多, 越相信数据.
+\item 条件方差满足 $\frac{1}{\Var(X\,|\,\rvec{Y})}=\frac{1}{\sigma^2}+\frac{n}{\tau^2}$, 即 ``精度'' (方差的倒数) 是可加的, 每次观测贡献 $\frac{1}{\tau^2}$.
+\item 条件期望只通过 $\bar Y$ 依赖于观测, 估计 $X$ 所需的全部有用信息都已包含在样本均值中.
+\end{itemize}
+这一计算是 Kalman 滤波的单步版本.
+\end{example}
+
+\begin{example}[布朗桥的雏形]\label{ex:bridge-preview}
+设 $(U,V)$ 是均值为零的二维正态随机向量, $\Var(U)=s$, $\Var(V)=t$, $\Cov(U,V)=s$, 其中 $0<s<t$. (第~4~章将看到, 这正是布朗运动 $(B_s,B_t)$ 的联合分布.) 由 \eqref{eq:bivariate-conditional} 及 $\rho\frac{\sigma_U}{\sigma_V}=\frac{\Cov(U,V)}{\Var(V)}$, $\rho^2=\frac{s^2}{st}$,
+\[
+U\,|\,V\ \sim\ N\Big(\frac{s}{t}V,\ \frac{s(t-s)}{t}\Big),\qquad V\,|\,U\ \sim\ N\big(U,\ t-s\big).
+\]
+第二式说明: 已知 $U$ 时, $V-U$ 与 $U$ 无关且服从 $N(0,t-s)$, 这就是布朗运动的独立增量性. 第一式说明: 已知终点 $V$ 时, 中间时刻的最佳估计是线性插值 $\frac{s}{t}V$, 条件方差 $\frac{s(t-s)}{t}$ 在两端为零、在中点最大. 取 $t=1$ 并以 $V=0$ 为条件, 得到方差 $s(1-s)$, 这就是第~4~章布朗桥 $B_s-sB_1$ 的方差.
+\end{example}
+
+% =====================================================================
+\section{随机过程与马尔可夫性}
+\label{sec:2-5}
+
+到目前为止, 我们研究的是有限个随机变量. 随机分析的对象则是随时间演化的一族随机变量: 随机过程. 描述随机过程需要三个层次的概念: 过程本身及其分布 (2.5.1--2.5.2 小节); 随时间积累的信息, 即信息流 (2.5.3 小节); 以及过程与信息之间最重要的一类关系, 即马尔可夫性 (2.5.4--2.5.6 小节).
+
+% ---------------------------------------------------------------------
+\subsection{随机过程及其有限维分布}
+
+\begin{definition}[随机过程]\label{def:process}
+设 $T\subseteq[0,\infty)$ 是指标集 (通常为 $\N=\{0,1,2,\dots\}$, $[0,\infty)$ 或 $[0,T_0]$). 定义在同一概率空间 $(\Omega,\mathcal{F},\P)$ 上的一族随机变量 $X=\{X_t\}_{t\in T}$ 称为\textbf{随机过程}. $T$ 可数时称为离散时间过程 (随机序列), $T$ 为区间时称为连续时间过程. 对固定的 $\omega$, 函数 $t\mapsto X_t(\omega)$ 称为过程的一条\textbf{样本轨道}.
+\end{definition}
+
+随机过程有两种看法: 固定 $t$, $X_t$ 是一个随机变量; 固定 $\omega$, $X_\cdot(\omega)$ 是一个函数. 后一种看法把随机过程视为 ``随机函数'', 是随机分析的出发点: 布朗运动的轨道连续而处处不可微 (第~4~章), 正是这一点使得经典微积分失效而需要 Itô 积分 (第~5~章).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11.5cm, height=6cm, xmin=0, xmax=21, ymin=-8, ymax=10,
+  xtick={0,5,10,15,20}, ytick={-6,-3,3,6,9}, xlabel={$n$}, ylabel={$S_n(\omega)$}]
+  \addplot[SABlue,thick,mark=*,mark size=1pt] coordinates {(0,0) (1,-1) (2,0) (3,-1) (4,0) (5,1) (6,2) (7,1) (8,2) (9,3) (10,4) (11,5) (12,4) (13,3) (14,4) (15,5) (16,6) (17,5) (18,6) (19,7) (20,8)};
+  \addplot[SARed,thick,mark=*,mark size=1pt] coordinates {(0,0) (1,1) (2,2) (3,1) (4,2) (5,3) (6,4) (7,5) (8,6) (9,7) (10,6) (11,7) (12,8) (13,9) (14,8) (15,7) (16,6) (17,7) (18,6) (19,5) (20,4)};
+  \addplot[SAGreenText,thick,mark=*,mark size=1pt] coordinates {(0,0) (1,-1) (2,-2) (3,-3) (4,-4) (5,-5) (6,-6) (7,-5) (8,-4) (9,-3) (10,-2) (11,-3) (12,-4) (13,-5) (14,-6) (15,-7) (16,-6) (17,-5) (18,-6) (19,-5) (20,-6)};
+  \addplot[SAYellowText,thick,dashed] coordinates {(12,-8) (12,10)};
+  \node[font=\small,anchor=west] at (axis cs:12.2,-7.3) {固定 $n=12$: 随机变量 $S_{12}$};
+\end{axis}
+\end{tikzpicture}
+\caption{简单对称随机游动 $S_n=\xi_1+\cdots+\xi_n$ ($\xi_k$ 以等概率取 $\pm1$) 的三条样本轨道. 固定 $\omega$ 看是一条折线; 固定时间 (虚线) 看是一个随机变量, 三条轨道在虚线上的取值是它的三个可能结果}
+\label{fig:rw-paths}
+\end{figure}
+
+\begin{example}\label{ex:processes}
+\begin{enumerate}
+\item \textbf{独立同分布序列} $\{\xi_n\}_{n\ge1}$: 最简单的离散时间过程, 也称为 (离散) 白噪声.
+\item \textbf{随机游动} $S_n=S_0+\sum_{k=1}^n\xi_k$, 其中 $\xi_k$ 是 $\iid$ 的且与 $S_0$ 独立. 图~\ref{fig:rw-paths} 是 $S_0=0$、$\xi_k=\pm1$ 时的情形.
+\item \textbf{随机相位过程} $X_t=\cos(t+\Theta)$, $t\ge0$, 其中 $\Theta\sim\mathrm{U}(0,2\pi)$. 每条轨道都是一条平移后的余弦曲线, 只有一个随机参数. 由积化和差,
+\[
+\E[X_sX_t]=\frac{1}{2}\E\big[\cos(t-s)+\cos(s+t+2\Theta)\big]=\frac{1}{2}\cos(t-s),
+\]
+且 $\E X_t=0$. 协方差只依赖于时间差 $t-s$.
+\item \textbf{高斯过程}: 若对任意 $t_1,\dots,t_n\in T$, $(X_{t_1},\dots,X_{t_n})$ 都是正态随机向量, 称 $X$ 为高斯过程. 它的全部概率性质由均值函数 $m(t)=\E X_t$ 与协方差函数 $K(s,t)=\Cov(X_s,X_t)$ 决定 (见下面的推论~\ref{cor:gaussian-process}).
+\end{enumerate}
+\end{example}
+
+\begin{definition}[有限维分布]\label{def:fdd}
+对互不相同的 $t_1,\dots,t_n\in T$, 随机向量 $(X_{t_1},\dots,X_{t_n})$ 的联合分布
+\[
+\mu_{t_1,\dots,t_n}(B)=\P\big((X_{t_1},\dots,X_{t_n})\in B\big),\qquad B\in\mathcal{B}(\R^n)
+\]
+称为 $X$ 的\textbf{有限维分布}. 全体有限维分布称为 $X$ 的有限维分布族.
+\end{definition}
+
+有限维分布族自然满足两个\textbf{相容性条件}:
+\begin{enumerate}
+\item[(C1)] 对 $(1,\dots,n)$ 的任意置换 $\pi$, $\mu_{t_{\pi(1)},\dots,t_{\pi(n)}}$ 是 $\mu_{t_1,\dots,t_n}$ 在坐标置换 $(x_1,\dots,x_n)\mapsto(x_{\pi(1)},\dots,x_{\pi(n)})$ 下的像;
+\item[(C2)] 边缘相容: $\mu_{t_1,\dots,t_n,t_{n+1}}(B\times\R)=\mu_{t_1,\dots,t_n}(B)$.
+\end{enumerate}
+反过来, 相容性条件也足以保证过程的存在. 设 $\R^T$ 为一切函数 $\omega:T\to\R$ 的集合, 其上的乘积 $\sigma$-代数 $\mathcal{B}(\R)^{\otimes T}$ 由全体\textbf{柱集} $\{\omega: (\omega(t_1),\dots,\omega(t_n))\in B\}$ 生成.
+
+\begin{theorem}[Kolmogorov 延拓定理]\label{thm:kolmogorov-extension}
+设 $\{\mu_{t_1,\dots,t_n}\}$ 是满足 (C1)(C2) 的一族概率测度 ($\mu_{t_1,\dots,t_n}$ 定义在 $\mathcal{B}(\R^n)$ 上). 则 $(\R^T,\mathcal{B}(\R)^{\otimes T})$ 上存在唯一的概率测度 $\P$, 使得坐标过程 $X_t(\omega)=\omega(t)$ 的有限维分布恰为 $\{\mu_{t_1,\dots,t_n}\}$. (证明见~\cite{durrett} 附录 A.3 或~\cite{kallenberg} 定理 8.23.)
+\end{theorem}
+
+唯一性由柱集构成 $\pi$-系与推论~\ref{cor:uniqueness} 得到; 存在性的证明依赖于 Carath\'eodory 扩张定理~\ref{thm:caratheodory} 与 $\R^n$ 的拓扑性质.
+
+\begin{corollary}[高斯过程的存在性]\label{cor:gaussian-process}
+设 $m:T\to\R$, $K:T\times T\to\R$ 对称且半正定, 即对任意 $n$、$t_1,\dots,t_n\in T$ 与 $a_1,\dots,a_n\in\R$, $\sum_{i,j}a_ia_jK(t_i,t_j)\ge0$. 则存在高斯过程 $X$, 使 $\E X_t=m(t)$, $\Cov(X_s,X_t)=K(s,t)$.
+\end{corollary}
+
+\begin{proof}
+令 $\mu_{t_1,\dots,t_n}=N\big((m(t_i))_i,(K(t_i,t_j))_{i,j}\big)$, 由假设协方差矩阵半正定, 由定理~\ref{thm:gaussian-equivalent} 该分布存在. 验证相容性: (C1) 正态随机向量的分量置换是线性变换, 由命题~\ref{prop:gaussian-operations} (1), 置换后服从均值与协方差相应置换后的正态分布; (C2) 去掉最后一个分量也是线性变换, 得到的子向量服从 $N\big((m(t_i))_{i\le n},(K(t_i,t_j))_{i,j\le n}\big)$. 由 Kolmogorov 延拓定理~\ref{thm:kolmogorov-extension} 即得.
+\end{proof}
+
+\begin{example}[布朗运动的协方差]\label{ex:min-kernel}
+$K(s,t)=s\wedge t$ ($s,t\ge0$) 是半正定的. 事实上, $s\wedge t=\int_0^\infty\1_{[0,s]}(u)\1_{[0,t]}(u)\dd u$, 所以
+\[
+\sum_{i,j}a_ia_j(t_i\wedge t_j)=\int_0^\infty\Big(\sum_ia_i\1_{[0,t_i]}(u)\Big)^2\dd u\ge0.
+\]
+由推论~\ref{cor:gaussian-process}, 存在均值为零、协方差为 $s\wedge t$ 的高斯过程. 但这样得到的过程是定义在 $\R^{[0,\infty)}$ 上的, 我们无法断言它的轨道连续: 可以证明, $\mathcal{B}(\R)^{\otimes[0,\infty)}$ 中的每个事件都只依赖于可列个坐标 (见~\cite{billingsley} 第 36 节), 而 ``轨道连续'' 依赖于不可列个坐标, 不是这个 $\sigma$-代数中的事件. 第~4~章将通过修改过程的 ``版本'' 来得到连续轨道, 下一小节准备所需的概念.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{修正与不可区分}
+
+\begin{definition}[修正与不可区分]\label{def:modification}
+设 $X,Y$ 是定义在同一概率空间上、指标集相同的随机过程.
+\begin{enumerate}
+\item 若对每个 $t\in T$, $\P(X_t=Y_t)=1$, 称 $Y$ 是 $X$ 的\textbf{修正} (或版本).
+\item 若 $\P(X_t=Y_t\text{ 对一切 }t\in T\text{ 成立})=1$, 称 $X$ 与 $Y$ \textbf{不可区分}.
+\end{enumerate}
+\end{definition}
+
+不可区分显然蕴含互为修正; $T$ 可数时二者等价 (可列个零概率集之并仍是零概率集); $T$ 不可数时, 二者有本质区别.
+
+\begin{example}\label{ex:modification}
+设 $\tau\sim\mathrm{U}(0,1)$, 在 $T=[0,1]$ 上令 $X_t\equiv0$, $Y_t=\1_{\{t=\tau\}}$. 对每个固定的 $t$, $\P(X_t\ne Y_t)=\P(\tau=t)=0$, 所以 $Y$ 是 $X$ 的修正, 二者有相同的有限维分布 (见下面的命题). 但每条轨道 $Y_\cdot(\omega)$ 都在 $t=\tau(\omega)$ 处跳到 $1$, 所以 $\P(X_t=Y_t\ \forall t)=0$. $X$ 的轨道连续而 $Y$ 的轨道处处不连续. 有限维分布 ``看不见'' 不可列个时刻上的行为.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[xscale=6,yscale=1.4]
+  \draw[->,SADark!80] (0,0) -- (1.1,0) node[right,font=\small] {$t$};
+  \draw[->,SADark!80] (0,0) -- (0,1.3);
+  \draw[SABlue,very thick] (0,0) -- (0.62,0);
+  \draw[SABlue,very thick] (0.62,0) -- (1,0);
+  \draw[SABlue,fill=white] (0.62,0) circle (0.25pt);
+  \fill[SARed] (0.62,1) circle (0.25pt);
+  \draw[SADark!30,dashed] (0.62,0) -- (0.62,1);
+  \node[below,font=\small] at (0.62,0) {$\tau(\omega)$};
+  \node[left,font=\small] at (0,1) {$1$};
+  \node[below,font=\small] at (1,0) {$1$};
+  \node[font=\small,anchor=west,SARed] at (0.65,1) {$Y_\tau(\omega)=1$};
+  \node[font=\small,anchor=south,SABlue] at (0.3,0.05) {$Y_t(\omega)=0$};
+\end{tikzpicture}
+\caption{例~\ref{ex:modification}: $Y$ 的一条轨道. 它只在随机时刻 $\tau(\omega)$ 处不为零. 对任一\emph{固定}时刻 $t$, 轨道恰好在 $t$ 处跳跃的概率为零}
+\label{fig:modification}
+\end{figure}
+
+\begin{proposition}\label{prop:modification}
+\begin{enumerate}
+\item 若 $Y$ 是 $X$ 的修正, 则 $X$ 与 $Y$ 有相同的有限维分布.
+\item 设 $T=[0,\infty)$ 或 $[0,T_0]$, $Y$ 是 $X$ 的修正, 且 $X$ 与 $Y$ 的轨道几乎必然右连续. 则 $X$ 与 $Y$ 不可区分.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 对 $t_1,\dots,t_n$, 事件 $N=\bigcup_i\{X_{t_i}\ne Y_{t_i}\}$ 的概率为零, 而在 $N^c$ 上两个随机向量相等, 所以它们的分布相同.
+
+(2) 令 $Q$ 为 $T$ 中的有理数与右端点 (若有) 构成的可数集, $N_0=\bigcup_{q\in Q}\{X_q\ne Y_q\}$, $N_1$ 为 $X$ 或 $Y$ 的轨道不右连续的零概率集 (更准确地说, 是包含这些 $\omega$ 的某个零概率事件). 在 $(N_0\cup N_1)^c$ 上, 对任意 $t\in T$ (若 $t$ 是右端点则它属于 $Q$), 取 $q_k\in Q$, $q_k\downarrow t$, 由右连续性,
+$X_t=\lim_kX_{q_k}=\lim_kY_{q_k}=Y_t$. 所以 $\P(X_t=Y_t\ \forall t)\ge1-\P(N_0\cup N_1)=1$.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{信息流与适应过程}
+
+随着时间推移, 观察者掌握的信息越来越多. 用一族递增的 $\sigma$-代数表示这一点.
+
+\begin{definition}[信息流]\label{def:filtration}
+一族子 $\sigma$-代数 $\{\mathcal{F}_t\}_{t\in T}$, 若满足 $s\le t\Rightarrow\mathcal{F}_s\subseteq\mathcal{F}_t\subseteq\mathcal{F}$, 称为\textbf{信息流} (或 $\sigma$-代数流, filtration). $(\Omega,\mathcal{F},\{\mathcal{F}_t\},\P)$ 称为\textbf{带流的概率空间}. 记 $\mathcal{F}_\infty=\sigma\big(\bigcup_t\mathcal{F}_t\big)$.
+\end{definition}
+
+\begin{definition}[适应过程与自然信息流]\label{def:adapted}
+若对每个 $t$, $X_t$ 是 $\mathcal{F}_t$-可测的, 称过程 $X$ \textbf{适应}于 $\{\mathcal{F}_t\}$. 称 $\mathcal{F}^X_t=\sigma(X_s: s\le t,\ s\in T)$ 为 $X$ 的\textbf{自然信息流}; 它是使 $X$ 适应的最小信息流.
+\end{definition}
+
+``$X$ 适应于 $\{\mathcal{F}_t\}$'' 是指在时刻 $t$, 观察者已经知道 $X_t$ 的值. 信息流可以比自然信息流更大, 例如它可以包含其他过程的信息.
+
+\begin{example}[抛硬币的信息流]\label{ex:coin-filtration}
+在无穷次抛硬币中, 令 $\mathcal{F}_0=\{\varnothing,\Omega\}$, $\mathcal{F}_n=\sigma(\omega_1,\dots,\omega_n)$. $\mathcal{F}_n$ 由 $2^n$ 个长为 $n$ 的柱集构成的分割生成, 每增加一次抛掷, 分割的每一块就一分为二 (图~\ref{fig:coin-tree}). $S_n=\omega_1+\cdots+\omega_n$ 与 $M_n=\max_{k\le n}S_k$ 都适应于 $\{\mathcal{F}_n\}$; 而 $S_{n+1}$ 不是 $\mathcal{F}_n$-可测的, 因为它依赖于尚未发生的第 $n+1$ 次抛掷.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.82,
+  every node/.style={font=\small},
+  nd/.style={circle,draw=SADark,fill=SABlue!12,inner sep=1.4pt,minimum size=5mm},
+  level distance=1.25cm, sibling distance=2.0cm]
+  \node[nd] (r) at (0,0) {$\varnothing$};
+  \node[nd] (a) at (-3.2,-1.3) {$0$};
+  \node[nd] (b) at (3.2,-1.3) {$1$};
+  \foreach \p/\x/\l in {a/-4.8/00, a/-1.6/01, b/1.6/10, b/4.8/11} { \node[nd] (\l) at (\x,-2.6) {\l}; \draw[SADark!60] (\p) -- (\l); }
+  \foreach \p/\x/\l in {00/-5.6/000, 00/-4.0/001, 01/-2.4/010, 01/-0.8/011, 10/0.8/100, 10/2.4/101, 11/4.0/110, 11/5.6/111} { \node[nd,inner sep=0.6pt] (n\l) at (\x,-3.9) {\scriptsize\l}; \draw[SADark!60] (\p) -- (n\l); }
+  \draw[SADark!60] (r) -- (a); \draw[SADark!60] (r) -- (b);
+  \draw[SARed,very thick,->] (r) -- (b); \draw[SARed,very thick,->] (b) -- (10); \draw[SARed,very thick,->] (10) -- (n101);
+  \foreach \y/\l in {0/{$\mathcal{F}_0$: 1 块}, -1.3/{$\mathcal{F}_1$: 2 块}, -2.6/{$\mathcal{F}_2$: 4 块}, -3.9/{$\mathcal{F}_3$: 8 块}} { \node[anchor=west,SADark] at (6.4,\y) {\l}; }
+\end{tikzpicture}
+\caption{抛硬币的信息流. 第 $n$ 层的每个结点代表 $\mathcal{F}_n$ 的分割中的一块 (前 $n$ 次的结果). 一个样本点 $\omega$ 对应树中一条无穷路径 (粗线表示 $\omega_1\omega_2\omega_3=101$); 时刻 $n$ 的信息就是 ``路径走到了第 $n$ 层的哪个结点''}
+\label{fig:coin-tree}
+\end{figure}
+
+在离散时间中, 还需要区分 ``时刻 $n$ 已知'' 与 ``时刻 $n$ 之前已知''.
+
+\begin{definition}[可料序列]\label{def:predictable}
+设 $\{\mathcal{F}_n\}_{n\ge0}$ 是离散时间信息流. 若对每个 $n\ge1$, $H_n$ 是 $\mathcal{F}_{n-1}$-可测的, 称序列 $\{H_n\}_{n\ge1}$ 为\textbf{可料的}.
+\end{definition}
+
+\begin{example}[赌博策略]\label{ex:betting}
+设 $\xi_1,\xi_2,\dots$ 是各局的输赢 ($\pm1$), $\mathcal{F}_n=\sigma(\xi_1,\dots,\xi_n)$. 赌徒在第 $n$ 局开始前决定赌注 $H_n$, 他只能利用前 $n-1$ 局的结果, 所以 $\{H_n\}$ 是可料的. 他在第 $n$ 局后的财富为
+\[
+W_n=W_0+\sum_{k=1}^nH_k\xi_k.
+\]
+例如 ``加倍策略'': $H_1=1$, 若前 $n-1$ 局全输则 $H_n=2^{n-1}$, 一旦赢了就停止下注 ($H_n=0$). 第~3~章将这类和式称为鞅变换, 并证明在公平赌博中, 有界期限内的任何可料策略都不能使期望财富增加. 第~5~章的 Itô 积分 $\int H_s\dd B_s$ 是它的连续时间版本: 要求被积过程在每个小区间的\emph{左端点}取值, 正是为了保持这种 ``可料'' 的结构.
+\end{example}
+
+\begin{remark}
+连续时间中可料性与可测性的精确定义 (可料 $\sigma$-代数、循序可测过程) 涉及 $(t,\omega)$ 的联合可测性, 将在第~5~章构造 Itô 积分时引入.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{条件独立}
+
+马尔可夫性的直观含义是 ``给定现在, 过去与未来无关''. 为了严格表述它, 需要条件独立的概念.
+
+\begin{definition}[条件独立]\label{def:conditional-independence}
+称子 $\sigma$-代数 $\mathcal{G}_1$ 与 $\mathcal{G}_2$ 关于 $\mathcal{H}$ \textbf{条件独立}, 如果对一切 $A\in\mathcal{G}_1$, $B\in\mathcal{G}_2$,
+\[
+\P(A\cap B\,|\,\mathcal{H})=\P(A\,|\,\mathcal{H})\,\P(B\,|\,\mathcal{H}).
+\]
+\end{definition}
+
+取 $\mathcal{H}=\{\varnothing,\Omega\}$ 就回到通常的独立性. 下面的等价刻画更便于使用: 在已知 $\mathcal{H}$ 的前提下, 额外知道 $\mathcal{G}_1$ 对预测 $\mathcal{G}_2$ 中的事件毫无帮助.
+
+\begin{proposition}\label{prop:conditional-independence}
+$\mathcal{G}_1$ 与 $\mathcal{G}_2$ 关于 $\mathcal{H}$ 条件独立, 当且仅当对一切 $B\in\mathcal{G}_2$,
+\begin{equation}\label{eq:ci-equivalent}
+\P\big(B\,\big|\,\sigma(\mathcal{G}_1\cup\mathcal{H})\big)=\P(B\,|\,\mathcal{H}).
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+``当'': 设 \eqref{eq:ci-equivalent} 成立, $A\in\mathcal{G}_1$, $B\in\mathcal{G}_2$. 由塔性质与提出已知因子 ($\1_A$ 是 $\sigma(\mathcal{G}_1\cup\mathcal{H})$-可测的, $\P(B\,|\,\mathcal{H})$ 是 $\mathcal{H}$-可测的),
+\begin{align*}
+\P(A\cap B\,|\,\mathcal{H})&=\E\Big[\E\big[\1_A\1_B\,\big|\,\sigma(\mathcal{G}_1\cup\mathcal{H})\big]\,\Big|\,\mathcal{H}\Big]=\E\Big[\1_A\,\P\big(B\,\big|\,\sigma(\mathcal{G}_1\cup\mathcal{H})\big)\,\Big|\,\mathcal{H}\Big]\\
+&=\E\big[\1_A\,\P(B\,|\,\mathcal{H})\,\big|\,\mathcal{H}\big]=\P(B\,|\,\mathcal{H})\,\P(A\,|\,\mathcal{H}).
+\end{align*}
+
+``仅当'': 设条件独立, $B\in\mathcal{G}_2$. $\P(B\,|\,\mathcal{H})$ 是 $\sigma(\mathcal{G}_1\cup\mathcal{H})$-可测的. 集族 $\{A\cap H: A\in\mathcal{G}_1,H\in\mathcal{H}\}$ 是包含 $\Omega$ 的 $\pi$-系, 生成 $\sigma(\mathcal{G}_1\cup\mathcal{H})$; 由引理~\ref{lem:ce-pi-system}, 只需对 $A\cap H$ 验证积分恒等式. 由全期望公式、提出已知因子 ($\1_H\P(B\,|\,\mathcal{H})$ 是 $\mathcal{H}$-可测的) 与条件独立性,
+\begin{align*}
+\E\big[\P(B\,|\,\mathcal{H});A\cap H\big]&=\E\Big[\E\big[\1_A\1_H\P(B\,|\,\mathcal{H})\,\big|\,\mathcal{H}\big]\Big]=\E\big[\1_H\,\P(B\,|\,\mathcal{H})\,\P(A\,|\,\mathcal{H})\big]\\
+&=\E\big[\1_H\,\P(A\cap B\,|\,\mathcal{H})\big]=\E\big[\E[\1_H\1_{A\cap B}\,|\,\mathcal{H}]\big]=\P(A\cap B\cap H).
+\end{align*}
+而 $\P(A\cap B\cap H)=\E[\1_B;A\cap H]$, 所以 $\P(B\,|\,\mathcal{H})$ 满足 $\P(B\,|\,\sigma(\mathcal{G}_1\cup\mathcal{H}))$ 的定义.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{马尔可夫性}
+
+\begin{definition}[马尔可夫过程]\label{def:markov}
+设 $X$ 适应于信息流 $\{\mathcal{F}_t\}_{t\in T}$. 若对一切 $s\le t$ ($s,t\in T$) 与一切有界 Borel 函数 $f$,
+\[
+\E[f(X_t)\,|\,\mathcal{F}_s]=\E[f(X_t)\,|\,X_s],
+\]
+称 $X$ 是关于 $\{\mathcal{F}_t\}$ 的\textbf{马尔可夫过程}.
+\end{definition}
+
+定义只涉及未来\emph{一个}时刻. 下面的定理说明, 它等价于对整个未来成立, 也等价于 ``过去与未来关于现在条件独立''.
+
+\begin{theorem}[马尔可夫性的等价形式]\label{thm:markov-equivalent}
+设 $X$ 适应于 $\{\mathcal{F}_t\}$. 对 $s\in T$, 记 $\mathcal{F}^{\ge s}=\sigma(X_u: u\ge s,\ u\in T)$ 为 ``未来'' 的信息. 以下四条等价:
+\begin{enumerate}[(a)]
+\item $X$ 是关于 $\{\mathcal{F}_t\}$ 的马尔可夫过程;
+\item 对任意 $s\le t_1<\cdots<t_n$ 与有界 Borel 函数 $f_1,\dots,f_n$,
+$\E\big[\prod_{i=1}^nf_i(X_{t_i})\,\big|\,\mathcal{F}_s\big]=\E\big[\prod_{i=1}^nf_i(X_{t_i})\,\big|\,X_s\big]$;
+\item 对任意 $s$ 与有界 $\mathcal{F}^{\ge s}$-可测随机变量 $F$, $\E[F\,|\,\mathcal{F}_s]=\E[F\,|\,X_s]$;
+\item 对任意 $s$, ``过去'' $\mathcal{F}_s$ 与 ``未来'' $\mathcal{F}^{\ge s}$ 关于 ``现在'' $\sigma(X_s)$ 条件独立.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(c)$\Rightarrow$(b)$\Rightarrow$(a) 是显然的 (后者取 $n=1$).
+
+(a)$\Rightarrow$(b): 对 $n$ 归纳, $n=1$ 即 (a). 设结论对 $n-1$ 成立. 由 (a) 与 Doob-Dynkin 引理~\ref{lem:doob-dynkin}, 存在 Borel 函数 $g$ 使 (由于左端的绝对值不超过 $\sup\abs{f_n}$, 可把 $g$ 截断为有界函数) $\E[f_n(X_{t_n})\,|\,\mathcal{F}_{t_{n-1}}]=\E[f_n(X_{t_n})\,|\,X_{t_{n-1}}]=g(X_{t_{n-1}})$. 记 $F=\prod_{i=1}^nf_i(X_{t_i})$. 由于 $\prod_{i<n}f_i(X_{t_i})$ 是 $\mathcal{F}_{t_{n-1}}$-可测的, 由塔性质与提出已知因子,
+\begin{align*}
+\E[F\,|\,\mathcal{F}_s]&=\E\Big[\prod_{i<n}f_i(X_{t_i})\,\E[f_n(X_{t_n})\,|\,\mathcal{F}_{t_{n-1}}]\,\Big|\,\mathcal{F}_s\Big]\\
+&=\E\Big[\prod_{i<n-1}f_i(X_{t_i})\cdot(f_{n-1}g)(X_{t_{n-1}})\,\Big|\,\mathcal{F}_s\Big].
+\end{align*}
+右端是 $n-1$ 个有界函数之积, 由归纳假设, 它等于把 $\mathcal{F}_s$ 换成 $\sigma(X_s)$ 后的条件期望. 再由同样的计算 (塔性质对 $\sigma(X_s)\subseteq\mathcal{F}_{t_{n-1}}$ 同样适用) 倒推回去,
+\[
+\E\Big[\prod_{i<n-1}f_i(X_{t_i})\cdot(f_{n-1}g)(X_{t_{n-1}})\,\Big|\,X_s\Big]=\E\Big[\E\big[F\,\big|\,\mathcal{F}_{t_{n-1}}\big]\,\Big|\,X_s\Big]=\E[F\,|\,X_s].
+\]
+
+(b)$\Rightarrow$(c): 固定 $s$. 令 $\mathcal{H}$ 为满足 $\E[F\,|\,\mathcal{F}_s]=\E[F\,|\,X_s]$ 的有界随机变量 $F$ 全体. 由条件期望的线性, $\mathcal{H}$ 是含常数的线性空间; 由条件单调收敛定理~\ref{thm:cmct}, 它对有界单调增极限封闭. 令 $\mathcal{P}$ 为一切形如 $\bigcap_{i=1}^n\{X_{t_i}\in B_i\}$ ($s\le t_1<\cdots<t_n$, $B_i$ 为 Borel 集) 的事件全体. 两个这样的事件之交仍是这种形式 (把时刻合并, 同一时刻上的集合取交), 所以 $\mathcal{P}$ 是 $\pi$-系, 且 $\sigma(\mathcal{P})=\mathcal{F}^{\ge s}$. 由 (b) (取 $f_i=\1_{B_i}$), $\mathcal{P}$ 中事件的示性函数属于 $\mathcal{H}$. 由函数形式的单调类定理~\ref{thm:functional-mct} 即得 (c).
+
+(c)$\Leftrightarrow$(d): 由于 $X_s$ 是 $\mathcal{F}_s$-可测的, $\sigma(\mathcal{F}_s\cup\sigma(X_s))=\mathcal{F}_s$. 由命题~\ref{prop:conditional-independence} (取 $\mathcal{G}_1=\mathcal{F}_s$, $\mathcal{G}_2=\mathcal{F}^{\ge s}$, $\mathcal{H}=\sigma(X_s)$), (d) 等价于: 对一切 $B\in\mathcal{F}^{\ge s}$, $\P(B\,|\,\mathcal{F}_s)=\P(B\,|\,X_s)$. 这是 (c) 对示性函数的特例; 反之, 由它出发, 与上一段同样用函数形式的单调类定理 (此时取 $\mathcal{P}=\mathcal{F}^{\ge s}$ 本身) 得到 (c).
+\end{proof}
+
+\begin{intuition}
+(d) 是马尔可夫性最本质的表述: 只要知道现在的状态 $X_s$, 过去的全部历史就不再提供关于未来的任何额外信息. 过程 ``没有记忆'', 现在的状态概括了过去中与未来有关的一切.
+\end{intuition}
+
+\begin{remark}
+若 $X$ 是关于某个信息流 $\{\mathcal{F}_t\}$ 的马尔可夫过程, 则它也是关于自然信息流 $\{\mathcal{F}^X_t\}$ 的马尔可夫过程: 由 $\sigma(X_s)\subseteq\mathcal{F}^X_s\subseteq\mathcal{F}_s$ 与塔性质,
+$\E[f(X_t)\,|\,\mathcal{F}^X_s]=\E\big[\E[f(X_t)\,|\,\mathcal{F}_s]\,\big|\,\mathcal{F}^X_s\big]=\E\big[\E[f(X_t)\,|\,X_s]\,\big|\,\mathcal{F}^X_s\big]=\E[f(X_t)\,|\,X_s]$. 反之不然: 信息流越大, 马尔可夫性越难成立.
+\end{remark}
+
+最重要的一类马尔可夫过程是独立增量过程, 随机游动与布朗运动都属于此类.
+
+\begin{proposition}[独立增量过程是马尔可夫过程]\label{prop:independent-increments}
+设 $X$ 适应于 $\{\mathcal{F}_t\}$, 且对一切 $s\le t$, 增量 $X_t-X_s$ 与 $\mathcal{F}_s$ 独立. 则 $X$ 是关于 $\{\mathcal{F}_t\}$ 的马尔可夫过程, 并且对有界 Borel 函数 $f$,
+\[
+\E[f(X_t)\,|\,\mathcal{F}_s]=\psi_{s,t}(X_s),\qquad \psi_{s,t}(x)=\E\big[f(x+X_t-X_s)\big].
+\]
+\end{proposition}
+
+\begin{proof}
+写 $X_t=X_s+(X_t-X_s)$, 其中 $X_s$ 是 $\mathcal{F}_s$-可测的, $X_t-X_s$ 与 $\mathcal{F}_s$ 独立. 由代入引理~\ref{lem:freezing} (1) (取 $\phi(z,x)=f(x+z)$), $\E[f(X_t)\,|\,\mathcal{F}_s]=\psi_{s,t}(X_s)$. 右端是 $\sigma(X_s)$-可测的, 由塔性质, $\E[f(X_t)\,|\,X_s]=\E\big[\E[f(X_t)\,|\,\mathcal{F}_s]\,\big|\,X_s\big]=\psi_{s,t}(X_s)$. 二者相等.
+\end{proof}
+
+\begin{example}[随机游动的马尔可夫性]\label{ex:rw-markov}
+设 $S_n=S_0+\sum_{k=1}^n\xi_k$ 如例~\ref{ex:processes} (2), $\mathcal{F}_n=\sigma(S_0,\xi_1,\dots,\xi_n)$. 对 $n\le m$, $S_m-S_n=\xi_{n+1}+\cdots+\xi_m$ 由 $\xi_{n+1},\dots,\xi_m$ 决定, 由分组原理 (推论~\ref{cor:grouping}), 它与 $\mathcal{F}_n$ 独立. 由命题~\ref{prop:independent-increments}, $\{S_n\}$ 是马尔可夫过程.
+\end{example}
+
+\begin{example}[不是马尔可夫过程的例子]\label{ex:non-markov}
+设 $\xi_0,\xi_1,\dots$ 是 $\iid$ 的, 以等概率取 $\pm1$. 令 $X_n=\xi_n+\xi_{n+1}$ (``滑动和''), 取 $X$ 的自然信息流. $X_n$ 取值于 $\{-2,0,2\}$. 比较事件 $\{X_2=2\}$ 在不同历史信息下的条件概率:
+\begin{itemize}
+\item 在事件 $\{X_0=2,X_1=0\}$ 上, 必有 $\xi_1=1$, $\xi_2=-1$, 于是 $X_2=-1+\xi_3\le0$. 由于 $\mathcal{F}^X_1=\sigma(X_0,X_1)$ 由有限分割生成, 在这一块 (其概率为 $\P(\xi_0=1,\xi_1=1,\xi_2=-1)=\frac{1}{8}>0$) 上 $\P(X_2=2\,|\,\mathcal{F}^X_1)=0$.
+\item 在事件 $\{X_1=0\}$ 上, $(\xi_1,\xi_2)$ 以等概率取 $(1,-1)$ 或 $(-1,1)$, 而 $X_2=2$ 当且仅当 $\xi_2=\xi_3=1$, 所以 $\P(X_2=2\,|\,X_1=0)=\frac{\P(\xi_1=-1,\xi_2=1,\xi_3=1)}{\P(X_1=0)}=\frac{1/8}{1/2}=\frac{1}{4}$.
+\end{itemize}
+两者在概率为 $\frac{1}{8}$ 的事件上不相等, 所以 $X$ 不是马尔可夫过程: 知道 $X_0$ 能推出关于 $\xi_2$ 的额外信息, 而 $\xi_2$ 会影响 $X_2$. 不过, 二维过程 $(\xi_n,\xi_{n+1})$ 是马尔可夫的. 适当扩大状态空间, 往往可以把非马尔可夫过程变成马尔可夫过程.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{转移核与 Chapman-Kolmogorov 方程}
+
+马尔可夫过程从时刻 $s$ 的状态 $x$ 出发、在时刻 $t$ 落在 $B$ 中的概率, 由一个 ``转移核'' 描述.
+
+\begin{definition}[转移核]\label{def:kernel}
+映射 $P:\R\times\mathcal{B}(\R)\to[0,1]$ 称为\textbf{转移核}, 如果对每个 $x$, $P(x,\cdot)$ 是概率测度, 且对每个 $B$, $x\mapsto P(x,B)$ 是 Borel 函数. 对有界 Borel 函数 $f$, 记 $Pf(x)=\int_{\R}f(y)\,P(x,\dd y)$.
+\end{definition}
+
+\begin{definition}[转移概率]\label{def:transition}
+设 $X$ 是关于 $\{\mathcal{F}_t\}$ 的马尔可夫过程. 若存在一族转移核 $\{P_{s,t}\}_{s\le t}$, 使得对一切 $s\le t$ 与 $B\in\mathcal{B}(\R)$,
+\[
+\P(X_t\in B\,|\,\mathcal{F}_s)=P_{s,t}(X_s,B),
+\]
+称 $\{P_{s,t}\}$ 为 $X$ 的\textbf{转移概率}. 若 $P_{s,t}$ 只依赖于 $t-s$, 记 $P_{s,t}=P_{t-s}$, 称 $X$ 是\textbf{时齐}的.
+\end{definition}
+
+由定义, $P_{s,t}(X_s(\omega),\cdot)$ 是 $X_t$ 关于 $\mathcal{F}_s$ 的正则条件分布 (定义~\ref{def:regular-conditional}), 所以由命题~\ref{prop:regular-integral}, 对有界 Borel 函数 $f$,
+\begin{equation}\label{eq:kernel-expectation}
+\E[f(X_t)\,|\,\mathcal{F}_s]=\int_{\R}f(y)\,P_{s,t}(X_s,\dd y)=P_{s,t}f(X_s).
+\end{equation}
+例如在命题~\ref{prop:independent-increments} 中, $P_{s,t}(x,B)=\P(x+X_t-X_s\in B)$.
+
+\begin{theorem}[Chapman-Kolmogorov 方程]\label{thm:chapman-kolmogorov}
+设 $X$ 是具有转移概率 $\{P_{s,t}\}$ 的马尔可夫过程, $s\le u\le t$, $B\in\mathcal{B}(\R)$. 则对 $\mu_{X_s}$-几乎每个 $x$,
+\[
+P_{s,t}(x,B)=\int_{\R}P_{u,t}(z,B)\,P_{s,u}(x,\dd z).
+\]
+\end{theorem}
+
+\begin{proof}
+由塔性质 ($\mathcal{F}_s\subseteq\mathcal{F}_u$) 与转移概率的定义,
+\[
+P_{s,t}(X_s,B)=\P(X_t\in B\,|\,\mathcal{F}_s)=\E\big[\P(X_t\in B\,|\,\mathcal{F}_u)\,\big|\,\mathcal{F}_s\big]=\E\big[P_{u,t}(X_u,B)\,\big|\,\mathcal{F}_s\big].
+\]
+函数 $h(z)=P_{u,t}(z,B)$ 是有界 Borel 函数, 由 \eqref{eq:kernel-expectation} (把 $t$ 换成 $u$, $f$ 换成 $h$), 右端等于 $\int h(z)\,P_{s,u}(X_s,\dd z)$. 于是两个 Borel 函数 $x\mapsto P_{s,t}(x,B)$ 与 $x\mapsto\int P_{u,t}(z,B)P_{s,u}(x,\dd z)$ 在 $X_s$ 处的值几乎必然相等, 即它们 $\mu_{X_s}$-几乎处处相等.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[xscale=1.6,yscale=1.0]
+  \draw[->,SADark!80] (0,-0.3) -- (6.4,-0.3) node[right,font=\small] {时间};
+  \foreach \t/\l in {0.5/s,3/u,5.5/t} { \draw[SADark!40,dashed] (\t,-0.3) -- (\t,3.6); \node[below,font=\small] at (\t,-0.3) {$\l$}; }
+  \fill[SADark] (0.5,1.6) circle (1.6pt) node[left,font=\small] {$x$};
+  \draw[SARed,line width=3pt] (5.5,2.3) -- (5.5,3.1); \node[right,SARed,font=\small] at (5.55,2.7) {$B$};
+  \foreach \z/\c in {0.4/SABlue!50, 1.3/SABlue!80, 2.2/SABlue, 3.1/SABlue!60} {
+    \fill[\c] (3,\z) circle (1.4pt);
+    \draw[\c,thick] plot[smooth,tension=0.7] coordinates {(0.5,1.6) (1.4,{1.6+0.3*(\z-1.6)+0.15}) (2.2,{1.6+0.7*(\z-1.6)-0.1}) (3,\z)};
+    \draw[\c,thick] plot[smooth,tension=0.7] coordinates {(3,\z) (3.9,{\z+0.35*(2.7-\z)-0.12}) (4.7,{\z+0.75*(2.7-\z)+0.1}) (5.5,{2.7+0.08*(\z-1.6)})};
+  }
+  \node[SABlue,font=\small,align=center] at (3,-1.35) {中间状态 $z$\\ 按 $P_{s,u}(x,\dd z)$ 分布};
+\end{tikzpicture}
+\caption{Chapman-Kolmogorov 方程: 从 $x$ 出发经时间 $s\to t$ 到达 $B$ 的概率, 等于对所有可能的中间状态 $z$ (时刻 $u$) 求和: 先从 $x$ 到 $z$, 再从 $z$ 到 $B$. 两段之间的 ``无记忆'' 正是马尔可夫性}
+\label{fig:chapman-kolmogorov}
+\end{figure}
+
+\begin{remark}
+反过来, 给定初始分布 $\nu$ 与一族对\emph{一切} $x$ 满足 Chapman-Kolmogorov 方程的转移核, 令
+\begin{multline*}
+\P(X_{t_0}\in B_0,\dots,X_{t_n}\in B_n)\\
+=\int_{B_0}\nu(\dd x_0)\int_{B_1}P_{t_0,t_1}(x_0,\dd x_1)\cdots\int_{B_n}P_{t_{n-1},t_n}(x_{n-1},\dd x_n),
+\end{multline*}
+Chapman-Kolmogorov 方程恰好保证这族有限维分布满足相容性条件 (C2), 由 Kolmogorov 延拓定理即得一个以 $\{P_{s,t}\}$ 为转移概率的马尔可夫过程 (见~\cite{kallenberg} 第 11 章). 在时齐情形, Chapman-Kolmogorov 方程写成 $P_{t+s}=P_tP_s$ (算子的复合), 即 $\{P_t\}$ 构成一个半群. 第~6~章将从这一半群出发研究扩散过程的无穷小生成元.
+\end{remark}
+
+\begin{example}[有限状态马氏链]\label{ex:markov-chain}
+设 $X_n$ 取值于有限集 $\{1,\dots,N\}$, 且 $\P(X_{n+1}=j\,|\,\mathcal{F}_n)=p_{X_n,j}$, 其中 $\mat{P}=(p_{ij})$ 是每行之和为 $1$ 的非负矩阵 (转移矩阵). 此时转移核就是矩阵, $k$ 步转移概率为 $\mat{P}^k$, Chapman-Kolmogorov 方程就是矩阵乘法 $\mat{P}^{m+n}=\mat{P}^m\mat{P}^n$.
+
+以两状态 ``天气'' 链为例 (图~\ref{fig:two-state}): 状态 $1$ (晴) 以概率 $p$ 转为状态 $2$ (雨), 状态 $2$ 以概率 $q$ 转为状态 $1$, $0<p+q<2$. 令
+\[
+\mat{A}=\frac{1}{p+q}\begin{pmatrix}q&p\\q&p\end{pmatrix},\qquad \mat{B}=\frac{1}{p+q}\begin{pmatrix}p&-p\\-q&q\end{pmatrix}.
+\]
+直接计算可得 $\mat{A}^2=\mat{A}$, $\mat{B}^2=\mat{B}$, $\mat{A}\mat{B}=\mat{B}\mat{A}=\mat{0}$, 且 $\mat{P}=\begin{psmallmatrix}1-p&p\\q&1-q\end{psmallmatrix}=\mat{A}+(1-p-q)\mat{B}$. 由二项式展开 (交叉项全为零),
+\[
+\mat{P}^n=\mat{A}+(1-p-q)^n\mat{B}\xrightarrow{n\to\infty}\mat{A}.
+\]
+极限矩阵 $\mat{A}$ 的每一行都是 $\pi=\big(\frac{q}{p+q},\frac{p}{p+q}\big)$: 无论初始天气如何, 长期来看晴天的比例趋于 $\frac{q}{p+q}$. 容易验证 $\pi\mat{P}=\pi$, 即 $\pi$ 是\textbf{平稳分布}. 收敛速度由 $\abs{1-p-q}^n$ 刻画.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  st/.style={circle,draw=SADark,thick,fill=SABlue!12,minimum size=11mm,font=\small},
+  ar/.style={->,thick,SADark!80,>={Stealth[length=2.4mm]}}]
+  \node[st] (s1) at (0,0) {$1$ 晴};
+  \node[st] (s2) at (4,0) {$2$ 雨};
+  \draw[ar] (s1) to[bend left=30] node[above,font=\small] {$p$} (s2);
+  \draw[ar] (s2) to[bend left=30] node[below,font=\small] {$q$} (s1);
+  \draw[ar] (s1) to[out=150,in=210,looseness=6] node[left,font=\small] {$1-p$} (s1);
+  \draw[ar] (s2) to[out=30,in=-30,looseness=6] node[right,font=\small] {$1-q$} (s2);
+\end{tikzpicture}
+\caption{两状态马氏链的转移图. 每个状态出发的箭头上的概率之和为 $1$}
+\label{fig:two-state}
+\end{figure}
+
+\begin{example}[正态自回归过程]\label{ex:ar1}
+设 $X_0$ 与 $\iid$ 的 $N(0,1)$ 序列 $\{\xi_n\}$ 独立, $X_{n+1}=aX_n+\sigma\xi_{n+1}$. 对 $\mathcal{F}_n=\sigma(X_0,\xi_1,\dots,\xi_n)$, 由代入引理, $X$ 是时齐马尔可夫链, 一步转移核为 $P(x,\cdot)=N(ax,\sigma^2)$. 迭代得 $X_{n+k}=a^kX_n+\sigma\sum_{j=1}^ka^{k-j}\xi_{n+j}$, 所以 $k$ 步转移核为
+\[
+P_k(x,\cdot)=N\Big(a^kx,\ \sigma^2\sum_{j=0}^{k-1}a^{2j}\Big).
+\]
+若 $\abs{a}<1$, 当 $k\to\infty$ 时它趋于 $N\big(0,\frac{\sigma^2}{1-a^2}\big)$, 与起点 $x$ 无关, 这是平稳分布. 这一过程是第~6~章 Ornstein-Uhlenbeck 过程的离散版本.
+\end{example}
+
+\begin{example}[热核]\label{ex:heat-kernel}
+对 $t>0$, 令
+\[
+p_t(x,y)=\frac{1}{\sqrt{2\pi t}}\exp\Big(-\frac{(y-x)^2}{2t}\Big),\qquad P_t(x,B)=\int_Bp_t(x,y)\dd y,
+\]
+即 $P_t(x,\cdot)=N(x,t)$, 并令 $P_0(x,\cdot)=\delta_x$. 它对一切 $x$ 满足 Chapman-Kolmogorov 方程 $P_{s+t}=P_sP_t$: $\int P_t(z,B)P_s(x,\dd z)$ 是 $x+Z_1+Z_2\in B$ 的概率, 其中 $Z_1\sim N(0,s)$ 与 $Z_2\sim N(0,t)$ 独立 (先按 $Z_1$ 取条件, 再用代入引理), 由例~\ref{ex:indep-sums} (2), $x+Z_1+Z_2\sim N(x,s+t)$. 用密度写出来, 就是
+\[
+\int_{\R}p_s(x,z)\,p_t(z,y)\dd z=p_{s+t}(x,y).
+\]
+第~4~章将看到, 布朗运动正是以 $\{P_t\}$ 为转移概率的马尔可夫过程; $p_t(x,y)$ 满足热传导方程 $\partial_tp=\frac{1}{2}\partial_{yy}p$, 这是概率与偏微分方程联系的起点 (第~6~章).
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection*{本章小结}
+\addcontentsline{toc}{subsection}{本章小结}
+
+本章把条件期望定义为 ``在给定信息下的最佳预测'', 并建立了它的运算法则. 表~\ref{tab:ch2-summary} 汇总了最常用的法则; 它们将在后续各章中反复使用, 通常不再注明出处.
+
+\begin{center}
+\captionof{table}{条件期望的常用法则 (均在几乎必然意义下成立)}
+\label{tab:ch2-summary}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.24\textwidth} >{\raggedright\arraybackslash}p{0.46\textwidth} >{\raggedright\arraybackslash}p{0.20\textwidth}}
+\toprule
+法则 & 内容 & 出处 \\
+\midrule
+全期望公式 & $\E[\E[X\,|\,\mathcal{G}]]=\E X$ & 定理~\ref{thm:ce-basic} \\
+已知量不变 & $X$ 是 $\mathcal{G}$-可测的 $\Rightarrow\E[X\,|\,\mathcal{G}]=X$ & 定理~\ref{thm:ce-basic} \\
+独立性化简 & $X$ 与 $\mathcal{G}$ 独立 $\Rightarrow\E[X\,|\,\mathcal{G}]=\E X$ & 定理~\ref{thm:ce-basic} \\
+塔性质 & $\mathcal{H}\subseteq\mathcal{G}\Rightarrow\E[\E[X\,|\,\mathcal{G}]\,|\,\mathcal{H}]=\E[X\,|\,\mathcal{H}]$ & 定理~\ref{thm:tower} \\
+提出已知因子 & $Z$ 是 $\mathcal{G}$-可测的 $\Rightarrow\E[ZX\,|\,\mathcal{G}]=Z\E[X\,|\,\mathcal{G}]$ & 定理~\ref{thm:take-out} \\
+条件 MCT / Fatou / DCT & 极限与条件期望交换 & 定理~\ref{thm:cmct}--\ref{thm:cdct} \\
+条件 Jensen & $\phi(\E[X\,|\,\mathcal{G}])\le\E[\phi(X)\,|\,\mathcal{G}]$ & 定理~\ref{thm:cjensen} \\
+代入引理 & $\E[\phi(\rvec{X},\rvec{Y})\,|\,\mathcal{G}]=\E[\phi(\rvec{X},\rvec{y})]|_{\rvec{y}=\rvec{Y}}$ & 引理~\ref{lem:freezing} \\
+正态条件分布 & 条件均值线性, 条件协方差为 Schur 补 & 定理~\ref{thm:gaussian-conditional} \\
+\bottomrule
+\end{tabular}
+\end{center}

@@ -269,8 +269,8 @@ class AiService {
       generationConfig: { temperature: cfg.temperature, maxOutputTokens: cfg.maxTokens }
     };
     const res = await fetch(
-      `${cfg.baseUrl}/models/${encodeURIComponent(cfg.model)}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+      `${cfg.baseUrl}/models/${encodeURIComponent(cfg.model)}:generateContent`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(body), signal }
     );
     const data = await this._readJson(res);
     if (!res.ok) return this._httpError(res, data, cfg);

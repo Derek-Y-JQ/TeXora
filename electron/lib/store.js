@@ -202,25 +202,45 @@ class Store extends EventEmitter {
     if (Array.isArray(actions)) {
       for (const a of actions) if (a.id === 'ask' && a.label === '提问') a.label = '解释';
     }
-    if (migrated) this._save();
+    // Persist migrations only after the OS credential service is ready.
+  }
+
+  enableEncryption(storage) {
+    this.secureStorage = storage;
+    const encrypted = this.data.ai?.apiKeyEncrypted;
+    if (encrypted) {
+      if (!storage.isEncryptionAvailable()) throw new Error('OS credential encryption is unavailable');
+      this.data.ai.apiKey = storage.decryptString(Buffer.from(encrypted, 'base64'));
+    }
+    this._save();
   }
 
   _save() {
-    try {
-      fs.mkdirSync(path.dirname(this.file), { recursive: true });
-      if (fs.existsSync(this.file)) {
-        try { fs.copyFileSync(this.file, this.file + '.bak'); } catch {}
+    // Plaintext exists only in memory. Both primary and backup contain ciphertext.
+    const disk = structuredClone(this.data);
+    const key = disk.ai?.apiKey || '';
+    delete disk.ai.apiKey;
+    if (key) {
+      if (!this.secureStorage?.isEncryptionAvailable() || this.secureStorage.getSelectedStorageBackend?.() === 'basic_text') {
+        throw new Error('Cannot persist API key: OS credential encryption is unavailable');
       }
-      const tmp = this.file + '.tmp';
-      fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8');
-      fs.renameSync(tmp, this.file);
-    } catch (err) {
-      console.error('[store] save failed', err);
+      disk.ai.apiKeyEncrypted = this.secureStorage.encryptString(key).toString('base64');
+    } else {
+      delete disk.ai.apiKeyEncrypted;
     }
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const text = JSON.stringify(disk, null, 2);
+    const tmp = this.file + '.tmp';
+    fs.writeFileSync(tmp, text, { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(tmp, this.file);
+    // Overwrite legacy plaintext backups after the encrypted primary is durable.
+    fs.writeFileSync(this.file + '.bak', text, { encoding: 'utf8', mode: 0o600 });
   }
 
   all() {
-    return this.data;
+    const result = structuredClone(this.data);
+    delete result.ai.apiKeyEncrypted;
+    return result;
   }
 
   get(key, fallback) {
@@ -235,6 +255,7 @@ class Store extends EventEmitter {
   }
 
   set(patchOrKey, value) {
+    const before = structuredClone(this.data);
     if (typeof patchOrKey === 'string') {
       const parts = patchOrKey.split('.');
       let cur = this.data;
@@ -243,12 +264,12 @@ class Store extends EventEmitter {
         cur = cur[parts[i]];
       }
       cur[parts[parts.length - 1]] = value;
-      this._save();
+      try { this._save(); } catch (err) { this.data = before; throw err; }
       this.emit('change', this.data, patchOrKey);
       return this.data;
     }
     this.data = deepMerge(this.data, patchOrKey);
-    this._save();
+    try { this._save(); } catch (err) { this.data = before; throw err; }
     this.emit('change', this.data, null);
     return this.data;
   }

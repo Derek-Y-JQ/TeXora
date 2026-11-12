@@ -5,7 +5,7 @@
  * TeX toolchain, keeps settings/history/state and supports screenshot capture
  * for automated visual verification.
  */
-const { app, BrowserWindow, ipcMain, protocol, net, shell, dialog, clipboard, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, net, shell, dialog, clipboard, Menu, nativeTheme, safeStorage } = require('electron');
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
@@ -27,6 +27,7 @@ const { checkForUpdates } = require('./lib/updater');
 const PKG = require('../package.json');
 const {launchTargets,resolveOpenTarget}=require('./lib/open-target');
 
+const { registerProtocols } = require('./lib/protocols');
 const DIST = path.join(__dirname, '..', 'dist');
 app.setName('TeXora');
 // Packaged builds keep the stable %APPDATA%\\TeXora store (settings survive updates).
@@ -87,31 +88,6 @@ protocol.registerSchemesAsPrivileged([
   }
 ]);
 
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.pdf': 'application/pdf',
-  '.map': 'application/json',
-  '.txt': 'text/plain; charset=utf-8',
-  '.wasm': 'application/wasm'
-};
-function mimeFor(file) {
-  return MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
-}
-
 // -------------------------------------------------------------------- services
 const store = new Store(USER_DATA);
 const project = new ProjectService(store, USER_DATA);
@@ -155,7 +131,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       spellcheck: false,
       webviewTag: false,
       backgroundThrottling: false
@@ -231,32 +207,9 @@ function debounce(fn, ms) {
 // ---------------------------------------------------------------- app protocol
 app.whenReady().then(async () => {
   if(!primaryInstance)return;
+  store.enableEncryption(safeStorage);
   if(cliBuild&&!pendingOpenTargets.length){console.error('请指定 --project=<项目目录或主文档>');app.exit(2);return;}
-  protocol.handle('app', async (request) => {
-    try {
-      const url = new URL(request.url);
-      let rel = decodeURIComponent(url.pathname);
-      if (!rel || rel === '/') rel = '/index.html';
-      const full = path.normalize(path.join(DIST, rel));
-      if (!full.startsWith(path.normalize(DIST))) return new Response('forbidden', { status: 403 });
-      const data = await fsp.readFile(full);
-      return new Response(data, { headers: { 'content-type': mimeFor(full), 'cache-control': 'no-cache' } });
-    } catch (err) {
-      return new Response('not found: ' + err.message, { status: 404 });
-    }
-  });
-
-  protocol.handle('asset', async (request) => {
-    try {
-      const url = new URL(request.url);
-      const p = url.searchParams.get('p');
-      if (!p) return new Response('missing path', { status: 400 });
-      const data = await fsp.readFile(p);
-      return new Response(data, { headers: { 'content-type': mimeFor(p), 'cache-control': 'no-store' } });
-    } catch (err) {
-      return new Response('not found', { status: 404 });
-    }
-  });
+  registerProtocols(protocol, DIST);
 
   const cliTarget=pendingOpenTargets.shift();
   const cliProject = capture.project || cliTarget;

@@ -1,0 +1,110 @@
+% =====================================================================
+%  符号约定
+% =====================================================================
+\chapter*{符号约定}
+\addcontentsline{toc}{chapter}{符号约定}
+\markboth{符号约定}{}
+
+全书统一使用下列记号. 标点一律使用英文标点 (顿号除外). 字体约定: 概率与期望用空心字母; $\sigma$-代数、集族与信息流用花体 ($\mathcal{F}$); 随机积分中被积过程构成的空间用书写体 ($\mathscr{L}$); 随机向量用加粗斜体, 矩阵用加粗正体.
+
+\subsection*{基本记号 (第~1~章起)}
+
+\begin{center}
+\small\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\raggedright\arraybackslash}p{0.52\textwidth}}
+\toprule
+\textbf{记号} & \textbf{含义} \\
+\midrule
+$\Omega$, $\omega$ & 样本空间、样本点 \\
+$\mathcal{F}$, $\mathcal{G}$, $\mathcal{H}$ & $\sigma$-代数 (一般用花体大写字母表示集族、$\sigma$-代数) \\
+$\P$, $\E$ & 概率测度、数学期望 (空心字母) \\
+$X, Y, Z$ & 随机变量 (大写斜体字母) \\
+$\rvec{X} = (X_1,\dots,X_n)^\T$ & 随机向量 (加粗斜体) \\
+$\mat{A}$, $\mat{\Sigma}$ & 矩阵 (加粗正体), $\mat{A}^\T$ 为转置 \\
+$\1_A$ & 事件 $A$ 的示性函数 \\
+$\mathcal{B}(\R)$, $\mathcal{B}(\R^n)$ & Borel $\sigma$-代数 \\
+$\sigma(X)$, $\sigma(\mathcal{C})$ & 由随机变量 $X$、集族 $\mathcal{C}$ 生成的 $\sigma$-代数 \\
+$\E[X;A]$ & $\E[X\1_A]$ \\
+$\Var(X)$, $\Cov(X,Y)$ & 方差、协方差 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{分布、收敛与其他 (第~1~章起)}
+
+\begin{center}
+\small\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\raggedright\arraybackslash}p{0.52\textwidth}}
+\toprule
+\textbf{记号} & \textbf{含义} \\
+\midrule
+$N(\mu,\sigma^2)$, $N(\rvec{\mu},\mat{\Sigma})$ & 正态分布、多维正态分布 \\
+$\varphi$, $\Phi$ & 标准正态分布的密度、分布函数 \\
+$X\overset{d}{=}Y$ & $X$ 与 $Y$ 同分布 \\
+$\xrightarrow{\as}$, $\xrightarrow{\P}$, $\xrightarrow{L^p}$, $\xrightarrow{d}$ & 几乎必然收敛、依概率收敛、$L^p$ 收敛、依分布收敛 \\
+$L^p(\Omega,\mathcal{F},\P)$ & $p$ 次可积随机变量全体 (按几乎处处相等等同) \\
+$\ip{X,Y}$, $\norm{X}_p$ & $L^2$ 内积、$L^p$ 范数 \\
+$a\wedge b$, $a\vee b$ & $\min\{a,b\}$、$\max\{a,b\}$ \\
+$x^+$, $x^-$ & $\max\{x,0\}$、$\max\{-x,0\}$ \\
+$\sgn(x)$ & 符号函数: $x>0$ 时为 $1$, $x\le0$ 时为 $-1$ \\
+$\as$ & 几乎必然 (almost surely) \\
+$\iid$ & 独立同分布 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{条件期望、随机过程与鞅 (第~2,~3~章)}
+
+\begin{center}
+\small\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\raggedright\arraybackslash}p{0.52\textwidth}}
+\toprule
+\textbf{记号} & \textbf{含义} \\
+\midrule
+$\E[X\,|\,\mathcal{G}]$, $\E[X\,|\,Y]$ & 条件期望 \\
+$\P(A\,|\,\mathcal{G})$ & 条件概率 \\
+$\{\mathcal{F}_t\}_{t\ge 0}$ & 信息流 ($\sigma$-代数流) \\
+$\mathcal{F}^X_t=\sigma(X_s:s\le t)$ & 过程 $X$ 的自然信息流 \\
+$\mathcal{F}_{t+}=\bigcap_{s>t}\mathcal{F}_s$ & 右极限 $\sigma$-代数 \\
+$P_{s,t}$, $P_t$, $P_tf$ & 转移概率 (核)、时齐转移核、$\int f(y)P_t(x,\dd y)$ \\
+$\tau$, $\sigma$ (在停时语境中) & 停时 \\
+$\mathcal{F}_\tau$ & 停时 $\tau$ 之前的信息 \\
+$X^\tau_t=X_{t\wedge\tau}$ & 停止过程 \\
+$(H\cdot X)$ & 鞅变换 (离散) 或随机积分 (连续) \\
+$\ip{M}$, $\ip{M,N}$ & (可料) 二次变差、交互变差 (与 $L^2$ 内积 $\ip{X,Y}$ 由上下文区分) \\
+$\Delta X_n=X_n-X_{n-1}$ & 增量 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{布朗运动与随机分析 (第~4--6~章)}
+
+\begin{center}
+\small\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\raggedright\arraybackslash}p{0.52\textwidth}}
+\toprule
+\textbf{记号} & \textbf{含义} \\
+\midrule
+$B$, $\rvec{B}$ & (一维、$d$ 维) 标准布朗运动 \\
+$M_t=\max_{s\le t}B_s$ & 布朗运动的最大值过程 \\
+$\tau_a=\inf\{t:B_t=a\}$ & 首达时 \\
+$C[0,\infty)$, $\mathcal{C}$, $\mathbb{W}$ & 连续函数空间、坐标 $\sigma$-代数、Wiener 测度 \\
+$\P_x$, $\E_x$ & 从 $x$ 出发的布朗运动 (或扩散过程) 的概率与期望 \\
+$p_t(x,y)$ & 热核 (布朗运动的转移密度) \\
+$\mathscr{S}_T$ & 简单过程全体 \\
+$\mathscr{L}^2_T$, $\norm{H}_T$ & 满足 $\E\int_0^TH_s^2\dd s<\infty$ 的循序可测过程、相应的范数 \\
+$\mathscr{L}^2_{\mathrm{loc}}$ & 满足 $\int_0^TH_s^2\dd s<\infty$ $\as$ 的循序可测过程 \\
+$\int_0^tH_s\dd B_s=(H\cdot B)_t$ & It\^o 积分 \\
+$\int_0^tY_s\circ\dd X_s$ & Stratonovich 积分 \\
+$\mathscr{E}(\theta\cdot B)$ & 随机指数 $\exp\big(\int\theta\dd B-\frac12\int\theta^2\dd s\big)$ \\
+$\widetilde{\P}$, $\widetilde{\E}$ & 变换后的 (例如风险中性) 概率测度与期望 \\
+$L_t$, $L^a_t$ & 布朗运动在 $0$、在 $a$ 处的局部时 \\
+$C^{1,2}$, $C^2_c$ & 关于 $t$ 一阶、关于 $x$ 二阶连续可微的函数; 二阶连续可微且支撑紧的函数 \\
+$\partial_t$, $\partial_x$, $\partial_{xx}$, $\partial_i$, $\Delta$ & 偏导数、Laplace 算子 \\
+$\mathscr{C}^2_T$ & 满足 $\E\sup_{t\le T}\abs{X_t}^2<\infty$ 的连续适应过程 \\
+$X^{s,x}$, $X^x$ & 从时刻 $s$ (或 $0$)、位置 $x$ 出发的随机微分方程的解 \\
+$\mathcal{A}$, $L$, $L^*$ & 无穷小生成元、微分算子 $b\partial_x+\frac12\sigma^2\partial_{xx}$ 及其伴随 \\
+$s(x)$ & 一维扩散的尺度函数 \\
+\bottomrule
+\end{tabular}
+\end{center}

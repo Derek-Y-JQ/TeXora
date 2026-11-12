@@ -15,8 +15,8 @@ const tag='v'+version;
 const prefix=`https://api.github.com/repos/${owner}/${repo}`;
 const dry=process.env.GITHUB_DRY_RUN==='1';
 const replace=process.env.GITHUB_REPLACE_RELEASE==='1';
-const roots=['src','electron','build','docs','skills'];
-const releaseScripts=['scripts/publish-github.cjs','scripts/test-140.cjs','scripts/verify-140.mjs','scripts/run-verify-140.mjs','scripts/test-pdf-raster.cjs','scripts/test-cjk-preview.cjs','scripts/verify-141.mjs','scripts/test-overleaf.cjs','scripts/test-overleaf-session.cjs','scripts/verify-142.mjs','scripts/test-143.mjs','scripts/verify-143.mjs','scripts/run-verify-143.mjs','scripts/test-project-preview.cjs','scripts/test-143-diagnostics.cjs','scripts/verify-143-diagnostics.mjs'];
+const roots=['src','electron','build','docs','skills','samples','scripts','tests',...(process.env.GITHUB_SKIP_WORKFLOWS==='1'?[]:['.github'])];
+const releaseScripts=[];
 const rootFiles=['package.json','package-lock.json','vite.config.js','.gitignore','README.md','LICENSE','THIRD_PARTY_NOTICES.md'];
 const textExt=/\.(?:js|cjs|mjs|json|html|css|md|tex|bib|sty|cls|yml|yaml|txt|nsh|svg)$/i;
 async function request(url,method='GET',body,raw=false){
@@ -26,7 +26,7 @@ async function request(url,method='GET',body,raw=false){
  const response=await fetch(url,{method,headers:{Accept:'application/vnd.github+json','User-Agent':'TeXora-Publisher',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':raw?'application/octet-stream':'application/json'}:{})},body:body?(raw?body:JSON.stringify(body)):undefined,signal:AbortSignal.timeout(raw?600000:60000)});
  const text=await response.text();let data;try{data=JSON.parse(text);}catch{data={message:text.slice(0,200)};}
  if(method==='DELETE'&&response.status===404)return {};
- if(!response.ok)throw Error(`GitHub ${response.status}: ${data.message || 'request failed'}`);
+ if(!response.ok)throw Error(`GitHub ${response.status} ${new URL(url).pathname}: ${data.message || 'request failed'}`);
  return data;
  }catch(error){if(!retrySafe||attempt>=3)throw error;await new Promise(resolve=>setTimeout(resolve,1000*2**attempt));}
  }
@@ -76,7 +76,7 @@ async function main(){
  const installerBytes=await fs.readFile(path.join('release',installer));
  const checksum=crypto.createHash('sha256').update(installerBytes).digest('hex')+'  '+installer+'\n';
  await fs.writeFile('release/SHA256SUMS.txt',checksum);
- const notes=await fs.readFile('docs/release-'+version+'.md','utf8');
+ const notes=(await fs.readFile('docs/release-'+version+'.md','utf8'))+(process.env.GITHUB_SKIP_WORKFLOWS==='1'?'\n\nCI 上传状态：本次 token 缺少 Workflows 写入权限，GitHub 返回 403。新增工作流已在本地完成，暂未上线；正式回归测试和安装包已在本地验证。\n':'');
  // Default releases are immutable; same-version replacement requires an explicit flag.
  const tags=await request(prefix+'/git/matching-refs/tags/'+tag);
  const oldTag=tags.find(t=>t.ref==='refs/tags/'+tag);
@@ -84,14 +84,16 @@ async function main(){
  if(replace&&!oldTag)throw Error('Same-version replacement requires an existing tag.');
  const prior=replace?await request(prefix+'/releases/tags/'+tag):null;
  if(prior?.immutable)throw Error('GitHub release is immutable; cannot replace its assets or tag.');
- const entries=[];let nextBlob=0;
+ const managedDeletes=tree.tree.filter(e=>e.type==='blob' && (e.path.startsWith('scripts/') || /Derek.*MacBook Air/.test(e.path)) && !files.includes(e.path)).map(e=>({path:e.path,mode:'100644',type:'blob',sha:null}));
+ console.log('Removed obsolete source paths:',managedDeletes.length);
+ const entries=[...managedDeletes];let nextBlob=0;
  await Promise.all(Array.from({length:3},async()=>{while(nextBlob<changed.length){
   const {file,content}=changed[nextBlob++];
   const blob=await request(prefix+'/git/blobs','POST',{content:content.toString('base64'),encoding:'base64'});
   entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
  }}));
  const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
- const commit=await request(prefix+'/git/commits','POST',{message:replace?`Fix TeXora ${version} without version bump: TeX distribution diagnostics, package management and Markdown contrast`:`Release TeXora ${version}: reliable file opening, original PDF reading, build diagnostics and reusable AI answers`,tree:nextTree.sha,parents:[head.object.sha]});
+ const commit=await request(prefix+'/git/commits','POST',{message:replace?`Fix TeXora ${version} without version bump: TeX distribution diagnostics, package management and Markdown contrast`:`Release TeXora ${version}: encrypted credentials, sandboxed renderer and preview regression tests`,tree:nextTree.sha,parents:[head.object.sha]});
  if(replace){
   // Upload and verify both replacements before touching the current public downloads.
   const replacements=[];

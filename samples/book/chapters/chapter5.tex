@@ -1,0 +1,1131 @@
+% =====================================================================
+%  第 5 章  随机微积分
+% =====================================================================
+\chapter{随机微积分}
+\label{ch:5}
+
+普通微积分的核心是两件事: 积分 $\int f\dd g$ 与链式法则 $\dd f(g)=f'(g)\dd g$. 本章为布朗运动建立同样的两件事. 如第~4~章所示, 布朗轨道处处不可微 (定理~\ref{thm:nowhere-diff}), 在任何区间上都是无穷变差的 (推论~\ref{cor:bm-infinite-variation}), 所以 $\int H\dd B$ 无法按 Riemann-Stieltjes 积分逐条轨道地定义; 而二次变差 $\ip{B}_t=t$ (定理~\ref{thm:bm-qv}) 又意味着 Taylor 展开中的二阶项不能略去, 普通的链式法则必须修正.
+
+It\^o 的解决办法是把积分定义为 ``不偷看未来'' 的 Riemann 和的 $L^2$ 极限. 这个定义有两个支柱: 一是第~3~章的鞅变换 (定义~\ref{def:martingale-transform}), 它保证积分是鞅; 二是 It\^o 等距, 它把随机积分的 $L^2$ 范数化为普通积分, 从而可以用 Hilbert 空间的完备性完成极限过程. 有了积分, Taylor 展开加上 $(\dd B_t)^2=\dd t$ 就给出 It\^o 公式, 它是随机分析中最重要的计算工具.
+
+本章的结构如下. 5.1 节用 $\int B\dd B$ 的例子说明为什么必须仔细选择 Riemann 和中的取值点; 5.2 节构造 It\^o 积分; 5.3 节证明 It\^o 公式并给出一系列应用; 5.4 节以 It\^o 公式为基础, 介绍 L\'evy 刻画、Girsanov 定理与鞅表示定理, 并引入局部时. 本章中 $(\Omega,\mathcal{F},\P)$ 上的信息流 $\{\mathcal{F}_t\}$ 满足通常条件, $B$ 是 $\{\mathcal{F}_t\}$-布朗运动 (定义~\ref{def:Ft-bm}), $T>0$ 是固定的时间范围.
+
+% =====================================================================
+\section{随机积分的动机}
+\label{sec:5-1}
+
+% ---------------------------------------------------------------------
+\subsection{从常微分方程到随机微分方程}
+
+考虑一个受随机扰动的动力系统. 若没有扰动, 状态 $X_t$ 满足常微分方程 $\frac{\dd X_t}{\dd t}=b(X_t)$. 加上扰动后, 一个自然的模型是
+\begin{equation}\label{eq:sde-formal}
+\frac{\dd X_t}{\dd t}=b(X_t)+\sigma(X_t)\,\xi_t,
+\end{equation}
+其中 $\xi_t$ 是 ``白噪声'': 不同时刻相互独立、均值为零的随机扰动. 第~4~章的直观 (4.3.3 小节末) 已经指出, 白噪声应当是 $\frac{\dd B_t}{\dd t}$, 但这个导数并不存在. 于是把 \eqref{eq:sde-formal} 改写为积分形式
+\[
+X_t=X_0+\int_0^tb(X_s)\dd s+\int_0^t\sigma(X_s)\dd B_s.
+\]
+第一个积分是普通的 Lebesgue 积分. 本章的首要任务是赋予第二个积分以意义. 最简单的情形是 $\sigma\equiv1$, 此时 $\int_0^t\dd B_s=B_t$; 困难出现在被积函数随机且依赖于 $B$ 本身的时候, 例如 $\int_0^tB_s\dd B_s$.
+
+% ---------------------------------------------------------------------
+\subsection{Riemann-Stieltjes 积分为何失效}
+
+对确定的函数, 若 $g$ 在 $[0,t]$ 上连续, $f$ 是有界变差函数, 则 Riemann-Stieltjes 和
+\[
+\sum_ig(t_i^*)\big(f(t_i)-f(t_{i-1})\big),\qquad t_i^*\in[t_{i-1},t_i]
+\]
+当分割的步长趋于零时收敛, 且极限与取值点 $t_i^*$ 的选择无关. 换一种取值点, 和式的变化不超过
+\[
+\max_i\sup_{\abs{u-v}\le\abs{\Pi}}\abs{g(u)-g(v)}\cdot\sum_i\abs{f(t_i)-f(t_{i-1})},
+\]
+第一个因子由 $g$ 的一致连续性趋于零, 第二个因子不超过 $f$ 的全变差. 对布朗运动, 第二个因子趋于无穷 (推论~\ref{cor:bm-infinite-variation}), 这个论证失效. 这种失效源于布朗运动本身的性质. 由一致有界原理可以证明, 若对 \emph{一切} 连续函数 $g$, 和式 $\sum_ig(t_{i-1})(f(t_i)-f(t_{i-1}))$ 都收敛, 则 $f$ 必是有界变差的 (见~\cite{revuz} 第 IV 章开头). 下面的例子说明, 对布朗运动, 取值点的选择确实会改变极限.
+
+% ---------------------------------------------------------------------
+\subsection{\texorpdfstring{例子: $\int_0^tB\dd B$}{例子: ∫B dB}}
+
+设 $\Pi_n: 0=t_0<t_1<\cdots<t_m=t$ 是 $[0,t]$ 的分割序列 (分点个数 $m$ 依赖于 $n$), $\abs{\Pi_n}\to0$. 记 $\Delta B_i=B_{t_i}-B_{t_{i-1}}$, 并考虑三种 Riemann 和:
+\[
+L_n=\sum_iB_{t_{i-1}}\Delta B_i,\qquad R_n=\sum_iB_{t_i}\Delta B_i,\qquad S_n=\sum_iB_{\frac{t_{i-1}+t_i}{2}}\Delta B_i,
+\]
+分别在左端点、右端点与中点取值.
+
+\begin{proposition}[三种 Riemann 和的极限]\label{prop:three-sums}
+当 $n\to\infty$ 时, 在 $L^2$ 中
+\[
+L_n\to\frac{1}{2}\big(B_t^2-t\big),\qquad R_n\to\frac{1}{2}\big(B_t^2+t\big),\qquad S_n\to\frac{1}{2}B_t^2.
+\]
+\end{proposition}
+
+\begin{proof}
+记 $Q_n=\sum_i(\Delta B_i)^2$. 两个代数恒等式是关键:
+\begin{align*}
+R_n-L_n&=\sum_i(B_{t_i}-B_{t_{i-1}})\Delta B_i=Q_n,\\
+R_n+L_n&=\sum_i(B_{t_i}+B_{t_{i-1}})(B_{t_i}-B_{t_{i-1}})=\sum_i\big(B_{t_i}^2-B_{t_{i-1}}^2\big)=B_t^2.
+\end{align*}
+于是 $L_n=\frac{1}{2}(B_t^2-Q_n)$, $R_n=\frac{1}{2}(B_t^2+Q_n)$. 由布朗运动的二次变差定理~\ref{thm:bm-qv}, $Q_n\to t$ 于 $L^2$, 前两个结论得证.
+
+对 $S_n$, 记 $m_i=\frac{t_{i-1}+t_i}{2}$, 把 $\Delta B_i$ 拆为 $(B_{m_i}-B_{t_{i-1}})+(B_{t_i}-B_{m_i})$,
+\[
+S_n=L_n+\sum_i(B_{m_i}-B_{t_{i-1}})\Delta B_i=L_n+\sum_i(B_{m_i}-B_{t_{i-1}})^2+\sum_i(B_{m_i}-B_{t_{i-1}})(B_{t_i}-B_{m_i}).
+\]
+第二项是一组独立随机变量之和, 均值为 $\sum_i\frac{t_i-t_{i-1}}{2}=\frac{t}{2}$, 方差为 $\sum_i2\big(\frac{t_i-t_{i-1}}{2}\big)^2\le\frac{t}{2}\abs{\Pi_n}\to0$ (与定理~\ref{thm:bm-qv} 的证明相同), 所以它在 $L^2$ 中趋于 $\frac{t}{2}$. 第三项中各被加项是两个独立的均值为零的正态变量之积, 不同的 $i$ 之间也相互独立, 所以它的均值为零, 方差为 $\sum_i\frac{(t_i-t_{i-1})^2}{4}\le\frac{t}{4}\abs{\Pi_n}\to0$. 因此 $S_n\to\frac{1}{2}(B_t^2-t)+\frac{t}{2}=\frac{1}{2}B_t^2$.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, width=12cm, height=6cm, xmin=0.5, xmax=14.5, ymin=-0.4, ymax=1.25,
+  xtick={1,2,...,14}, ytick={0,0.5,1}, xlabel={$n$ (分割 $[0,1]$ 为 $2^n$ 段)},
+  legend style={font=\small,draw=none,fill=none,at={(0.5,-0.22)},anchor=north}, legend columns=3, legend cell align=left]
+  \addplot[SARed,thick,mark=*,mark size=1.4pt] coordinates {(1,0.7979) (2,1.2868) (3,1.3292) (4,1.0124) (5,0.9557) (6,0.9597) (7,1.0437) (8,1.0514) (9,1.0031) (10,1.0051) (11,1.0113) (12,1.0205) (13,1.0244) (14,1.0258)};
+  \addplot[SAGreenText,thick,mark=square*,mark size=1.4pt] coordinates {(1,0.4537) (2,1.2350) (3,0.5783) (4,0.6212) (5,0.5728) (6,0.4672) (7,0.5082) (8,0.5365) (9,0.5327) (10,0.5214) (11,0.5146) (12,0.5126) (13,0.5181) (14,0.5229)};
+  \addplot[SABlue,thick,mark=triangle*,mark size=1.6pt] coordinates {(1,0.2518) (2,-0.2370) (3,-0.2795) (4,0.0373) (5,0.0940) (6,0.0901) (7,0.0060) (8,-0.0017) (9,0.0466) (10,0.0446) (11,0.0384) (12,0.0293) (13,0.0253) (14,0.0239)};
+  \addplot[SARed!60,dashed,forget plot] coordinates {(0.5,1.0249) (14.5,1.0249)};
+  \addplot[SAGreenText!60,dashed,forget plot] coordinates {(0.5,0.5249) (14.5,0.5249)};
+  \addplot[SABlue!60,dashed,forget plot] coordinates {(0.5,0.0249) (14.5,0.0249)};
+  \legend{右端点 $R_n$, 中点 $S_n$, 左端点 $L_n$}
+\end{axis}
+\end{tikzpicture}
+\caption{同一条布朗轨道上 $\int_0^1B\dd B$ 的三种 Riemann 和 (二进分割). 它们分别收敛到三个不同的值 (虚线): $\frac12(B_1^2+1)$, $\frac12B_1^2$, $\frac12(B_1^2-1)$. 相邻两条虚线的间距恰为二次变差的一半, 即 $\frac12$}
+\label{fig:three-sums}
+\end{figure}
+
+与普通微积分对照: 若 $f$ 连续可微且 $f(0)=0$, 则 $\int_0^tf\dd f=\frac{1}{2}f(t)^2$, 与取值点无关. 对布朗运动, 三种取值点给出三个不同的答案, 差别恰好来自二次变差 $Q_n\to t$ (图~\ref{fig:three-sums}). 因此 ``$\int_0^tB\dd B$'' 本身没有确定的含义, 必须事先约定取值点.
+
+% ---------------------------------------------------------------------
+\subsection{为什么选左端点}
+
+左端点的选择 (It\^o 积分) 与中点的选择 (\textbf{Stratonovich 积分}, 记作 $\int B\circ\dd B$) 各有优点. 中点给出的 $\frac{1}{2}B_t^2$ 符合普通微积分的链式法则; 左端点给出的 $\frac{1}{2}(B_t^2-t)$ 多了一个修正项, 但它是一个\emph{鞅} (定理~\ref{thm:bm-martingales} (2)), 期望为零. 计算左、右端点和的期望可见,
+\[
+\E L_n=\sum_i\E\big[B_{t_{i-1}}\big]\E\big[\Delta B_i\big]=0,\qquad\E R_n=\E L_n+\E Q_n=t.
+\]
+$L_n$ 正是第~3~章的鞅变换: 若把 $\Delta B_i$ 看作第 $i$ 局的输赢, $B_{t_{i-1}}$ 看作第 $i$ 局开始\emph{之前}决定的赌注, 则 $L_n$ 是累计收益, 由鞅变换定理~\ref{thm:martingale-transform}, 它是鞅. 右端点和则相当于 ``看到第 $i$ 局的结果之后再决定这一局的赌注'', 这是作弊, 平均收益为正.
+
+\begin{intuition}
+在建模中, 被积函数 $H_t$ 代表时刻 $t$ 做出的决策 (持有多少股票、施加多大的控制) 或系统在时刻 $t$ 对噪声的响应强度. 这些量只能依赖于到时刻 $t$ 为止的信息, 而噪声增量 $\dd B_t=B_{t+\dd t}-B_t$ 则是此后才揭晓的. 左端点取值精确地表达了这种因果关系: 先有 $H_t$, 后有 $\dd B_t$, 二者独立. 正因为如此, It\^o 积分是鞅, 且有 It\^o 等距 $\E\big(\int H\dd B\big)^2=\E\int H^2\dd t$. 代价是链式法则多出二阶项, 即 5.3 节的 It\^o 公式. Stratonovich 积分保持了普通的链式法则, 但失去了鞅性质; 二者可以互相转换 (5.3 节末的注), 本书以 It\^o 积分为主.
+\end{intuition}
+
+把上面的讨论推广到一般的被积过程 $H$, 就是下一节的构造: 先对 ``阶梯形'' 的 $H$ (在每个小区间上取左端点的值) 定义积分, 证明 It\^o 等距, 再用 $L^2$ 极限推广到一般的 $H$.
+
+% =====================================================================
+\section{It\^o 积分的构造与性质}
+\label{sec:5-2}
+
+构造分三步: (1) 确定被积过程的范围, 它们必须 ``不偷看未来''; (2) 对简单过程 (阶梯形的被积过程) 直接定义积分, 并证明 It\^o 等距; (3) 证明简单过程在适当的 $L^2$ 空间中稠密, 由等距把积分延拓到整个空间. 之后再用停时把积分推广到只满足 $\int_0^TH_s^2\dd s<\infty$ $\as$ 的被积过程.
+
+% ---------------------------------------------------------------------
+\subsection{被积过程}
+
+被积过程 $H$ 应当是适应的. 但积分 $\int H_s^2\dd s$ 还要求 $H$ 作为 $(s,\omega)$ 的二元函数是可测的, 而且这种可测性要与信息流相容.
+
+\begin{definition}[循序可测]\label{def:progressive}
+过程 $H=\{H_t\}_{t\in[0,T]}$ 称为\textbf{循序可测的} (progressively measurable), 如果对每个 $t\in[0,T]$, 映射 $(s,\omega)\mapsto H_s(\omega)$ 限制在 $[0,t]\times\Omega$ 上是 $\mathcal{B}([0,t])\otimes\mathcal{F}_t$-可测的.
+\end{definition}
+
+循序可测过程是适应的: 对固定的 $s$, 可测函数的截口是可测的, 所以 $\omega\mapsto H_s(\omega)$ 是 $\mathcal{F}_s$-可测的 (在上述定义中取 $t=s$). 由 Fubini 定理~\ref{thm:fubini}, 若 $H$ 循序可测且 $\int_0^t\abs{H_s}\dd s<\infty$, 则 $\int_0^tH_s\dd s$ 是 $\mathcal{F}_t$-可测的. 循序可测过程的和、积、连续函数仍是循序可测的. 下面的命题说明, 实际中遇到的过程都是循序可测的.
+
+\begin{proposition}\label{prop:progressive}
+设 $H$ 是适应过程, 且每条轨道右连续 (或每条轨道左连续). 则 $H$ 循序可测. 特别地, 对停时 $\tau$, $\1_{[0,\tau]}(t)=\1_{\{t\le\tau\}}$ 是循序可测的.
+\end{proposition}
+
+\begin{proof}
+设轨道右连续. 固定 $t$, 对 $n\ge1$ 与 $s\in[0,t]$, 令 $H^{(n)}_s=H_{(k+1)t2^{-n}}$, 当 $s\in[kt2^{-n},(k+1)t2^{-n})$ ($0\le k<2^n$), 并令 $H^{(n)}_t=H_t$. 则
+\[
+H^{(n)}_s(\omega)=\sum_{k=0}^{2^n-1}\1_{[kt2^{-n},(k+1)t2^{-n})}(s)\,H_{(k+1)t2^{-n}}(\omega)+\1_{\{t\}}(s)H_t(\omega),
+\]
+每一项都是 $\mathcal{B}([0,t])$-可测函数与 $\mathcal{F}_t$-可测函数之积, 所以 $H^{(n)}$ 是 $\mathcal{B}([0,t])\otimes\mathcal{F}_t$-可测的. 对 $s<t$, $(k+1)t2^{-n}\downarrow s$, 由右连续性 $H^{(n)}_s\to H_s$; 对 $s=t$ 显然. 可测函数的逐点极限可测. 左连续的情形相同, 只需改用 $H_{kt2^{-n}}$ (左端点) 并让 $s\in(kt2^{-n},(k+1)t2^{-n}]$. 最后, $\1_{\{t\le\tau\}}$ 关于 $t$ 左连续, 且 $\{t\le\tau\}=\{\tau<t\}^c\in\mathcal{F}_t$ (引理~\ref{lem:optional-time} 的证明), 所以它是适应的.
+\end{proof}
+
+\begin{definition}[被积过程空间]\label{def:L2-integrands}
+记 $\mathscr{L}^2_T$ 为满足
+\[
+\norm{H}_T^2:=\E\int_0^TH_s^2\dd s<\infty
+\]
+的循序可测过程 $H$ 全体, 并把 $\norm{H-H'}_T=0$ 的两个过程视为同一元素.
+\end{definition}
+
+令 $\mathcal{P}_T$ 为 $[0,T]\times\Omega$ 上使示性函数循序可测的集合全体, 可以验证它是 $\sigma$-代数 (称为\textbf{循序 $\sigma$-代数}), 且 $H$ 循序可测当且仅当 $H$ 是 $\mathcal{P}_T$-可测的. 于是 $\mathscr{L}^2_T$ 就是测度空间 $([0,T]\times\Omega,\mathcal{P}_T,\lambda\otimes\P)$ 上的 $L^2$ 空间 ($\lambda$ 为 Lebesgue 测度), 由 Riesz-Fischer 定理~\ref{thm:riesz-fischer} (其证明对一般的有限测度空间逐字成立) 它是 Hilbert 空间, 内积为 $\ip{H,K}_T=\E\int_0^TH_sK_s\dd s$.
+
+% ---------------------------------------------------------------------
+\subsection{简单过程的积分}
+
+\begin{definition}[简单过程]\label{def:simple-process}
+设 $0=t_0<t_1<\cdots<t_m=T$, $\xi_{i-1}$ 是有界的 $\mathcal{F}_{t_{i-1}}$-可测随机变量 ($i=1,\dots,m$). 称
+\[
+H_t=\xi_0\1_{\{0\}}(t)+\sum_{i=1}^m\xi_{i-1}\1_{(t_{i-1},t_i]}(t),\qquad t\in[0,T]
+\]
+为\textbf{简单过程}, 全体记为 $\mathscr{S}_T$. 定义 $H$ 关于 $B$ 的积分为
+\begin{equation}\label{eq:simple-integral}
+(H\cdot B)_t=\int_0^tH_s\dd B_s=\sum_{i=1}^m\xi_{i-1}\big(B_{t_i\wedge t}-B_{t_{i-1}\wedge t}\big),\qquad t\in[0,T].
+\end{equation}
+\end{definition}
+
+简单过程在每个区间 $(t_{i-1},t_i]$ 上取常值 $\xi_{i-1}$, 这个值在区间的\emph{左端点}就已确定. 它左连续且适应, 由命题~\ref{prop:progressive} 循序可测; 又有界, 所以 $\mathscr{S}_T\subseteq\mathscr{L}^2_T$. 定义 \eqref{eq:simple-integral} 与表示方式无关: 在分割中插入一个新的分点 $u\in(t_{i-1},t_i)$, 相当于把 $\xi_{i-1}\1_{(t_{i-1},t_i]}$ 写成 $\xi_{i-1}\1_{(t_{i-1},u]}+\xi_{i-1}\1_{(u,t_i]}$ (由于 $\xi_{i-1}$ 也是 $\mathcal{F}_u$-可测的, 这仍是简单过程的表示), 而 \eqref{eq:simple-integral} 中相应的项 $\xi_{i-1}(B_{t_i\wedge t}-B_{t_{i-1}\wedge t})$ 恰好拆成两项之和; 两种表示总有公共的加细. 同理, 两个简单过程可以写在同一个分割上, 所以 $\mathscr{S}_T$ 是线性空间, 积分是线性的. \eqref{eq:simple-integral} 正是第~3~章的鞅变换 (定义~\ref{def:martingale-transform}) 在时刻 $t_0<t_1<\cdots$ 上的形式.
+
+\begin{proposition}[简单过程的 It\^o 积分]\label{prop:simple-integral}
+设 $H\in\mathscr{S}_T$, $0\le s\le t\le T$. 则
+\begin{enumerate}
+\item $H\cdot B$ 是连续鞅, $(H\cdot B)_0=0$;
+\item (\textbf{条件 It\^o 等距})
+\[
+\E\Big[\big((H\cdot B)_t-(H\cdot B)_s\big)^2\,\Big|\,\mathcal{F}_s\Big]=\E\Big[\int_s^tH_u^2\dd u\,\Big|\,\mathcal{F}_s\Big];
+\]
+\item $(H\cdot B)_t^2-\int_0^tH_u^2\dd u$ 是鞅. 特别地 (\textbf{It\^o 等距}), $\E\big[(H\cdot B)_t^2\big]=\E\int_0^tH_u^2\dd u$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+必要时加细分割, 不妨设 $s=t_j$, $t=t_k$ 都是分点 ($j\le k$). 记 $\Delta B_i=B_{t_i}-B_{t_{i-1}}$. 则 $(H\cdot B)_t-(H\cdot B)_s=\sum_{i=j+1}^k\xi_{i-1}\Delta B_i$. 由于 $\xi_{i-1}$ 有界, 各项平方可积.
+
+(1) 轨道连续性与 $(H\cdot B)_0=0$ 是显然的, 适应性也是. 对 $j<i\le k$, $\Delta B_i$ 与 $\mathcal{F}_{t_{i-1}}$ 独立, 由塔性质与提出已知因子,
+\[
+\E\big[\xi_{i-1}\Delta B_i\,\big|\,\mathcal{F}_s\big]=\E\big[\xi_{i-1}\E[\Delta B_i\,|\,\mathcal{F}_{t_{i-1}}]\,\big|\,\mathcal{F}_s\big]=0.
+\]
+对 $i$ 求和即得鞅性质.
+
+(2) 展开平方,
+\[
+\Big(\sum_{i=j+1}^k\xi_{i-1}\Delta B_i\Big)^2=\sum_{i=j+1}^k\xi_{i-1}^2(\Delta B_i)^2+2\sum_{j<i<l\le k}\xi_{i-1}\xi_{l-1}\Delta B_i\Delta B_l.
+\]
+对平方项, $\Delta B_i$ 与 $\mathcal{F}_{t_{i-1}}$ 独立且 $\E(\Delta B_i)^2=t_i-t_{i-1}$, 所以 $\E[\xi_{i-1}^2(\Delta B_i)^2\,|\,\mathcal{F}_{t_{i-1}}]=\xi_{i-1}^2(t_i-t_{i-1})$. 对交叉项 ($i<l$), $\xi_{i-1}\xi_{l-1}\Delta B_i$ 是 $\mathcal{F}_{t_{l-1}}$-可测的, 而 $\E[\Delta B_l\,|\,\mathcal{F}_{t_{l-1}}]=0$, 所以 $\E[\xi_{i-1}\xi_{l-1}\Delta B_i\Delta B_l\,|\,\mathcal{F}_{t_{l-1}}]=0$. 再对 $\mathcal{F}_s$ 取条件期望 (塔性质),
+\[
+\E\Big[\Big(\sum_{i=j+1}^k\xi_{i-1}\Delta B_i\Big)^2\,\Big|\,\mathcal{F}_s\Big]=\E\Big[\sum_{i=j+1}^k\xi_{i-1}^2(t_i-t_{i-1})\,\Big|\,\mathcal{F}_s\Big]=\E\Big[\int_s^tH_u^2\dd u\,\Big|\,\mathcal{F}_s\Big].
+\]
+
+(3) 对任意平方可积鞅 $X$, $\E[X_t^2-X_s^2\,|\,\mathcal{F}_s]=\E[(X_t-X_s)^2\,|\,\mathcal{F}_s]$, 因为 $\E[X_tX_s\,|\,\mathcal{F}_s]=X_s^2$. 由 (2),
+\[
+\E\Big[(H\cdot B)_t^2-\int_0^tH_u^2\dd u\,\Big|\,\mathcal{F}_s\Big]=(H\cdot B)_s^2-\int_0^sH_u^2\dd u.
+\]
+取 $s=0$ 并取期望即得 It\^o 等距.
+\end{proof}
+
+It\^o 等距说: 映射 $H\mapsto(H\cdot B)_T$ 是从 $(\mathscr{S}_T,\norm{\cdot}_T)$ 到 $L^2(\Omega,\mathcal{F}_T,\P)$ 的\emph{等距}线性映射. 它是第~3~章离散 It\^o 等距 (推论~\ref{cor:discrete-ito-isometry}) 的连续版本: 布朗运动的 ``可料二次变差'' 是 $\dd t$. 等距映射把 Cauchy 列映为 Cauchy 列, 所以只要 $\mathscr{S}_T$ 在 $\mathscr{L}^2_T$ 中稠密, 积分就可以唯一地延拓到 $\mathscr{L}^2_T$ 上.
+
+% ---------------------------------------------------------------------
+\subsection{简单过程的稠密性}
+
+\begin{lemma}[简单过程的稠密性]\label{lem:simple-dense}
+$\mathscr{S}_T$ 在 $\mathscr{L}^2_T$ 中稠密: 对每个 $H\in\mathscr{L}^2_T$, 存在 $H^n\in\mathscr{S}_T$ 使 $\norm{H^n-H}_T\to0$.
+\end{lemma}
+
+\begin{proof}
+记 $\overline{\mathscr{S}}$ 为 $\mathscr{S}_T$ 在 $\mathscr{L}^2_T$ 中的闭包. 它是闭的线性子空间. 分三步证明 $\overline{\mathscr{S}}=\mathscr{L}^2_T$.
+
+\emph{第一步: 有界、轨道连续的适应过程属于 $\overline{\mathscr{S}}$.} 设 $\abs{H}\le C$. 令 $s_k=kT2^{-n}$,
+\[
+H^n_t=H_0\1_{\{0\}}(t)+\sum_{k=1}^{2^n}H_{s_{k-1}}\1_{(s_{k-1},s_k]}(t).
+\]
+$H_{s_{k-1}}$ 有界且 $\mathcal{F}_{s_{k-1}}$-可测, 所以 $H^n\in\mathscr{S}_T$. 对每个 $(t,\omega)$, 由轨道连续性 $H^n_t(\omega)\to H_t(\omega)$; 又 $\abs{H^n_t-H_t}^2\le4C^2$. 由有界收敛定理 (在有限测度空间 $([0,T]\times\Omega,\lambda\otimes\P)$ 上), $\norm{H^n-H}_T\to0$ (图~\ref{fig:simple-approx}).
+
+\emph{第二步: 有界循序可测过程属于 $\overline{\mathscr{S}}$.} 设 $\abs{H}\le C$. 对 $m\ge1$ 令
+\[
+G^m_t=m\int_{(t-1/m)\vee0}^tH_s\dd s,\qquad t\in[0,T].
+\]
+(a) $G^m$ 适应: 由循序可测性, $(s,\omega)\mapsto H_s(\omega)\1_{[(t-1/m)\vee0,t]}(s)$ 在 $[0,t]\times\Omega$ 上是 $\mathcal{B}([0,t])\otimes\mathcal{F}_t$-可测的, 由 Fubini 定理, 它对 $s$ 的积分是 $\mathcal{F}_t$-可测的. (b) $G^m$ 有界且轨道连续: $\abs{G^m_t}\le C$, 且 $\abs{G^m_t-G^m_u}\le2mC\abs{t-u}$. 由第一步, $G^m\in\overline{\mathscr{S}}$. (c) $\norm{G^m-H}_T\to0$: 固定 $\omega$, $s\mapsto H_s(\omega)$ 是 $[0,T]$ 上的有界 Borel 函数. 由 Lebesgue 微分定理 (见~\cite{folland} 定理 3.20), 对 Lebesgue 几乎每个 $t\in(0,T]$,
+\[
+\abs{G^m_t(\omega)-H_t(\omega)}\le m\int_{t-1/m}^t\abs{H_s(\omega)-H_t(\omega)}\dd s\to0\qquad(m\to\infty,\ m>1/t).
+\]
+由于 $\abs{G^m-H}^2\le4C^2$, 由有界收敛定理先对 $t$ 积分, 得 $\int_0^T\abs{G^m_t(\omega)-H_t(\omega)}^2\dd t\to0$; 再对 $\omega$ 用有界收敛定理, 得 $\norm{G^m-H}_T\to0$. 由于 $\overline{\mathscr{S}}$ 是闭的, $H\in\overline{\mathscr{S}}$.
+
+\emph{第三步: 一般情形.} 设 $H\in\mathscr{L}^2_T$, 令 $H^{(n)}=(H\wedge n)\vee(-n)$. 它有界、循序可测, 由第二步属于 $\overline{\mathscr{S}}$. 又 $\abs{H^{(n)}-H}^2\le H^2$, 且 $H^{(n)}\to H$ 逐点成立, 由控制收敛定理 $\norm{H^{(n)}-H}_T\to0$. 所以 $H\in\overline{\mathscr{S}}$.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, width=12cm, height=5.4cm, xmin=0, xmax=1.04, ymin=-0.15, ymax=1.35,
+  xtick={0,0.125,0.25,0.375,0.5,0.625,0.75,0.875,1}, xticklabels={$0$,,$\frac14$,,$\frac12$,,$\frac34$,,$T$}, ytick={0,0.5,1}, xlabel={$t$}]
+  \addplot[SADark!45,thin] coordinates {(0.000,0.300) (0.003,0.302) (0.005,0.370) (0.007,0.431) (0.010,0.405) (0.013,0.391) (0.015,0.364) (0.018,0.393) (0.020,0.390) (0.022,0.427) (0.025,0.335) (0.028,0.413) (0.030,0.408) (0.033,0.442) (0.035,0.436) (0.037,0.417) (0.040,0.440) (0.043,0.481) (0.045,0.471) (0.048,0.463) (0.050,0.497) (0.052,0.454) (0.055,0.378) (0.058,0.398) (0.060,0.364) (0.062,0.268) (0.065,0.228) (0.068,0.204) (0.070,0.145) (0.072,0.070) (0.075,0.072) (0.077,0.117) (0.080,0.105) (0.083,0.068) (0.085,0.087) (0.088,0.123) (0.090,0.108) (0.092,0.135) (0.095,0.187) (0.098,0.177) (0.100,0.136) (0.103,0.154) (0.105,0.166) (0.107,0.221) (0.110,0.157) (0.113,0.124) (0.115,0.082) (0.118,-0.005) (0.120,0.001) (0.122,0.028) (0.125,-0.009) (0.128,0.060) (0.130,0.101) (0.133,0.133) (0.135,0.153) (0.138,0.201) (0.140,0.134) (0.143,0.165) (0.145,0.195) (0.147,0.106) (0.150,0.124) (0.152,0.111) (0.155,0.150) (0.158,0.128) (0.160,0.127) (0.163,0.145) (0.165,0.101) (0.168,0.131) (0.170,0.125) (0.173,0.150) (0.175,0.124) (0.177,0.178) (0.180,0.209) (0.182,0.200) (0.185,0.231) (0.188,0.294) (0.190,0.384) (0.193,0.305) (0.195,0.349) (0.198,0.373) (0.200,0.368) (0.203,0.318) (0.205,0.380) (0.208,0.317) (0.210,0.346) (0.212,0.411) (0.215,0.331) (0.217,0.316) (0.220,0.250) (0.223,0.262) (0.225,0.338) (0.228,0.439) (0.230,0.350) (0.233,0.322) (0.235,0.357) (0.238,0.436) (0.240,0.457) (0.242,0.419) (0.245,0.434) (0.247,0.434) (0.250,0.423) (0.253,0.387) (0.255,0.406) (0.258,0.421) (0.260,0.417) (0.263,0.406) (0.265,0.341) (0.268,0.317) (0.270,0.377) (0.273,0.368) (0.275,0.296) (0.278,0.363) (0.280,0.389) (0.283,0.495) (0.285,0.498) (0.288,0.475) (0.290,0.402) (0.292,0.468) (0.295,0.597) (0.297,0.556) (0.300,0.523) (0.302,0.553) (0.305,0.512) (0.307,0.498) (0.310,0.481) (0.312,0.490) (0.315,0.545) (0.318,0.546) (0.320,0.592) (0.323,0.571) (0.325,0.588) (0.328,0.481) (0.330,0.408) (0.333,0.448) (0.335,0.418) (0.338,0.447) (0.340,0.475) (0.343,0.541) (0.345,0.581) (0.348,0.632) (0.350,0.626) (0.352,0.592) (0.355,0.555) (0.357,0.531) (0.360,0.474) (0.362,0.447) (0.365,0.442) (0.367,0.455) (0.370,0.438) (0.372,0.342) (0.375,0.338) (0.378,0.349) (0.380,0.403) (0.383,0.432) (0.385,0.400) (0.388,0.364) (0.390,0.464) (0.393,0.502) (0.395,0.594) (0.398,0.700) (0.400,0.659) (0.403,0.679) (0.405,0.702) (0.408,0.730) (0.410,0.757) (0.413,0.767) (0.415,0.776) (0.417,0.700) (0.420,0.692) (0.422,0.655) (0.425,0.661) (0.427,0.638) (0.430,0.669) (0.432,0.710) (0.435,0.725) (0.438,0.741) (0.440,0.745) (0.443,0.723) (0.445,0.715) (0.448,0.690) (0.450,0.709) (0.453,0.710) (0.455,0.739) (0.458,0.673) (0.460,0.717) (0.463,0.679) (0.465,0.642) (0.468,0.632) (0.470,0.604) (0.473,0.619) (0.475,0.590) (0.478,0.537) (0.480,0.494) (0.482,0.560) (0.485,0.562) (0.487,0.504) (0.490,0.504) (0.492,0.426) (0.495,0.516) (0.497,0.440) (0.500,0.464) (0.503,0.491) (0.505,0.418) (0.508,0.433) (0.510,0.483) (0.512,0.507) (0.515,0.520) (0.517,0.567) (0.520,0.575) (0.522,0.592) (0.525,0.586) (0.527,0.617) (0.530,0.570) (0.532,0.610) (0.535,0.584) (0.537,0.530) (0.540,0.548) (0.542,0.633) (0.545,0.681) (0.547,0.655) (0.550,0.690) (0.552,0.667) (0.555,0.661) (0.557,0.666) (0.560,0.550) (0.562,0.559) (0.565,0.508) (0.568,0.473) (0.570,0.399) (0.573,0.323) (0.575,0.276) (0.578,0.318) (0.580,0.401) (0.583,0.400) (0.585,0.454) (0.588,0.441) (0.590,0.345) (0.593,0.353) (0.595,0.375) (0.598,0.354) (0.600,0.369) (0.603,0.397) (0.605,0.354) (0.608,0.280) (0.610,0.269) (0.613,0.259) (0.615,0.241) (0.618,0.291) (0.620,0.377) (0.623,0.356) (0.625,0.391) (0.628,0.438) (0.630,0.474) (0.633,0.526) (0.635,0.507) (0.638,0.544) (0.640,0.645) (0.642,0.685) (0.645,0.654) (0.647,0.684) (0.650,0.747) (0.652,0.766) (0.655,0.738) (0.657,0.815) (0.660,0.752) (0.662,0.778) (0.665,0.777) (0.667,0.717) (0.670,0.778) (0.672,0.795) (0.675,0.737) (0.677,0.767) (0.680,0.746) (0.682,0.650) (0.685,0.616) (0.688,0.629) (0.690,0.661) (0.693,0.669) (0.695,0.672) (0.698,0.695) (0.700,0.684) (0.703,0.743) (0.705,0.751) (0.708,0.765) (0.710,0.792) (0.713,0.740) (0.715,0.704) (0.718,0.781) (0.720,0.797) (0.723,0.783) (0.725,0.800) (0.728,0.776) (0.730,0.790) (0.733,0.757) (0.735,0.771) (0.738,0.692) (0.740,0.758) (0.743,0.733) (0.745,0.654) (0.748,0.642) (0.750,0.624) (0.753,0.631) (0.755,0.574) (0.758,0.594) (0.760,0.775) (0.763,0.711) (0.765,0.728) (0.768,0.713) (0.770,0.722) (0.772,0.632) (0.775,0.574) (0.777,0.597) (0.780,0.595) (0.782,0.677) (0.785,0.642) (0.787,0.650) (0.790,0.796) (0.792,0.758) (0.795,0.713) (0.797,0.711) (0.800,0.709) (0.802,0.751) (0.805,0.757) (0.807,0.720) (0.810,0.730) (0.812,0.862) (0.815,0.926) (0.818,0.787) (0.820,0.779) (0.823,0.736) (0.825,0.767) (0.828,0.758) (0.830,0.855) (0.833,0.901) (0.835,0.946) (0.838,0.955) (0.840,0.953) (0.843,0.970) (0.845,1.035) (0.848,1.062) (0.850,1.044) (0.853,1.108) (0.855,1.117) (0.858,1.114) (0.860,1.074) (0.863,1.046) (0.865,1.014) (0.868,0.874) (0.870,0.925) (0.873,0.953) (0.875,0.943) (0.878,0.995) (0.880,1.017) (0.883,1.035) (0.885,0.912) (0.888,0.900) (0.890,0.927) (0.893,1.007) (0.895,1.099) (0.897,1.171) (0.900,1.112) (0.902,1.003) (0.905,1.031) (0.907,1.032) (0.910,1.081) (0.912,1.074) (0.915,1.085) (0.917,1.010) (0.920,1.033) (0.922,1.010) (0.925,1.028) (0.927,1.051) (0.930,1.045) (0.932,1.061) (0.935,1.060) (0.938,1.098) (0.940,1.123) (0.943,1.096) (0.945,1.066) (0.948,1.154) (0.950,1.149) (0.953,1.198) (0.955,1.218) (0.958,1.190) (0.960,1.152) (0.963,1.158) (0.965,1.171) (0.968,1.202) (0.970,1.138) (0.973,1.109) (0.975,1.104) (0.978,1.184) (0.980,1.066) (0.983,1.088) (0.985,1.061) (0.988,1.082) (0.990,1.058) (0.993,1.076) (0.995,1.154) (0.998,1.172) (1.000,1.194)};
+  \addplot[SABlue,thick] coordinates {(0.000,0.300) (0.125,0.300)};
+  \addplot[SABlue,thick] coordinates {(0.125,-0.009) (0.250,-0.009)};
+  \addplot[SABlue,thick] coordinates {(0.250,0.423) (0.375,0.423)};
+  \addplot[SABlue,thick] coordinates {(0.375,0.338) (0.500,0.338)};
+  \addplot[SABlue,thick] coordinates {(0.500,0.464) (0.625,0.464)};
+  \addplot[SABlue,thick] coordinates {(0.625,0.391) (0.750,0.391)};
+  \addplot[SABlue,thick] coordinates {(0.750,0.624) (0.875,0.624)};
+  \addplot[SABlue,thick] coordinates {(0.875,0.943) (1.000,0.943)};
+  \fill[SABlue] (axis cs:0.000,0.300) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.125,-0.009) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.250,0.423) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.375,0.338) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.500,0.464) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.625,0.391) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.750,0.624) circle (1.5pt);
+  \fill[SABlue] (axis cs:0.875,0.943) circle (1.5pt);
+\end{axis}
+\end{tikzpicture}
+\caption{用简单过程逼近连续的适应过程 (灰色). 在每个区间 $(s_{k-1},s_k]$ 上, 简单过程 (蓝色) 取\emph{左端点}的值 $H_{s_{k-1}}$ (实心点), 它在区间开始时就已知. 分割加细时, 由轨道连续性, 阶梯函数逐点收敛到原过程}
+\label{fig:simple-approx}
+\end{figure}
+
+\begin{remark}
+文献中常把被积过程的条件写成 ``适应且 $(t,\omega)$ 联合可测''. 这样的过程总有一个循序可测的修正 (见~\cite{karatzas} 命题 1.1.12), 所以两种写法定义出的积分相同. 第二步中循序可测性的作用是保证 $G^m$ 适应.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{It\^o 积分及其性质}
+
+\begin{theorem}[It\^o 积分]\label{thm:ito-integral}
+设 $H\in\mathscr{L}^2_T$. 则存在 (在不可区分的意义下) 唯一的连续过程 $\{(H\cdot B)_t\}_{t\in[0,T]}$, 使得对任意满足 $\norm{H^n-H}_T\to0$ 的简单过程序列 $H^n\in\mathscr{S}_T$,
+\begin{equation}\label{eq:ito-integral-limit}
+\E\Big[\sup_{t\le T}\big\lvert(H^n\cdot B)_t-(H\cdot B)_t\big\rvert^2\Big]\to0.
+\end{equation}
+$H\cdot B$ 是连续鞅, 称为 $H$ 关于 $B$ 的 \textbf{It\^o 积分}, 记作 $(H\cdot B)_t=\int_0^tH_s\dd B_s$. 对 $s\le t$, 记 $\int_s^tH_u\dd B_u=(H\cdot B)_t-(H\cdot B)_s$.
+\end{theorem}
+
+\begin{proof}
+由引理~\ref{lem:simple-dense}, 存在简单过程 $H^n\to H$. 记 $X^n=H^n\cdot B$. 由命题~\ref{prop:simple-integral}, $X^n-X^m=(H^n-H^m)\cdot B$ 是连续鞅, 由连续时间 Doob 不等式~\ref{thm:ct-doob} 与 It\^o 等距,
+\begin{equation}\label{eq:ito-doob}
+\E\Big[\sup_{t\le T}\abs{X^n_t-X^m_t}^2\Big]\le4\E\big[(X^n_T-X^m_T)^2\big]=4\norm{H^n-H^m}_T^2.
+\end{equation}
+由于 $\{H^n\}$ 是 Cauchy 列, 可取子列 $n_k$ 使 $\norm{H^{n_{k+1}}-H^{n_k}}_T\le2^{-k}$. 于是
+\[
+\E\Big[\sum_k\sup_{t\le T}\big\lvert X^{n_{k+1}}_t-X^{n_k}_t\big\rvert\Big]\le\sum_k\Big(\E\sup_{t\le T}\big\lvert X^{n_{k+1}}_t-X^{n_k}_t\big\rvert^2\Big)^{1/2}\le\sum_k2\cdot2^{-k}<\infty.
+\]
+所以几乎必然地 $\sum_k\sup_t\abs{X^{n_{k+1}}_t-X^{n_k}_t}<\infty$, 在这个事件上 $X^{n_k}$ 在 $[0,T]$ 上一致收敛, 其极限 $X$ 是连续的; 在零概率的补集上令 $X\equiv0$. 由 Fatou 引理与 \eqref{eq:ito-doob},
+\[
+\E\Big[\sup_t\abs{X^n_t-X_t}^2\Big]\le\liminf_{k\to\infty}\E\Big[\sup_t\abs{X^n_t-X^{n_k}_t}^2\Big]\le4\limsup_{k\to\infty}\norm{H^n-H^{n_k}}_T^2,
+\]
+当 $n\to\infty$ 时右端趋于零. 这就证明了 \eqref{eq:ito-integral-limit} 对这个序列成立.
+
+与序列无关: 若 $K^n$ 是另一个逼近 $H$ 的简单过程序列, 则交错序列 $H^1$, $K^1$, $H^2$, $K^2$, $\dots$ 也逼近 $H$, 由上面的论证它对应的积分一致收敛到某个 $X'$, 而其子列分别收敛到 $X$ 与 (由 $K^n$ 构造的) 极限, 所以二者不可区分. 唯一性: 若两个连续过程都满足 \eqref{eq:ito-integral-limit}, 则它们之差的上确界在均方意义下为零.
+
+鞅性质: $X^n_t$ 是 $\mathcal{F}_t$-可测的, $X_t$ 是它的几乎必然极限, 由于 $\mathcal{F}_t$ 完备, $X_t$ 是 $\mathcal{F}_t$-可测的. 由 \eqref{eq:ito-integral-limit}, $X^n_t\to X_t$ 于 $L^2$. 条件期望是 $L^2$ 上的压缩 (推论~\ref{cor:ce-Lp}), 所以对 $s\le t$,
+\[
+\E[X_t\,|\,\mathcal{F}_s]=\lim_{n}\E[X^n_t\,|\,\mathcal{F}_s]=\lim_nX^n_s=X_s\qquad(L^2\text{ 极限}).\qedhere
+\]
+\end{proof}
+
+\begin{theorem}[It\^o 积分的性质]\label{thm:ito-properties}
+设 $H,K\in\mathscr{L}^2_T$, $a,b\in\R$, $0\le s\le t\le T$. 则
+\begin{enumerate}
+\item (线性) $(aH+bK)\cdot B=a(H\cdot B)+b(K\cdot B)$;
+\item (鞅性) $H\cdot B$ 是连续鞅, $\E\int_0^tH\dd B=0$;
+\item (It\^o 等距) $\E\big[(\int_s^tH\dd B)^2\,|\,\mathcal{F}_s\big]=\E\big[\int_s^tH_u^2\dd u\,|\,\mathcal{F}_s\big]$, 特别地 $\E(\int_0^tH\dd B)^2=\E\int_0^tH_u^2\dd u$;
+\item (二次变差) $(H\cdot B)^2-\int_0^\cdot H_u^2\dd u$ 与 $(H\cdot B)(K\cdot B)-\int_0^\cdot H_uK_u\dd u$ 是鞅. 因此 $\ip{H\cdot B}_t=\int_0^tH_u^2\dd u$, 且 $\E\big[(H\cdot B)_t(K\cdot B)_t\big]=\E\int_0^tH_uK_u\dd u$;
+\item (提出已知因子) 若 $\xi$ 是有界的 $\mathcal{F}_s$-可测随机变量, 则 $\int_0^T\xi\1_{(s,t]}(u)H_u\dd B_u=\xi\int_s^tH_u\dd B_u$;
+\item (停止) 若 $\tau$ 是停时, 则几乎必然地, 对一切 $t\le T$, $(H\cdot B)_{t\wedge\tau}=\big((H\1_{[0,\tau]})\cdot B\big)_t$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+设 $H^n,K^n\in\mathscr{S}_T$ 分别逼近 $H,K$.
+
+(1) 对简单过程成立, $aH^n+bK^n$ 逼近 $aH+bK$, 取极限即可. (2) 已在定理~\ref{thm:ito-integral} 中证明.
+
+(3) 记 $Y_n=\int_s^tH^n\dd B$, $Y=\int_s^tH\dd B$, $A_n=\int_s^t(H^n_u)^2\dd u$, $A=\int_s^tH_u^2\dd u$. 由 \eqref{eq:ito-integral-limit}, $Y_n\to Y$ 于 $L^2$, 所以由 $\abs{Y_n^2-Y^2}\le\abs{Y_n-Y}\abs{Y_n+Y}$ 与 Cauchy-Schwarz 不等式, $Y_n^2\to Y^2$ 于 $L^1$. 同理 $\E\abs{A_n-A}\le\norm{H^n-H}_T\norm{H^n+H}_T\to0$. 条件期望是 $L^1$ 上的压缩, 在命题~\ref{prop:simple-integral} (2) 中取极限即得.
+
+(4) 与命题~\ref{prop:simple-integral} (3) 的证明相同, 由 (2)(3) 得到第一个鞅. 对第二个, 用极化恒等式
+\[
+(H\cdot B)(K\cdot B)=\tfrac{1}{4}\big[((H+K)\cdot B)^2-((H-K)\cdot B)^2\big],\qquad HK=\tfrac{1}{4}\big[(H+K)^2-(H-K)^2\big],
+\]
+它是两个鞅之差. 由二次变差的唯一性 (定理~\ref{thm:quadratic-variation}), $\ip{H\cdot B}_t=\int_0^tH_u^2\dd u$.
+
+(5) 对简单过程 $H^n$, 把 $s,t$ 加入分割后, $\xi\1_{(s,t]}H^n$ 仍是简单过程 (在 $(t_{i-1},t_i]\subseteq(s,t]$ 上取值 $\xi\xi_{i-1}$, 它是 $\mathcal{F}_{t_{i-1}}$-可测的), 由 \eqref{eq:simple-integral} 直接验证等式. 由于 $\xi$ 有界, $\norm{\xi\1_{(s,t]}H^n-\xi\1_{(s,t]}H}_T\le\sup\abs{\xi}\cdot\norm{H^n-H}_T\to0$, 两端在 $L^2$ 中取极限即可.
+
+(6) 由命题~\ref{prop:progressive}, $H\1_{[0,\tau]}\in\mathscr{L}^2_T$. 记 $M=H\cdot B$, $N=(H\1_{[0,\tau]})\cdot B$. 固定 $t$. 由 (4), $M^2-\int_0^\cdot H^2\dd u$, $N^2-\int_0^\cdot H^2\1_{[0,\tau]}\dd u$ 与 $MN-\int_0^\cdot H^2\1_{[0,\tau]}\dd u$ 都是连续鞅. 对有界停时 $t\wedge\tau$ 应用可选停时定理 (推论~\ref{cor:ct-ost-bounded}),
+\[
+\E M_{t\wedge\tau}^2=\E\int_0^{t\wedge\tau}H_u^2\dd u,\qquad\E\big[M_{t\wedge\tau}N_{t\wedge\tau}\big]=\E\int_0^{t\wedge\tau}H_u^2\dd u,
+\]
+而 $\E N_t^2=\E\int_0^tH_u^2\1_{\{u\le\tau\}}\dd u=\E\int_0^{t\wedge\tau}H_u^2\dd u$. 又由可选停时定理 $\E[N_t\,|\,\mathcal{F}_{t\wedge\tau}]=N_{t\wedge\tau}$, 而 $M_{t\wedge\tau}$ 是 $\mathcal{F}_{t\wedge\tau}$-可测的 (第~3~章定义~\ref{def:ct-stopping-time} 之后的说明), 所以 $\E[M_{t\wedge\tau}N_t]=\E[M_{t\wedge\tau}N_{t\wedge\tau}]$. 于是
+\[
+\E\big[(M_{t\wedge\tau}-N_t)^2\big]=\E M_{t\wedge\tau}^2-2\E\big[M_{t\wedge\tau}N_t\big]+\E N_t^2=0.
+\]
+所以对每个 $t$, $M_{t\wedge\tau}=N_t$ $\as$; 两端关于 $t$ 连续, 在有理数 $t$ 上同时成立即对一切 $t$ 成立.
+\end{proof}
+
+\begin{intuition}
+It\^o 积分的全部性质都可以追溯到一个简单的事实: 在 $(t,t+\dd t]$ 上, 赌注 $H_t$ 已知, 而噪声 $\dd B_t$ 与之独立, 均值为零、方差为 $\dd t$. 于是每一小段的 ``收益'' $H_t\dd B_t$ 的条件均值为零 (鞅性), 条件方差为 $H_t^2\dd t$ (等距与二次变差). 不同小段的收益互不相关, 所以总方差就是各段方差之和 $\int H_t^2\dd t$.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{局部化}
+
+在应用中, 被积过程往往只满足 $\int_0^TH_s^2\dd s<\infty$ $\as$, 而不满足 $\E\int_0^TH_s^2\dd s<\infty$. 例如 $H_s=e^{B_s^2}$: 由于 $\E e^{2B_s^2}=\E e^{2sZ^2}=\infty$ 当 $s\ge\frac14$ ($Z\sim N(0,1)$), 若 $T\ge\frac14$ 则 $H\notin\mathscr{L}^2_T$; 但 $H$ 的轨道连续, 所以 $\int_0^TH_s^2\dd s<\infty$ 对每条轨道成立. 用停时截断, 可以把 It\^o 积分推广到这类过程.
+
+\begin{definition}\label{def:L2-loc}
+记 $\mathscr{L}^2_{\mathrm{loc}}$ 为满足 $\int_0^TH_s^2\dd s<\infty$ $\as$ 的循序可测过程 $H$ 全体.
+\end{definition}
+
+设 $H\in\mathscr{L}^2_{\mathrm{loc}}$. 令 $A_t=\int_0^tH_s^2\dd s$, 它是连续适应过程 (在零概率集上令 $A\equiv0$). 对 $n\ge1$ 令
+\[
+\tau_n=\inf\{t\in[0,T]: A_t\ge n\}\qquad(\inf\varnothing=T).
+\]
+由命题~\ref{prop:hitting-continuous}, $\tau_n$ 是停时; $\tau_n$ 关于 $n$ 单调不减, 且当 $n>A_T$ 时 $\tau_n=T$. 令 $H^{(n)}=H\1_{[0,\tau_n]}$, 则 $\int_0^T(H^{(n)}_s)^2\dd s=A_{\tau_n}\le n$, 所以 $H^{(n)}\in\mathscr{L}^2_T$. 对 $m\ge n$, 由于 $H^{(m)}\1_{[0,\tau_n]}=H^{(n)}$, 由定理~\ref{thm:ito-properties} (6),
+\begin{equation}\label{eq:localization-consistent}
+\big(H^{(m)}\cdot B\big)_{t\wedge\tau_n}=\big(H^{(n)}\cdot B\big)_t,\qquad t\le T,\quad\as
+\end{equation}
+即在 $\{t\le\tau_n\}$ 上, $(H^{(m)}\cdot B)_t$ 与 $(H^{(n)}\cdot B)_t$ 相等. 这就使下面的定义合理.
+
+\begin{definition}[局部化的 It\^o 积分]\label{def:ito-local}
+设 $H\in\mathscr{L}^2_{\mathrm{loc}}$, $\tau_n$, $H^{(n)}$ 如上. 定义
+\[
+(H\cdot B)_t=\int_0^tH_s\dd B_s=\big(H^{(n)}\cdot B\big)_t,\qquad\text{当 }t\le\tau_n.
+\]
+\end{definition}
+
+由于 $\bigcup_n\{\tau_n=T\}$ 的概率为 $1$, 这在一个概率为 $1$ 的事件上定义了 $(H\cdot B)_t$ ($t\le T$), 且与 $n$ 的选取无关. 若 $H\in\mathscr{L}^2_T$, 则由定理~\ref{thm:ito-properties} (6), 新定义与旧定义一致.
+
+\begin{theorem}[局部化 It\^o 积分的性质]\label{thm:ito-local}
+设 $H,K\in\mathscr{L}^2_{\mathrm{loc}}$. 则
+\begin{enumerate}
+\item $H\cdot B$ 是连续局部鞅, 局部化序列为 $\{\tau_n\}$: $(H\cdot B)_{\cdot\wedge\tau_n}=H^{(n)}\cdot B$ 是鞅;
+\item $(H\cdot B)^2-\int_0^\cdot H_s^2\dd s$ 是连续局部鞅, 所以 $\ip{H\cdot B}_t=\int_0^tH_s^2\dd s$;
+\item 线性与停止性质 (定理~\ref{thm:ito-properties} (6)) 仍成立.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 由 \eqref{eq:localization-consistent} (令 $m\to\infty$, 即用 $H\cdot B$ 代替 $H^{(m)}\cdot B$), $(H\cdot B)_{t\wedge\tau_n}=(H^{(n)}\cdot B)_t$, 右端是连续鞅. (这里局部化序列满足 $\P(\tau_n=T)\to1$, 这是定义~\ref{def:local-martingale} 在有限时间区间 $[0,T]$ 上的对应形式.) (2) 停止在 $\tau_n$ 后, $(H\cdot B)^2_{\cdot\wedge\tau_n}-\int_0^{\cdot\wedge\tau_n}H^2\dd s=(H^{(n)}\cdot B)^2-\int_0^\cdot(H^{(n)})^2\dd s$, 由定理~\ref{thm:ito-properties} (4) 是鞅. (3) 线性: 对 $H$, $K$ 与 $H+K$ 取公共的局部化序列 (各自序列的最小者), 在其上用 $\mathscr{L}^2_T$ 中的线性. 停止性质: 对 $H^{(n)}$ 应用定理~\ref{thm:ito-properties} (6) 后令 $n\to\infty$.
+\end{proof}
+
+局部化的代价是$H\cdot B$ 一般只是局部鞅, 不一定是鞅, $\E\int_0^tH\dd B=0$ 与 It\^o 等距都可能不成立. 若 $H\in\mathscr{L}^2_T$, 它们当然仍成立. 下面两个引理在局部化的框架下代替 It\^o 等距.
+
+\begin{lemma}[局部性]\label{lem:locality}
+设 $H,K\in\mathscr{L}^2_{\mathrm{loc}}$, $A\in\mathcal{F}$, 且对 $\omega\in A$ 与几乎每个 $t\in[0,T]$ 有 $H_t(\omega)=K_t(\omega)$. 则几乎必然地在 $A$ 上, 对一切 $t\le T$, $(H\cdot B)_t=(K\cdot B)_t$.
+\end{lemma}
+
+\begin{proof}
+令 $D=H-K$, $\sigma=\inf\{t: \int_0^tD_s^2\dd s>0\}\wedge T$. 它是停时 (由命题~\ref{prop:hitting-continuous} (2) 与通常条件), 且由连续性 $\int_0^\sigma D_s^2\dd s=0$. 所以 $D\1_{[0,\sigma]}\in\mathscr{L}^2_T$ 且 $\norm{D\1_{[0,\sigma]}}_T=0$, 其积分恒为零. 由停止性质, $(D\cdot B)_{t\wedge\sigma}=((D\1_{[0,\sigma]})\cdot B)_t=0$. 在 $A$ 上 $\int_0^TD^2\dd s=0$, 从而 $\sigma=T$, 于是 $(D\cdot B)_t=0$ 对一切 $t\le T$ 成立. 由线性, $D\cdot B=H\cdot B-K\cdot B$.
+\end{proof}
+
+例如, 设 $\xi$ 是 $\mathcal{F}_s$-可测的 (不必有界), $H\in\mathscr{L}^2_{\mathrm{loc}}$. 令 $\xi_K=(\xi\wedge K)\vee(-K)$. 由定理~\ref{thm:ito-properties} (5) (对 $H^{(n)}$ 应用后令 $n\to\infty$), $\int_0^T\xi_K\1_{(s,t]}H\dd B=\xi_K\int_s^tH\dd B$; 在 $\{\abs{\xi}\le K\}$ 上 $\xi_K=\xi$, 由局部性引理, 那里也有 $\int_0^T\xi\1_{(s,t]}H\dd B=\xi\int_s^tH\dd B$. 对 $K$ 取并, 提出已知因子的性质对不必有界的 $\xi$ 也成立.
+
+\begin{lemma}[依概率收敛]\label{lem:ito-prob}
+设 $H,K\in\mathscr{L}^2_{\mathrm{loc}}$. 则对任意 $\varepsilon,\delta>0$,
+\[
+\P\Big(\sup_{t\le T}\big\lvert(H\cdot B)_t-(K\cdot B)_t\big\rvert>\varepsilon\Big)\le\P\Big(\int_0^T(H_s-K_s)^2\dd s\ge\delta\Big)+\frac{\delta}{\varepsilon^2}.
+\]
+特别地, 若 $H^n,H\in\mathscr{L}^2_{\mathrm{loc}}$ 且 $\int_0^T(H^n_s-H_s)^2\dd s\to0$ 依概率成立, 则 $\sup_{t\le T}\abs{(H^n\cdot B)_t-(H\cdot B)_t}\to0$ 依概率成立.
+\end{lemma}
+
+\begin{proof}
+令 $D=H-K$, $M=D\cdot B$, $\sigma=\inf\{t: \int_0^tD_s^2\dd s\ge\delta\}\wedge T$. 在事件 $\{\int_0^TD^2\dd s<\delta\}$ 上 $\sigma=T$, 所以
+\[
+\Big\{\sup_{t\le T}\abs{M_t}>\varepsilon\Big\}\subseteq\Big\{\int_0^TD_s^2\dd s\ge\delta\Big\}\cup\Big\{\sup_{t\le T}\abs{M_{t\wedge\sigma}}>\varepsilon\Big\}.
+\]
+由停止性质, $M_{\cdot\wedge\sigma}=(D\1_{[0,\sigma]})\cdot B$, 而 $\norm{D\1_{[0,\sigma]}}_T^2\le\delta$. 对非负下鞅 $M_{\cdot\wedge\sigma}^2$ 应用 Doob 不等式~\ref{thm:ct-doob} 与 It\^o 等距,
+\[
+\P\Big(\sup_{t\le T}\abs{M_{t\wedge\sigma}}>\varepsilon\Big)\le\frac{\E M_{T\wedge\sigma}^2}{\varepsilon^2}\le\frac{\delta}{\varepsilon^2}.
+\]
+第二个结论: 对给定的 $\varepsilon$ 与 $\eta>0$, 取 $\delta=\eta\varepsilon^2$, 则 $\limsup_n\P(\sup_t\abs{\cdot}>\varepsilon)\le\eta$.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{Riemann 和与 Wiener 积分}
+
+It\^o 积分是用 $L^2$ 极限抽象地定义的. 对连续的被积过程, 它就是左端点 Riemann 和的极限, 这与 5.1 节的动机相吻合.
+
+\begin{proposition}[Riemann 和逼近]\label{prop:riemann-approx}
+设 $H$ 是轨道连续的适应过程, $\Pi_n: 0=t_0<\cdots<t_m=T$ 是 $[0,T]$ 的分割序列, $\abs{\Pi_n}\to0$. 则
+\[
+\sup_{t\le T}\Big\lvert\sum_{i}H_{t_{i-1}}\big(B_{t_i\wedge t}-B_{t_{i-1}\wedge t}\big)-\int_0^tH_s\dd B_s\Big\rvert\to0\qquad\text{依概率}.
+\]
+若 $H$ 还是有界的, 则收敛在 $\E\sup_{t\le T}\abs{\cdot}^2$ 的意义下成立.
+\end{proposition}
+
+\begin{proof}
+令 $H^{\Pi}=H_0\1_{\{0\}}+\sum_iH_{t_{i-1}}\1_{(t_{i-1},t_i]}$. 它左连续且适应, 轨道有界, 所以 $H^\Pi\in\mathscr{L}^2_{\mathrm{loc}}$. 先说明 $(H^\Pi\cdot B)_t$ 等于 Riemann 和: 对 $K>0$, 令 $\xi^K_{i-1}=(H_{t_{i-1}}\wedge K)\vee(-K)$, 则 $H^{\Pi,K}=\xi_0^K\1_{\{0\}}+\sum_i\xi^K_{i-1}\1_{(t_{i-1},t_i]}\in\mathscr{S}_T$, 其积分是以 $\xi^K_{i-1}$ 代替 $H_{t_{i-1}}$ 的 Riemann 和. 在事件 $A_K=\{\max_i\abs{H_{t_{i-1}}}\le K\}$ 上 $H^\Pi=H^{\Pi,K}$, 且两个 Riemann 和相等, 由局部性引理~\ref{lem:locality}, 在 $A_K$ 上 $(H^\Pi\cdot B)_t$ 等于原来的 Riemann 和. 而 $\bigcup_KA_K=\Omega$.
+
+由轨道在 $[0,T]$ 上一致连续, 对每个 $\omega$, $\sup_s\abs{H^{\Pi_n}_s-H_s}\to0$, 从而 $\int_0^T(H^{\Pi_n}_s-H_s)^2\dd s\to0$. 由引理~\ref{lem:ito-prob} 即得依概率收敛. 若 $\abs{H}\le C$, 则 $H^{\Pi_n}\in\mathscr{S}_T$ (无需截断), 由有界收敛定理 $\norm{H^{\Pi_n}-H}_T\to0$, 由定理~\ref{thm:ito-integral} 得 $\E\sup\abs{\cdot}^2\to0$.
+\end{proof}
+
+结合命题~\ref{prop:three-sums}, 得到第一个具体的 It\^o 积分:
+\begin{equation}\label{eq:int-BdB}
+\int_0^tB_s\dd B_s=\frac{1}{2}\big(B_t^2-t\big).
+\end{equation}
+(严格地说: 由命题~\ref{prop:riemann-approx}, 左端点和依概率收敛到左端, 由命题~\ref{prop:three-sums}, 它们在 $L^2$ 中收敛到右端, 依概率收敛的极限几乎必然唯一.) 修正项 $-\frac{t}{2}$ 使右端成为鞅, 这与定理~\ref{thm:ito-properties} (2) 一致.
+
+被积函数是确定函数时, It\^o 积分是正态的, 称为 \textbf{Wiener 积分}.
+
+\begin{proposition}[Wiener 积分]\label{prop:wiener-integral}
+设 $f\in L^2[0,T]$ 是确定的函数, $X_t=\int_0^tf(s)\dd B_s$. 则 $X$ 是均值为零的连续高斯过程, 增量独立 ($X_t-X_s$ 与 $\mathcal{F}_s$ 独立), 且
+\[
+\Cov(X_s,X_t)=\int_0^{s\wedge t}f(u)^2\dd u,\qquad X_t\sim N\Big(0,\int_0^tf(u)^2\dd u\Big).
+\]
+\end{proposition}
+
+\begin{proof}
+确定的函数是循序可测的, $\norm{f}_T^2=\int_0^Tf^2\dd u<\infty$, 所以 $f\in\mathscr{L}^2_T$. 先设 $f=\sum_ic_i\1_{(t_{i-1},t_i]}$ 是阶梯函数, 则它是简单过程 (常数是 $\mathcal{F}_0$-可测的), $X_t=\sum_ic_i(B_{t_i\wedge t}-B_{t_{i-1}\wedge t})$ 是布朗运动在有限个时刻上取值的线性组合. 所以任意有限个 $X_{s_1},\dots,X_{s_k}$ 构成正态向量. 阶梯函数在 $L^2[0,T]$ 中稠密 (见~\cite{folland} 第 2, 6 章), 取阶梯函数 $f_n\to f$, 则由 It\^o 等距 $X^n_s\to X_s$ 于 $L^2$. 由推论~\ref{cor:gaussian-space} ($L^2$ 极限保持联合正态性), $X$ 是高斯过程, 均值为零. 协方差: 对 $s\le t$, 由鞅性与 It\^o 等距,
+\[
+\E[X_sX_t]=\E\big[X_s\E[X_t\,|\,\mathcal{F}_s]\big]=\E X_s^2=\int_0^sf^2\dd u.
+\]
+增量的独立性: 对 $A\in\mathcal{F}_s$ 与 $u\in\R$, 阶梯函数情形下 $X^n_t-X^n_s$ 是 $s$ 之后的布朗增量的函数, 与 $\mathcal{F}_s$ 独立, 所以 $\E[e^{\mathrm{i}u(X^n_t-X^n_s)};A]=\P(A)\E e^{\mathrm{i}u(X^n_t-X^n_s)}$. 令 $n\to\infty$, 由有界收敛定理 (沿几乎必然收敛的子列), $\E[e^{\mathrm{i}u(X_t-X_s)};A]=\P(A)\E e^{\mathrm{i}u(X_t-X_s)}$. $\P(A)>0$ 时, 上式表明 $X_t-X_s$ 在 $\P(\cdot\,|\,A)$ 下的特征函数与在 $\P$ 下相同, 由唯一性定理~\ref{thm:cf-uniqueness}, $\P(X_t-X_s\in C\,|\,A)=\P(X_t-X_s\in C)$, 即独立性.
+\end{proof}
+
+\begin{example}[分部积分与 $\int_0^tB_s\dd s$ 的分布]\label{ex:int-sdB}
+取 $H_s=s$. 由 Abel 求和 (分部求和) 公式,
+\[
+\sum_it_{i-1}\big(B_{t_i}-B_{t_{i-1}}\big)=t\,B_t-\sum_iB_{t_i}(t_i-t_{i-1}).
+\]
+令 $\abs{\Pi_n}\to0$: 左端依概率收敛到 $\int_0^ts\dd B_s$ (命题~\ref{prop:riemann-approx}), 右端的和是连续函数 $s\mapsto B_s$ 的 Riemann 和, 逐条轨道收敛到 $\int_0^tB_s\dd s$. 于是
+\[
+\int_0^ts\dd B_s=tB_t-\int_0^tB_s\dd s,\qquad\text{即}\qquad\int_0^tB_s\dd s=\int_0^t(t-s)\dd B_s.
+\]
+由命题~\ref{prop:wiener-integral}, $\int_0^tB_s\dd s\sim N\big(0,\int_0^t(t-s)^2\dd s\big)=N\big(0,\frac{t^3}{3}\big)$. 这个结论也可以直接由 $\Var\int_0^tB_s\dd s=\int_0^t\int_0^t(s\wedge u)\dd s\dd u=\frac{t^3}{3}$ 验证, 但正态性由 Wiener 积分的表示一目了然.
+\end{example}
+
+\begin{remark}
+本节的构造对任意 $T$ 成立, 而且不同的 $T$ 给出的积分在公共区间上一致 (由定理~\ref{thm:ito-properties} (6), 取 $\tau=T'<T$). 所以若 $H$ 在 $[0,\infty)$ 上循序可测, 且对每个 $T$ 有 $\int_0^TH_s^2\dd s<\infty$ $\as$, 则 $(H\cdot B)_t$ 对一切 $t\ge0$ 有定义, 是 $[0,\infty)$ 上的连续局部鞅. 今后不再区分有限与无限的时间范围.
+\end{remark}
+
+% =====================================================================
+\section{It\^o 公式}
+\label{sec:5-3}
+
+普通微积分的链式法则 $\dd f(x_t)=f'(x_t)\dd x_t$ 来自 Taylor 展开中略去二阶项. 对布朗运动, $(\dd B_t)^2=\dd t$ 与 $\dd t$ 同阶, 二阶项必须保留:
+\[
+\dd f(B_t)=f'(B_t)\dd B_t+\frac{1}{2}f''(B_t)(\dd B_t)^2=f'(B_t)\dd B_t+\frac{1}{2}f''(B_t)\dd t.
+\]
+这就是 It\^o 公式. 本节先引入一类对光滑变换封闭的过程, 即 It\^o 过程, 然后严格证明 It\^o 公式, 并给出它的一系列应用.
+
+% ---------------------------------------------------------------------
+\subsection{It\^o 过程}
+
+\begin{definition}[It\^o 过程]\label{def:ito-process}
+称过程 $X$ 为 \textbf{It\^o 过程}, 如果
+\begin{equation}\label{eq:ito-process}
+X_t=X_0+\int_0^tb_s\dd s+\int_0^t\sigma_s\dd B_s,\qquad t\in[0,T],
+\end{equation}
+其中 $X_0$ 是 $\mathcal{F}_0$-可测的, $b$ 循序可测且 $\int_0^T\abs{b_s}\dd s<\infty$ $\as$, $\sigma\in\mathscr{L}^2_{\mathrm{loc}}$. 常把 \eqref{eq:ito-process} 简记为微分形式
+\[
+\dd X_t=b_t\dd t+\sigma_t\dd B_t,
+\]
+称 $b$ 为\textbf{漂移系数}, $\sigma$ 为\textbf{扩散系数}. 定义 $X$ 的二次变差为 $\ip{X}_t=\int_0^t\sigma_s^2\dd s$; 对两个 It\^o 过程 $X$, $Y$ (扩散系数分别为 $\sigma$, $\eta$), 定义 $\ip{X,Y}_t=\int_0^t\sigma_s\eta_s\dd s$.
+\end{definition}
+
+It\^o 过程是一个连续的有限变差过程 $A_t=\int_0^tb_s\dd s$ 与一个连续局部鞅 $M_t=\int_0^t\sigma_s\dd B_s$ 之和 (加上初值). 前者描述 ``趋势'', 后者描述 ``波动''. 这种分解是唯一的.
+
+\begin{proposition}[It\^o 过程的性质]\label{prop:ito-process}
+设 $X$, $Y$ 是 It\^o 过程.
+\begin{enumerate}
+\item (分解唯一) 若 $X$ 有两种形如 \eqref{eq:ito-process} 的表示, 系数分别为 $(b,\sigma)$ 与 $(b',\sigma')$, 则 $b=b'$, $\sigma=\sigma'$ 对 $\lambda\otimes\P$-几乎每个 $(t,\omega)$ 成立.
+\item (二次变差) 对 $[0,t]$ 的分割序列 $\Pi_n$, $\abs{\Pi_n}\to0$, 记 $\Delta X_i=X_{t_i}-X_{t_{i-1}}$, 则
+\[
+\sum_i(\Delta X_i)^2\to\ip{X}_t,\qquad\sum_i\Delta X_i\Delta Y_i\to\ip{X,Y}_t\qquad\text{依概率}.
+\]
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 两种表示相减, $\int_0^t(b_s-b'_s)\dd s=\int_0^t(\sigma'_s-\sigma_s)\dd B_s$. 右端是从 $0$ 出发的连续局部鞅, 左端是连续的有限变差过程. 由停时截断, 使二者及其全变差有界后, 由定理~\ref{thm:no-finite-variation}, 它们恒为零. 于是 $\int_0^t(\sigma'_s-\sigma_s)\dd B_s\equiv0$, 其二次变差 $\int_0^t(\sigma'_s-\sigma_s)^2\dd s$ 也恒为零 (定理~\ref{thm:ito-local} (2) 与二次变差的唯一性), 所以 $\sigma=\sigma'$ 几乎处处. 对几乎每个 $\omega$, 函数 $t\mapsto\int_0^t(b_s-b'_s)\dd s$ 恒为零, 从而被积函数对几乎每个 $t$ 为零.
+
+(2) 记 $\Delta A_i=\int_{t_{i-1}}^{t_i}b_s\dd s$, $\Delta M_i=\int_{t_{i-1}}^{t_i}\sigma_s\dd B_s$. 则
+\[
+\sum_i(\Delta X_i)^2=\sum_i(\Delta M_i)^2+\sum_i\Delta A_i\big(\Delta A_i+2\Delta M_i\big).
+\]
+由连续局部鞅的二次变差定理~\ref{thm:quadratic-variation} 与 $\ip{M}_t=\int_0^t\sigma_s^2\dd s$ (定理~\ref{thm:ito-local} (2)), 第一项依概率收敛到 $\ip{X}_t$. 第二项的绝对值不超过
+\[
+\Big(\max_i\abs{\Delta A_i}+2\max_i\abs{\Delta M_i}\Big)\int_0^t\abs{b_s}\dd s,
+\]
+由 $A$, $M$ 的轨道一致连续, 它逐条轨道地趋于零. 对 $\ip{X,Y}$, 用极化恒等式 $\Delta X\Delta Y=\frac{1}{4}[(\Delta X+\Delta Y)^2-(\Delta X-\Delta Y)^2]$, 并注意 $X\pm Y$ 是扩散系数为 $\sigma\pm\eta$ 的 It\^o 过程.
+\end{proof}
+
+对 It\^o 过程 $X$ 与循序可测过程 $H$, 若 $\int_0^T\abs{H_sb_s}\dd s<\infty$ 且 $\int_0^TH_s^2\sigma_s^2\dd s<\infty$ $\as$ (例如 $H$ 轨道连续), 定义
+\[
+\int_0^tH_s\dd X_s=\int_0^tH_sb_s\dd s+\int_0^tH_s\sigma_s\dd B_s,
+\]
+即 $H\dd X=Hb\dd t+H\sigma\dd B$. 它仍是 It\^o 过程. 二次变差的计算可以归结为下面的形式乘法表, 其中 $\dd\ip{X}_t=(\dd X_t)^2$:
+\begin{equation}\label{eq:mult-table}
+\dd t\cdot\dd t=0,\qquad\dd t\cdot\dd B_t=0,\qquad\dd B_t\cdot\dd B_t=\dd t;\qquad\text{从而}\quad(\dd X_t)^2=\sigma_t^2\dd t.
+\end{equation}
+
+下面两个引理是 It\^o 公式证明的主要步骤: 它们分别把 Taylor 展开中的一阶项与二阶项识别为积分.
+
+\begin{lemma}[关于 It\^o 过程的 Riemann 和]\label{lem:riemann-dX}
+设 $X$ 是 It\^o 过程, $g$ 是轨道连续的适应过程, $\Pi_n$ 是 $[0,t]$ 的分割序列, $\abs{\Pi_n}\to0$. 则
+\[
+\sum_ig_{t_{i-1}}\Delta X_i\to\int_0^tg_s\dd X_s\qquad\text{依概率}.
+\]
+\end{lemma}
+
+\begin{proof}
+沿用命题~\ref{prop:ito-process} 证明中的记号. 对漂移部分,
+\[
+\Big\lvert\sum_ig_{t_{i-1}}\Delta A_i-\int_0^tg_sb_s\dd s\Big\rvert\le\sup_{\abs{u-v}\le\abs{\Pi_n}}\abs{g_u-g_v}\cdot\int_0^t\abs{b_s}\dd s\to0.
+\]
+对鞅部分, 令 $g^n=g_0\1_{\{0\}}+\sum_ig_{t_{i-1}}\1_{(t_{i-1},t_i]}$. 由提出已知因子的性质 (定理~\ref{thm:ito-properties} (5) 及其在局部化后对无界因子的推广, 见引理~\ref{lem:locality} 之后的说明), $\int_0^tg^n_s\sigma_s\dd B_s=\sum_ig_{t_{i-1}}\Delta M_i$. 由于 $\int_0^t(g^n_s-g_s)^2\sigma_s^2\dd s\le\sup_s\abs{g^n_s-g_s}^2\int_0^t\sigma_s^2\dd s\to0$ 逐条轨道成立, 由引理~\ref{lem:ito-prob}, $\sum_ig_{t_{i-1}}\Delta M_i\to\int_0^tg_s\sigma_s\dd B_s$ 依概率成立.
+\end{proof}
+
+\begin{lemma}[带权的二次变差]\label{lem:weighted-qv}
+设 $X$ 是 It\^o 过程, $g$ 是轨道连续的适应过程, $\Pi_n$ 是 $[0,t]$ 的\emph{嵌套}分割序列 ($\Pi_n\subseteq\Pi_{n+1}$, 例如二进分割), $\abs{\Pi_n}\to0$. 则
+\[
+\sum_ig_{t_{i-1}}(\Delta X_i)^2\to\int_0^tg_s\dd\ip{X}_s=\int_0^tg_s\sigma_s^2\dd s\qquad\text{依概率}.
+\]
+\end{lemma}
+
+\begin{proof}
+记 $S_n=\sum_ig_{t_{i-1}}(\Delta X_i)^2$, $I=\int_0^tg_s\sigma_s^2\dd s$, $V=\ip{X}_t$, $Q_n=\sum_i(\Delta X_i)^2$, 并记 $w(\delta)=\sup_{u,v\le t,\,\abs{u-v}\le\delta}\abs{g_u-g_v}$, 由 $g$ 的一致连续性, 对每个 $\omega$, $w(\delta)\to0$ ($\delta\to0$).
+
+固定 $m$, 记 $\Pi_m=\{s_0<s_1<\cdots<s_k\}$. 对 $n\ge m$, $\Pi_n$ 加细了 $\Pi_m$, 于是 $\Pi_n$ 的每个小区间 $[t_{i-1},t_i]$ 落在某个 $[s_{j-1},s_j]$ 中. 记 $Q_n^{(j)}$ 为 $(\Delta X_i)^2$ 在落入 $[s_{j-1},s_j]$ 的那些 $i$ 上的和. 则
+\[
+\Big\lvert S_n-\sum_{j=1}^kg_{s_{j-1}}Q_n^{(j)}\Big\rvert\le w(\abs{\Pi_m})\,Q_n,\qquad\Big\lvert\sum_{j=1}^kg_{s_{j-1}}\big(\ip{X}_{s_j}-\ip{X}_{s_{j-1}}\big)-I\Big\rvert\le w(\abs{\Pi_m})\,V.
+\]
+由命题~\ref{prop:ito-process} (2) (分别应用于 $[0,s_j]$ 与 $[0,s_{j-1}]$ 上由 $\Pi_n$ 诱导的分割), 当 $n\to\infty$ 时 $Q_n^{(j)}\to\ip{X}_{s_j}-\ip{X}_{s_{j-1}}$ 依概率成立, 而 $\max_j\abs{g_{s_{j-1}}}<\infty$, 所以有限和
+\[
+D_n^{(m)}:=\sum_{j=1}^kg_{s_{j-1}}\Big(Q_n^{(j)}-\big(\ip{X}_{s_j}-\ip{X}_{s_{j-1}}\big)\Big)\to0\qquad\text{依概率}.
+\]
+综合三式, $\abs{S_n-I}\le w(\abs{\Pi_m})(Q_n+V)+\abs{D_n^{(m)}}$. 对 $\varepsilon>0$,
+\[
+\P(\abs{S_n-I}>2\varepsilon)\le\P\big(\abs{Q_n-V}>1\big)+\P\big(w(\abs{\Pi_m})(2V+1)>\varepsilon\big)+\P\big(\abs{D_n^{(m)}}>\varepsilon\big).
+\]
+令 $n\to\infty$, 第一项与第三项趋于零, 所以 $\limsup_n\P(\abs{S_n-I}>2\varepsilon)\le\P\big(w(\abs{\Pi_m})(2V+1)>\varepsilon\big)$. 再令 $m\to\infty$, 由于 $w(\abs{\Pi_m})(2V+1)\to0$ 逐条轨道成立, 右端趋于零.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{It\^o 公式}
+
+记 $C^{1,2}$ 为 $[0,T]\times\R$ 上关于 $t$ 一阶、关于 $x$ 二阶连续可微的函数全体, 偏导数记为 $\partial_tf$, $\partial_xf$, $\partial_{xx}f$.
+
+\begin{theorem}[It\^o 公式]\label{thm:ito-formula}
+设 $X$ 是 It\^o 过程, $\dd X_t=b_t\dd t+\sigma_t\dd B_t$, $f\in C^{1,2}$. 则几乎必然地, 对一切 $t\in[0,T]$,
+\begin{equation}\label{eq:ito-formula}
+f(t,X_t)=f(0,X_0)+\int_0^t\partial_tf(s,X_s)\dd s+\int_0^t\partial_xf(s,X_s)\dd X_s+\frac{1}{2}\int_0^t\partial_{xx}f(s,X_s)\dd\ip{X}_s.
+\end{equation}
+写成微分形式, 并代入 $\dd X$ 与 $\dd\ip{X}$,
+\[
+\dd f(t,X_t)=\Big(\partial_tf+b_t\,\partial_xf+\frac{1}{2}\sigma_t^2\,\partial_{xx}f\Big)(t,X_t)\dd t+\sigma_t\,\partial_xf(t,X_t)\dd B_t.
+\]
+特别地, 对 $X=B$ 与 $f=f(x)$, $f(B_t)=f(B_0)+\int_0^tf'(B_s)\dd B_s+\frac{1}{2}\int_0^tf''(B_s)\dd s$.
+\end{theorem}
+
+\eqref{eq:ito-formula} 右端的每一项都有意义: $s\mapsto\partial_tf(s,X_s)$ 等都是轨道连续的适应过程, 在 $[0,t]$ 上有界. 证明的思路与普通链式法则相同, 只是 Taylor 展开要展开到二阶, 并用引理~\ref{lem:weighted-qv} 处理二阶项.
+
+\begin{proof}
+固定 $t\in(0,T]$, 取 $[0,t]$ 的二进分割 $\Pi_n$: $t_i=it2^{-n}$. 固定 $\omega$ (在下面用到的几乎必然事件中), 轨道 $s\mapsto X_s(\omega)$ 在 $[0,t]$ 上连续, 取值于某个紧区间 $K=[-R,R]$. $\partial_tf$ 与 $\partial_{xx}f$ 在紧集 $[0,t]\times K$ 上一致连续, 记它们的连续模为
+\[
+\rho_1(\delta)=\sup\big\{\abs{\partial_tf(s,x)-\partial_tf(s,y)}: s\le t,\ x,y\in K,\ \abs{x-y}\le\delta\big\},
+\]
+$\rho_2(\delta)$ 类似 (把 $\partial_tf$ 换成 $\partial_{xx}f$), 则 $\rho_1(\delta),\rho_2(\delta)\to0$ ($\delta\to0$). 记 $\delta_n=\max_{\abs{u-v}\le\abs{\Pi_n}}\abs{X_u-X_v}$, 由一致连续性 $\delta_n\to0$.
+
+把总增量拆为
+\[
+f(t,X_t)-f(0,X_0)=\sum_i\Big[f(t_i,X_{t_i})-f(t_{i-1},X_{t_i})\Big]+\sum_i\Big[f(t_{i-1},X_{t_i})-f(t_{i-1},X_{t_{i-1}})\Big].
+\]
+由微积分基本定理, 第一个和中的每一项等于 $\int_{t_{i-1}}^{t_i}\partial_tf(s,X_{t_i})\dd s$. 对第二个和中的每一项, 用带积分余项的 Taylor 公式 $\phi(y)-\phi(x)=\phi'(x)(y-x)+(y-x)^2\int_0^1(1-\theta)\phi''(x+\theta(y-x))\dd\theta$, 其中 $\phi=f(t_{i-1},\cdot)$, $x=X_{t_{i-1}}$, $y=X_{t_i}$. 注意 $\int_0^1(1-\theta)\dd\theta=\frac{1}{2}$, 得
+\[
+f(t_{i-1},X_{t_i})-f(t_{i-1},X_{t_{i-1}})=\partial_xf(t_{i-1},X_{t_{i-1}})\Delta X_i+\frac{1}{2}\partial_{xx}f(t_{i-1},X_{t_{i-1}})(\Delta X_i)^2+r_i,
+\]
+其中
+\[
+r_i=(\Delta X_i)^2\int_0^1(1-\theta)\Big[\partial_{xx}f\big(t_{i-1},X_{t_{i-1}}+\theta\Delta X_i\big)-\partial_{xx}f\big(t_{i-1},X_{t_{i-1}}\big)\Big]\dd\theta,
+\]
+满足 $\abs{r_i}\le\frac{1}{2}\rho_2(\delta_n)(\Delta X_i)^2$.
+于是 $f(t,X_t)-f(0,X_0)=I_1^n+I_2^n+\frac{1}{2}I_3^n+R^n$, 其中
+\begin{align*}
+I_1^n&=\sum_i\int_{t_{i-1}}^{t_i}\partial_tf(s,X_{t_i})\dd s, & I_2^n&=\sum_i\partial_xf(t_{i-1},X_{t_{i-1}})\Delta X_i,\\
+I_3^n&=\sum_i\partial_{xx}f(t_{i-1},X_{t_{i-1}})(\Delta X_i)^2, & R^n&=\sum_ir_i.
+\end{align*}
+令 $n\to\infty$, 对各项分别求极限:
+\begin{itemize}
+\item $\abs{I_1^n-\int_0^t\partial_tf(s,X_s)\dd s}\le\sum_i\int_{t_{i-1}}^{t_i}\abs{\partial_tf(s,X_{t_i})-\partial_tf(s,X_s)}\dd s\le t\,\rho_1(\delta_n)\to0$, 逐条轨道成立.
+\item 由引理~\ref{lem:riemann-dX} (取 $g_s=\partial_xf(s,X_s)$), $I_2^n\to\int_0^t\partial_xf(s,X_s)\dd X_s$ 依概率.
+\item 由引理~\ref{lem:weighted-qv} (取 $g_s=\partial_{xx}f(s,X_s)$, 二进分割是嵌套的), $I_3^n\to\int_0^t\partial_{xx}f(s,X_s)\dd\ip{X}_s$ 依概率.
+\item $\abs{R^n}\le\frac{1}{2}\rho_2(\delta_n)\sum_i(\Delta X_i)^2$. 由命题~\ref{prop:ito-process} (2), $\sum_i(\Delta X_i)^2\to\ip{X}_t$ 依概率, 而 $\rho_2(\delta_n)\to0$ 逐条轨道, 所以 $R^n\to0$ 依概率.
+\end{itemize}
+左端与 $n$ 无关, 依概率收敛的极限几乎必然唯一, 所以 \eqref{eq:ito-formula} 对固定的 $t$ 几乎必然成立. 对有理数 $t$ 取可列交, 而两端都关于 $t$ 连续, 所以几乎必然地 \eqref{eq:ito-formula} 对一切 $t\in[0,T]$ 成立.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, width=12cm, height=6cm, xmin=0, xmax=2.06, ymin=-1.6, ymax=5.3,
+  xtick={0,0.5,1,1.5,2}, ytick={-1,0,1,2,3,4,5}, xlabel={$t$},
+  legend style={font=\small,draw=none,fill=none,at={(0.5,-0.2)},anchor=north}, legend columns=3, legend cell align=left]
+  \addplot[SADark,thin] coordinates {(0.000,0.000) (0.005,0.003) (0.010,0.000) (0.015,0.001) (0.020,0.014) (0.025,0.013) (0.030,0.035) (0.035,0.035) (0.040,0.026) (0.045,0.033) (0.050,0.015) (0.055,0.041) (0.060,0.008) (0.065,0.002) (0.070,0.004) (0.075,0.001) (0.080,0.005) (0.085,0.020) (0.090,0.041) (0.095,0.029) (0.100,0.024) (0.105,0.008) (0.110,0.002) (0.115,0.002) (0.120,0.001) (0.125,0.001) (0.130,0.000) (0.135,0.017) (0.140,0.046) (0.145,0.030) (0.150,0.071) (0.155,0.057) (0.160,0.058) (0.165,0.062) (0.170,0.066) (0.175,0.053) (0.180,0.068) (0.185,0.050) (0.190,0.090) (0.195,0.088) (0.200,0.070) (0.205,0.135) (0.210,0.163) (0.215,0.327) (0.220,0.443) (0.225,0.432) (0.230,0.640) (0.235,0.515) (0.240,0.475) (0.245,0.599) (0.250,0.670) (0.255,0.636) (0.260,0.692) (0.265,0.640) (0.270,0.629) (0.275,0.592) (0.280,0.623) (0.285,0.758) (0.290,0.983) (0.295,0.994) (0.300,0.935) (0.305,0.797) (0.310,0.682) (0.315,0.700) (0.320,0.637) (0.325,0.720) (0.330,0.496) (0.335,0.465) (0.340,0.379) (0.345,0.339) (0.350,0.349) (0.355,0.332) (0.360,0.147) (0.365,0.111) (0.370,0.059) (0.375,0.116) (0.380,0.070) (0.385,0.032) (0.390,0.049) (0.395,0.040) (0.400,0.104) (0.405,0.070) (0.410,0.050) (0.415,0.007) (0.420,0.014) (0.425,0.032) (0.430,0.004) (0.435,0.002) (0.440,0.024) (0.445,0.018) (0.450,0.009) (0.455,0.004) (0.460,0.000) (0.465,0.001) (0.470,0.003) (0.475,0.006) (0.480,0.006) (0.485,0.002) (0.490,0.000) (0.495,0.002) (0.500,0.003) (0.505,0.014) (0.510,0.006) (0.515,0.003) (0.520,0.005) (0.525,0.004) (0.530,0.004) (0.535,0.036) (0.540,0.059) (0.545,0.042) (0.550,0.033) (0.555,0.041) (0.560,0.040) (0.565,0.051) (0.570,0.084) (0.575,0.051) (0.580,0.057) (0.585,0.098) (0.590,0.109) (0.595,0.134) (0.600,0.114) (0.605,0.082) (0.610,0.093) (0.615,0.097) (0.620,0.070) (0.625,0.070) (0.630,0.068) (0.635,0.119) (0.640,0.120) (0.645,0.129) (0.650,0.090) (0.655,0.057) (0.660,0.044) (0.665,0.027) (0.670,0.076) (0.675,0.044) (0.680,0.090) (0.685,0.055) (0.690,0.063) (0.695,0.099) (0.700,0.129) (0.705,0.156) (0.710,0.183) (0.715,0.235) (0.720,0.281) (0.725,0.327) (0.730,0.443) (0.735,0.475) (0.740,0.457) (0.745,0.347) (0.750,0.550) (0.755,0.563) (0.760,0.643) (0.765,0.738) (0.770,0.632) (0.775,0.841) (0.780,0.852) (0.785,1.128) (0.790,1.153) (0.795,1.141) (0.800,1.118) (0.805,1.109) (0.810,1.160) (0.815,1.100) (0.820,0.979) (0.825,0.890) (0.830,1.058) (0.835,1.202) (0.840,1.434) (0.845,1.511) (0.850,1.527) (0.855,1.474) (0.860,1.681) (0.865,1.600) (0.870,1.545) (0.875,1.401) (0.880,1.412) (0.885,1.733) (0.890,2.103) (0.895,2.023) (0.900,2.431) (0.905,2.083) (0.910,2.163) (0.915,2.036) (0.920,2.093) (0.925,2.099) (0.930,2.439) (0.935,2.376) (0.940,2.288) (0.945,2.044) (0.950,2.092) (0.955,2.080) (0.960,2.291) (0.965,2.184) (0.970,2.458) (0.975,2.568) (0.980,2.093) (0.985,1.810) (0.990,1.981) (0.995,2.034) (1.000,2.241) (1.005,2.225) (1.010,2.027) (1.015,1.874) (1.020,1.769) (1.025,1.676) (1.030,1.988) (1.035,1.801) (1.040,1.654) (1.045,1.878) (1.050,2.004) (1.055,2.077) (1.060,1.704) (1.065,1.914) (1.070,1.738) (1.075,1.774) (1.080,1.980) (1.085,1.836) (1.090,1.666) (1.095,1.405) (1.100,1.265) (1.105,1.040) (1.110,1.134) (1.115,1.323) (1.120,1.114) (1.125,1.281) (1.130,1.204) (1.135,1.292) (1.140,1.243) (1.145,1.156) (1.150,1.145) (1.155,1.144) (1.160,1.307) (1.165,1.015) (1.170,1.154) (1.175,1.064) (1.180,0.873) (1.185,0.937) (1.190,0.674) (1.195,0.735) (1.200,0.796) (1.205,0.846) (1.210,0.745) (1.215,0.960) (1.220,1.077) (1.225,1.068) (1.230,0.936) (1.235,1.200) (1.240,1.049) (1.245,1.018) (1.250,0.684) (1.255,0.615) (1.260,0.470) (1.265,0.387) (1.270,0.419) (1.275,0.469) (1.280,0.412) (1.285,0.331) (1.290,0.347) (1.295,0.394) (1.300,0.385) (1.305,0.335) (1.310,0.345) (1.315,0.353) (1.320,0.267) (1.325,0.314) (1.330,0.207) (1.335,0.234) (1.340,0.144) (1.345,0.257) (1.350,0.219) (1.355,0.248) (1.360,0.167) (1.365,0.213) (1.370,0.292) (1.375,0.278) (1.380,0.316) (1.385,0.246) (1.390,0.304) (1.395,0.355) (1.400,0.389) (1.405,0.345) (1.410,0.257) (1.415,0.266) (1.420,0.260) (1.425,0.339) (1.430,0.336) (1.435,0.308) (1.440,0.391) (1.445,0.305) (1.450,0.317) (1.455,0.282) (1.460,0.218) (1.465,0.193) (1.470,0.234) (1.475,0.218) (1.480,0.157) (1.485,0.169) (1.490,0.136) (1.495,0.133) (1.500,0.136) (1.505,0.150) (1.510,0.156) (1.515,0.137) (1.520,0.046) (1.525,0.036) (1.530,0.011) (1.535,0.028) (1.540,0.020) (1.545,0.053) (1.550,0.041) (1.555,0.024) (1.560,0.066) (1.565,0.154) (1.570,0.220) (1.575,0.313) (1.580,0.267) (1.585,0.220) (1.590,0.285) (1.595,0.269) (1.600,0.305) (1.605,0.411) (1.610,0.616) (1.615,0.582) (1.620,0.536) (1.625,0.547) (1.630,0.554) (1.635,0.553) (1.640,0.616) (1.645,0.573) (1.650,0.754) (1.655,0.797) (1.660,0.827) (1.665,0.782) (1.670,0.784) (1.675,0.933) (1.680,0.987) (1.685,1.125) (1.690,1.194) (1.695,1.055) (1.700,1.147) (1.705,1.088) (1.710,1.167) (1.715,1.676) (1.720,1.473) (1.725,1.510) (1.730,1.648) (1.735,1.612) (1.740,1.662) (1.745,1.576) (1.750,1.941) (1.755,1.925) (1.760,1.785) (1.765,1.970) (1.770,2.216) (1.775,2.416) (1.780,2.323) (1.785,2.401) (1.790,2.453) (1.795,2.463) (1.800,2.527) (1.805,2.836) (1.810,3.215) (1.815,3.433) (1.820,3.302) (1.825,3.433) (1.830,3.815) (1.835,3.782) (1.840,4.175) (1.845,4.499) (1.850,4.355) (1.855,3.754) (1.860,3.513) (1.865,3.650) (1.870,3.351) (1.875,3.214) (1.880,2.924) (1.885,2.784) (1.890,3.174) (1.895,3.382) (1.900,3.551) (1.905,3.367) (1.910,3.042) (1.915,3.250) (1.920,3.495) (1.925,3.569) (1.930,3.558) (1.935,3.275) (1.940,3.221) (1.945,3.064) (1.950,3.286) (1.955,3.431) (1.960,4.054) (1.965,4.167) (1.970,4.874) (1.975,4.681) (1.980,4.641) (1.985,4.752) (1.990,5.105) (1.995,4.973) (2.000,4.715)};
+  \addplot[SABlue,thin] coordinates {(0.000,0.000) (0.005,-0.005) (0.010,-0.012) (0.015,-0.019) (0.020,-0.016) (0.025,-0.018) (0.030,0.000) (0.035,-0.004) (0.040,-0.014) (0.045,-0.010) (0.050,-0.030) (0.055,-0.011) (0.060,-0.049) (0.065,-0.056) (0.070,-0.056) (0.075,-0.060) (0.080,-0.059) (0.085,-0.047) (0.090,-0.029) (0.095,-0.046) (0.100,-0.054) (0.105,-0.077) (0.110,-0.098) (0.115,-0.098) (0.120,-0.104) (0.125,-0.107) (0.130,-0.116) (0.135,-0.104) (0.140,-0.082) (0.145,-0.100) (0.150,-0.063) (0.155,-0.078) (0.160,-0.083) (0.165,-0.081) (0.170,-0.078) (0.175,-0.092) (0.180,-0.081) (0.185,-0.100) (0.190,-0.065) (0.195,-0.072) (0.200,-0.091) (0.205,-0.034) (0.210,-0.010) (0.215,0.142) (0.220,0.255) (0.225,0.244) (0.230,0.446) (0.235,0.315) (0.240,0.270) (0.245,0.390) (0.250,0.460) (0.255,0.423) (0.260,0.476) (0.265,0.420) (0.270,0.406) (0.275,0.367) (0.280,0.397) (0.285,0.525) (0.290,0.741) (0.295,0.746) (0.300,0.686) (0.305,0.545) (0.310,0.429) (0.315,0.445) (0.320,0.376) (0.325,0.456) (0.330,0.227) (0.335,0.193) (0.340,0.106) (0.345,0.063) (0.350,0.066) (0.355,0.046) (0.360,-0.151) (0.365,-0.188) (0.370,-0.246) (0.375,-0.196) (0.380,-0.246) (0.385,-0.287) (0.390,-0.273) (0.395,-0.285) (0.400,-0.227) (0.405,-0.264) (0.410,-0.295) (0.415,-0.344) (0.420,-0.346) (0.425,-0.334) (0.430,-0.369) (0.435,-0.379) (0.440,-0.360) (0.445,-0.375) (0.450,-0.386) (0.455,-0.396) (0.460,-0.400) (0.465,-0.402) (0.470,-0.405) (0.475,-0.415) (0.480,-0.417) (0.485,-0.422) (0.490,-0.427) (0.495,-0.432) (0.500,-0.433) (0.505,-0.426) (0.510,-0.438) (0.515,-0.442) (0.520,-0.451) (0.525,-0.462) (0.530,-0.464) (0.535,-0.438) (0.540,-0.420) (0.545,-0.440) (0.550,-0.454) (0.555,-0.447) (0.560,-0.460) (0.565,-0.455) (0.570,-0.428) (0.575,-0.469) (0.580,-0.469) (0.585,-0.435) (0.590,-0.424) (0.595,-0.403) (0.600,-0.429) (0.605,-0.469) (0.610,-0.467) (0.615,-0.467) (0.620,-0.495) (0.625,-0.497) (0.630,-0.500) (0.635,-0.460) (0.640,-0.468) (0.645,-0.460) (0.650,-0.501) (0.655,-0.538) (0.660,-0.553) (0.665,-0.575) (0.670,-0.538) (0.675,-0.572) (0.680,-0.529) (0.685,-0.568) (0.690,-0.567) (0.695,-0.535) (0.700,-0.514) (0.705,-0.499) (0.710,-0.474) (0.715,-0.425) (0.720,-0.381) (0.725,-0.344) (0.730,-0.232) (0.735,-0.201) (0.740,-0.221) (0.745,-0.334) (0.750,-0.140) (0.755,-0.132) (0.760,-0.054) (0.765,0.038) (0.770,-0.075) (0.775,0.123) (0.780,0.130) (0.785,0.400) (0.790,0.418) (0.795,0.401) (0.800,0.375) (0.805,0.360) (0.810,0.406) (0.815,0.341) (0.820,0.216) (0.825,0.124) (0.830,0.281) (0.835,0.420) (0.840,0.642) (0.845,0.718) (0.850,0.730) (0.855,0.676) (0.860,0.881) (0.865,0.798) (0.870,0.739) (0.875,0.591) (0.880,0.598) (0.885,0.910) (0.890,1.275) (0.895,1.191) (0.900,1.593) (0.905,1.241) (0.910,1.317) (0.915,1.184) (0.920,1.239) (0.925,1.237) (0.930,1.556) (0.935,1.492) (0.940,1.400) (0.945,1.149) (0.950,1.194) (0.955,1.180) (0.960,1.387) (0.965,1.279) (0.970,1.549) (0.975,1.656) (0.980,1.169) (0.985,0.882) (0.990,1.051) (0.995,1.098) (1.000,1.299) (1.005,1.281) (1.010,1.075) (1.015,0.920) (1.020,0.814) (1.025,0.719) (1.030,1.020) (1.035,0.827) (1.040,0.676) (1.045,0.897) (1.050,1.019) (1.055,1.091) (1.060,0.712) (1.065,0.918) (1.070,0.740) (1.075,0.774) (1.080,0.975) (1.085,0.828) (1.090,0.652) (1.095,0.385) (1.100,0.242) (1.105,0.013) (1.110,0.105) (1.115,0.289) (1.120,0.077) (1.125,0.241) (1.130,0.157) (1.135,0.238) (1.140,0.184) (1.145,0.090) (1.150,0.076) (1.155,0.071) (1.160,0.229) (1.165,-0.068) (1.170,0.069) (1.175,-0.024) (1.180,-0.219) (1.185,-0.156) (1.190,-0.429) (1.195,-0.371) (1.200,-0.314) (1.205,-0.273) (1.210,-0.376) (1.215,-0.164) (1.220,-0.049) (1.225,-0.061) (1.230,-0.198) (1.235,0.056) (1.240,-0.096) (1.245,-0.129) (1.250,-0.476) (1.255,-0.551) (1.260,-0.702) (1.265,-0.790) (1.270,-0.760) (1.275,-0.712) (1.280,-0.771) (1.285,-0.856) (1.290,-0.841) (1.295,-0.796) (1.300,-0.809) (1.305,-0.859) (1.310,-0.851) (1.315,-0.846) (1.320,-0.938) (1.325,-0.892) (1.330,-1.005) (1.335,-0.981) (1.340,-1.081) (1.345,-0.974) (1.350,-1.018) (1.355,-0.991) (1.360,-1.082) (1.365,-1.041) (1.370,-0.968) (1.375,-0.985) (1.380,-0.952) (1.385,-1.031) (1.390,-0.976) (1.395,-0.925) (1.400,-0.893) (1.405,-0.939) (1.410,-1.033) (1.415,-1.025) (1.420,-1.033) (1.425,-0.958) (1.430,-0.965) (1.435,-0.998) (1.440,-0.918) (1.445,-1.006) (1.450,-0.998) (1.455,-1.037) (1.460,-1.109) (1.465,-1.136) (1.470,-1.101) (1.475,-1.120) (1.480,-1.186) (1.485,-1.179) (1.490,-1.218) (1.495,-1.223) (1.500,-1.221) (1.505,-1.210) (1.510,-1.209) (1.515,-1.232) (1.520,-1.334) (1.525,-1.346) (1.530,-1.374) (1.535,-1.359) (1.540,-1.368) (1.545,-1.339) (1.550,-1.354) (1.555,-1.373) (1.560,-1.335) (1.565,-1.254) (1.570,-1.189) (1.575,-1.101) (1.580,-1.152) (1.585,-1.203) (1.590,-1.148) (1.595,-1.164) (1.600,-1.130) (1.605,-1.030) (1.610,-0.831) (1.615,-0.871) (1.620,-0.921) (1.625,-0.913) (1.630,-0.908) (1.635,-0.914) (1.640,-0.855) (1.645,-0.903) (1.650,-0.725) (1.655,-0.691) (1.660,-0.669) (1.665,-0.718) (1.670,-0.723) (1.675,-0.579) (1.680,-0.532) (1.685,-0.396) (1.690,-0.330) (1.695,-0.473) (1.700,-0.388) (1.705,-0.454) (1.710,-0.384) (1.715,0.113) (1.720,-0.093) (1.725,-0.062) (1.730,0.073) (1.735,0.032) (1.740,0.081) (1.745,-0.007) (1.750,0.353) (1.755,0.335) (1.760,0.193) (1.765,0.370) (1.770,0.606) (1.775,0.802) (1.780,0.702) (1.785,0.774) (1.790,0.824) (1.795,0.829) (1.800,0.889) (1.805,1.192) (1.810,1.568) (1.815,1.779) (1.820,1.646) (1.825,1.767) (1.830,2.144) (1.835,2.103) (1.840,2.489) (1.845,2.806) (1.850,2.659) (1.855,2.051) (1.860,1.804) (1.865,1.935) (1.870,1.632) (1.875,1.494) (1.880,1.198) (1.885,1.055) (1.890,1.440) (1.895,1.644) (1.900,1.807) (1.905,1.619) (1.910,1.288) (1.915,1.492) (1.920,1.733) (1.925,1.795) (1.930,1.779) (1.935,1.493) (1.940,1.436) (1.945,1.275) (1.950,1.495) (1.955,1.636) (1.960,2.250) (1.965,2.357) (1.970,3.053) (1.975,2.858) (1.980,2.817) (1.985,2.926) (1.990,3.274) (1.995,3.138) (2.000,2.876)};
+  \addplot[SARed,thick,dashed] coordinates {(0,0) (2,2)};
+  \legend{$B_t^2$, $2\int_0^tB_s\dd B_s$, $t$}
+\end{axis}
+\end{tikzpicture}
+\caption{It\^o 公式 $B_t^2=2\int_0^tB_s\dd B_s+t$ 的一个实现. 鞅部分 $2\int_0^tB\dd B$ (蓝色, 用左端点 Riemann 和计算) 围绕零上下波动, 均值恒为零; 两者之差恰为确定性的修正项 $t$ (红色虚线): 它来自布朗运动的二次变差}
+\label{fig:ito-square}
+\end{figure}
+
+\begin{intuition}
+It\^o 公式表明, $f(t,X_t)$ 仍是 It\^o 过程, 它的扩散系数是 ``链式法则'' 给出的 $\sigma\,\partial_xf$, 而漂移系数除了链式法则给出的 $\partial_tf+b\,\partial_xf$ 之外, 多出一项 $\frac{1}{2}\sigma^2\partial_{xx}f$. 这一项来自 Jensen 式的凸性效应. 若 $f$ 是凸的 ($f''>0$), 则在对称的随机扰动下, $f$ 的平均值会上升. 例如 $f(x)=x^2$: $B_t$ 的均值不变, 但 $B_t^2$ 的均值以速率 $1$ 增长 (图~\ref{fig:ito-square}).
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{多维 It\^o 公式}
+
+设 $\rvec{B}=(B^1,\dots,B^d)^\T$ 是 $d$ 维 $\{\mathcal{F}_t\}$-布朗运动: 它适应、轨道连续、$\rvec{B}_0=\rvec{0}$, 且对 $s<t$, $\rvec{B}_t-\rvec{B}_s$ 与 $\mathcal{F}_s$ 独立, 服从 $N(\rvec{0},(t-s)\mat{I}_d)$. 每个分量 $B^k$ 都是 $\{\mathcal{F}_t\}$-布朗运动, 所以对 $H\in\mathscr{L}^2_{\mathrm{loc}}$, 积分 $\int H\dd B^k$ 已有定义.
+
+\begin{proposition}[独立分量的交互变差]\label{prop:cross-bm}
+设 $H,K\in\mathscr{L}^2_T$, $k\ne l$. 则 $(H\cdot B^k)(K\cdot B^l)$ 是鞅. 若 $H,K\in\mathscr{L}^2_{\mathrm{loc}}$, 则它是局部鞅.
+\end{proposition}
+
+\begin{proof}
+先设 $H,K\in\mathscr{S}_T$, 不妨写在同一分割上: $H=\sum_i\xi_{i-1}\1_{(t_{i-1},t_i]}$, $K=\sum_i\eta_{i-1}\1_{(t_{i-1},t_i]}$ (时刻 $0$ 处的值不影响积分). 与命题~\ref{prop:simple-integral} (2) 的证明相同, 只需验证: 对 $i<j$, $\E[\xi_{i-1}\Delta B^k_i\,\eta_{j-1}\Delta B^l_j\,|\,\mathcal{F}_{t_{j-1}}]=0$, 这由 $\E[\Delta B^l_j\,|\,\mathcal{F}_{t_{j-1}}]=0$ 得到; 对 $i=j$,
+\[
+\E\big[\xi_{i-1}\eta_{i-1}\Delta B^k_i\Delta B^l_i\,\big|\,\mathcal{F}_{t_{i-1}}\big]=\xi_{i-1}\eta_{i-1}\E\big[\Delta B^k_i\Delta B^l_i\big]=0,
+\]
+因为 $(\Delta B^k_i,\Delta B^l_i)$ 与 $\mathcal{F}_{t_{i-1}}$ 独立, 且两个分量独立、均值为零. 于是 $\E[(H\cdot B^k)_t(K\cdot B^l)_t-(H\cdot B^k)_s(K\cdot B^l)_s\,|\,\mathcal{F}_s]=0$. 一般情形由 $L^2$ 逼近 (与定理~\ref{thm:ito-properties} (3) 的证明相同) 与局部化得到.
+\end{proof}
+
+设 $\rvec{X}=(X^1,\dots,X^n)^\T$, 其中
+\begin{equation}\label{eq:ito-process-multi}
+X^i_t=X^i_0+\int_0^tb^i_s\dd s+\sum_{k=1}^d\int_0^t\sigma^{ik}_s\dd B^k_s,\qquad i=1,\dots,n,
+\end{equation}
+$b^i$ 与 $\sigma^{ik}$ 满足定义~\ref{def:ito-process} 中的条件. 写成向量形式 $\dd\rvec{X}_t=\rvec{b}_t\dd t+\mat{\Sigma}_t\dd\rvec{B}_t$, 其中 $\mat{\Sigma}_t=(\sigma^{ik}_t)$ 是 $n\times d$ 矩阵值过程. 由命题~\ref{prop:cross-bm}, $X^i$ 的鞅部分 $M^i=\sum_k\int\sigma^{ik}\dd B^k$ 满足 $M^iM^j-\int_0^\cdot\sum_k\sigma^{ik}\sigma^{jk}\dd s$ 是局部鞅. 与命题~\ref{prop:ito-process} (2) 相同, 对 $[0,t]$ 的分割, $\sum\Delta X^i\Delta X^j$ 依概率收敛到
+\[
+\ip{X^i,X^j}_t=\int_0^t\sum_{k=1}^d\sigma^{ik}_s\sigma^{jk}_s\dd s=\int_0^t\big(\mat{\Sigma}_s\mat{\Sigma}_s^\T\big)_{ij}\dd s.
+\]
+乘法表 \eqref{eq:mult-table} 相应地推广为 $\dd B^k_t\cdot\dd B^l_t=\delta_{kl}\dd t$: 独立的布朗运动之间没有交互变差.
+
+\begin{theorem}[多维 It\^o 公式]\label{thm:ito-multi}
+设 $\rvec{X}$ 如 \eqref{eq:ito-process-multi}, $f:[0,T]\times\R^n\to\R$ 关于 $t$ 一阶、关于 $\rvec{x}$ 二阶连续可微. 则几乎必然地, 对一切 $t\le T$,
+\[
+f(t,\rvec{X}_t)=f(0,\rvec{X}_0)+\int_0^t\partial_tf\dd s+\sum_{i=1}^n\int_0^t\partial_if\dd X^i_s+\frac{1}{2}\sum_{i,j=1}^n\int_0^t\partial_{ij}f\dd\ip{X^i,X^j}_s,
+\]
+其中偏导数都在 $(s,\rvec{X}_s)$ 处取值, $\partial_i=\partial/\partial x_i$.
+\end{theorem}
+
+\begin{proof}
+与定理~\ref{thm:ito-formula} 的证明完全相同, 只有两处改动: Taylor 公式换成多元形式, 二阶项为 $\frac{1}{2}\sum_{i,j}\partial_{ij}f\,\Delta X^i\Delta X^j$; 引理~\ref{lem:weighted-qv} 换成交互变差的版本 $\sum g_{t_{l-1}}\Delta X^i_l\Delta X^j_l\to\int g\dd\ip{X^i,X^j}$, 它由引理~\ref{lem:weighted-qv} 应用于 It\^o 过程 $X^i\pm X^j$ 并作极化得到 (引理~\ref{lem:weighted-qv} 的证明对由多维布朗运动驱动的 It\^o 过程逐字成立).
+\end{proof}
+
+\begin{corollary}[乘积法则]\label{cor:product-rule}
+设 $X$, $Y$ 是 It\^o 过程. 则
+\[
+X_tY_t=X_0Y_0+\int_0^tX_s\dd Y_s+\int_0^tY_s\dd X_s+\ip{X,Y}_t,
+\]
+即 $\dd(XY)=X\dd Y+Y\dd X+\dd\ip{X,Y}$.
+特别地, 若 $Y$ 是有限变差的 ($Y$ 的扩散系数为零), 则 $\dd(XY)=X\dd Y+Y\dd X$, 与普通的分部积分相同.
+\end{corollary}
+
+\begin{proof}
+对 $f(x,y)=xy$ 应用定理~\ref{thm:ito-multi}: $\partial_xf=y$, $\partial_yf=x$, $\partial_{xy}f=\partial_{yx}f=1$, $\partial_{xx}f=\partial_{yy}f=0$.
+\end{proof}
+
+\begin{remark}[Stratonovich 积分]
+对 It\^o 过程 $X$, $Y$, 定义 Stratonovich 积分 $\int_0^tY_s\circ\dd X_s=\int_0^tY_s\dd X_s+\frac{1}{2}\ip{Y,X}_t$; 可以证明它是中点 Riemann 和 $\sum\frac{1}{2}(Y_{t_{i-1}}+Y_{t_i})\Delta X_i$ 的极限 (与命题~\ref{prop:three-sums} 比较). 若 $f\in C^3$, 对 $Y=f'(X)$ 应用 It\^o 公式得 $\ip{f'(X),X}_t=\int_0^tf''(X_s)\dd\ip{X}_s$, 于是 It\^o 公式改写为
+\[
+f(X_t)=f(X_0)+\int_0^tf'(X_s)\circ\dd X_s,
+\]
+这正是普通的链式法则. 所以 Stratonovich 积分适合在流形上做几何 (坐标变换的规则与普通微积分相同), 也是光滑噪声逼近白噪声时的自然极限 (Wong-Zakai 定理); It\^o 积分则保持鞅性质, 适合计算期望. 二者可以按上式互相转换.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{应用举例}
+
+\begin{example}[多项式与矩]\label{ex:ito-moments}
+对 $f(x)=x^n$ ($n\ge2$), It\^o 公式给出
+\[
+B_t^n=n\int_0^tB_s^{n-1}\dd B_s+\frac{n(n-1)}{2}\int_0^tB_s^{n-2}\dd s.
+\]
+$n=2$ 时就是 \eqref{eq:int-BdB}. 由于 $\E\int_0^tB_s^{2n-2}\dd s<\infty$, 被积过程 $B^{n-1}\in\mathscr{L}^2_T$, 随机积分的期望为零 (定理~\ref{thm:ito-properties} (2)). 由 Fubini 定理,
+\[
+\E B_t^n=\frac{n(n-1)}{2}\int_0^t\E B_s^{n-2}\dd s.
+\]
+由 $\E B_t^0=1$, $\E B_t=0$ 归纳得 $\E B_t^{2k+1}=0$, $\E B_t^{2k}=\frac{(2k)(2k-1)}{2}\int_0^t(2k-3)!!\,s^{k-1}\dd s=(2k-1)!!\,t^k$, 与例~\ref{ex:normal-mgf} 一致. 这里没有用到正态密度, 只用了 It\^o 公式.
+\end{example}
+
+\begin{proposition}[随机指数]\label{prop:stochastic-exp}
+设 $\theta\in\mathscr{L}^2_{\mathrm{loc}}$, 令
+\[
+Z_t=\exp\Big(\int_0^t\theta_s\dd B_s-\frac{1}{2}\int_0^t\theta_s^2\dd s\Big).
+\]
+则 $Z$ 满足 $\dd Z_t=\theta_tZ_t\dd B_t$, 即 $Z_t=1+\int_0^tZ_s\theta_s\dd B_s$. 因此 $Z$ 是非负连续局部鞅, 从而是上鞅, $\E Z_t\le1$; $Z$ 在 $[0,T]$ 上是鞅当且仅当 $\E Z_T=1$.
+\end{proposition}
+
+\begin{proof}
+$X_t=\int_0^t\theta\dd B-\frac{1}{2}\int_0^t\theta^2\dd s$ 是 It\^o 过程, $\dd\ip{X}_t=\theta_t^2\dd t$. 对 $f(x)=e^x$ 应用 It\^o 公式,
+\[
+\dd Z_t=Z_t\dd X_t+\frac{1}{2}Z_t\dd\ip{X}_t=Z_t\theta_t\dd B_t-\frac{1}{2}Z_t\theta_t^2\dd t+\frac{1}{2}Z_t\theta_t^2\dd t=Z_t\theta_t\dd B_t.
+\]
+$Z\theta$ 轨道上平方可积, 所以 $Z$ 是连续局部鞅 (定理~\ref{thm:ito-local}). 非负连续局部鞅是上鞅 (命题~\ref{prop:local-martingale} (4)), 所以 $\E Z_t\le\E Z_0=1$. 若 $\E Z_T=1$, 则对 $t\le T$, $1\ge\E Z_t\ge\E Z_T=1$, 而 $Z_t-\E[Z_T\,|\,\mathcal{F}_t]\ge0$ 的期望为零, 所以 $Z_t=\E[Z_T\,|\,\mathcal{F}_t]$ $\as$, 即 $Z$ 是鞅; 反之显然.
+\end{proof}
+
+$Z$ 记作 $\mathscr{E}(\theta\cdot B)$, 称为\textbf{随机指数} (Dol\'eans-Dade 指数): 它是线性方程 $\dd Z=Z\,\theta\dd B$, $Z_0=1$ 的解, 是普通指数函数 ($\dd z=z\,\dd x$ 的解) 的随机类比, 修正项 $-\frac{1}{2}\int\theta^2$ 来自 It\^o 公式. 当 $\theta$ 是常数时, 它就是第~4~章的指数鞅. 一般情况下 $Z$ 可能只是严格的上鞅 ($\E Z_T<1$), 5.4 节将给出保证 $\E Z_T=1$ 的条件.
+
+\begin{example}[几何布朗运动与 Ornstein-Uhlenbeck 过程]\label{ex:gbm-ou}
+(1) 设 $S_t=s_0\exp\big(\sigma B_t+(\mu-\frac{1}{2}\sigma^2)t\big)$ (4.5.5 小节). 对 $f(t,x)=s_0\exp\big(\sigma x+(\mu-\frac{1}{2}\sigma^2)t\big)$, $\partial_tf=(\mu-\frac{1}{2}\sigma^2)f$, $\partial_xf=\sigma f$, $\partial_{xx}f=\sigma^2f$. 由 It\^o 公式,
+\[
+\dd S_t=\Big(\mu-\frac{1}{2}\sigma^2\Big)S_t\dd t+\sigma S_t\dd B_t+\frac{1}{2}\sigma^2S_t\dd t=\mu S_t\dd t+\sigma S_t\dd B_t.
+\]
+这就是 Black-Scholes 模型的随机微分方程: 股价的瞬时收益率 $\frac{\dd S_t}{S_t}$ 等于 $\mu\dd t$ 加上噪声 $\sigma\dd B_t$. 第~4~章所说的 ``波动率拖累'' 在这里看得很清楚: $\dd\log S_t=(\mu-\frac{1}{2}\sigma^2)\dd t+\sigma\dd B_t$, 对数的漂移比收益率的漂移少 $\frac{1}{2}\sigma^2$.
+
+(2) 设 $\theta,\sigma>0$, $U_0$ 是 $\mathcal{F}_0$-可测的. 令 $Y_t=U_0+\sigma\int_0^te^{\theta s}\dd B_s$, $U_t=e^{-\theta t}Y_t$. 由乘积法则 ($e^{-\theta t}$ 有限变差, $\dd Y_t=\sigma e^{\theta t}\dd B_t$),
+\[
+\dd U_t=Y_t\dd\big(e^{-\theta t}\big)+e^{-\theta t}\dd Y_t=-\theta U_t\dd t+\sigma\dd B_t.
+\]
+所以 $U$ 满足 Ornstein-Uhlenbeck 方程 $\dd U_t=-\theta U_t\dd t+\sigma\dd B_t$: 漂移 $-\theta U_t$ 把过程拉回零点. 若 $U_0=u$ 是常数, 由 Wiener 积分 (命题~\ref{prop:wiener-integral}), $U_t\sim N\big(ue^{-\theta t},\frac{\sigma^2}{2\theta}(1-e^{-2\theta t})\big)$; 当 $t\to\infty$ 时趋于平稳分布 $N(0,\frac{\sigma^2}{2\theta})$. 取 $\theta=1$, $\sigma=\sqrt{2}$, 就得到例~\ref{ex:ou} 中的过程.
+\end{example}
+
+\begin{proposition}[时空调和函数与鞅]\label{prop:space-time-harmonic}
+设 $h\in C^{1,2}$ 满足向后热方程
+\[
+\partial_th+\frac{1}{2}\partial_{xx}h=0.
+\]
+则 $h(t,B_t)=h(0,0)+\int_0^t\partial_xh(s,B_s)\dd B_s$ 是连续局部鞅; 若 $\E\int_0^T\big(\partial_xh(s,B_s)\big)^2\dd s<\infty$, 它是鞅.
+\end{proposition}
+
+\begin{proof}
+由 It\^o 公式, $\dd h(t,B_t)=(\partial_th+\frac{1}{2}\partial_{xx}h)\dd t+\partial_xh\dd B_t=\partial_xh\dd B_t$. 后一结论由定理~\ref{thm:ito-properties} (2) 得到.
+\end{proof}
+
+这就严格化了第~4~章的直观: $B_t$, $B_t^2-t$, $e^{\theta B_t-\theta^2t/2}$ 以及全部 Hermite 鞅 $H_n(B_t,t)$ 都由满足向后热方程的 $h$ 给出. 反过来, 第~6~章将从这个命题出发, 用鞅表示偏微分方程的解 (Feynman-Kac 公式).
+
+\begin{example}[多维布朗运动的常返与暂留]\label{ex:bm-annulus}
+设 $d\ge2$, $\rvec{x}\in\R^d$, $0<r<\abs{\rvec{x}}<R$, $\rvec{W}=\rvec{x}+\rvec{B}$ 是从 $\rvec{x}$ 出发的 $d$ 维布朗运动. 令
+\[
+\tau_r=\inf\{t:\abs{\rvec{W}_t}=r\},\qquad\tau_R=\inf\{t:\abs{\rvec{W}_t}=R\},\qquad\tau=\tau_r\wedge\tau_R.
+\]
+我们计算 $p=\P(\tau_r<\tau_R)$, 即在走出大球之前先进入小球的概率 (图~\ref{fig:annulus}). 关键是找一个在环形区域上满足 $\Delta f=\sum_i\partial_{ii}f=0$ 的径向函数 (调和函数):
+\[
+f(\rvec{y})=\begin{cases}\log\abs{\rvec{y}},&d=2,\\ \abs{\rvec{y}}^{2-d},&d\ge3.\end{cases}
+\]
+直接计算可验证 $\Delta f=0$ 在 $\R^d\setminus\{\rvec{0}\}$ 上成立. 把 $f$ 在 $\{\frac{r}{2}<\abs{\rvec{y}}<2R\}$ 之外修改为 $\R^d$ 上的 $C^2$ 函数 $\tilde{f}$ (不影响下面的论证, 因为停止过程不离开闭环形区域). 由多维 It\^o 公式 ($\dd\ip{W^i,W^j}_t=\delta_{ij}\dd t$),
+\begin{align*}
+f(\rvec{W}_{t\wedge\tau})&=f(\rvec{x})+\sum_{i=1}^d\int_0^{t\wedge\tau}\partial_if(\rvec{W}_s)\dd B^i_s+\frac{1}{2}\int_0^{t\wedge\tau}\Delta f(\rvec{W}_s)\dd s\\
+&=f(\rvec{x})+\sum_{i=1}^d\int_0^t\1_{\{s\le\tau\}}\partial_if(\rvec{W}_s)\dd B^i_s.
+\end{align*}
+被积过程有界, 属于 $\mathscr{L}^2_T$, 所以 $\E f(\rvec{W}_{t\wedge\tau})=f(\rvec{x})$. 与定理~\ref{thm:exit} (1) 相同可证 $\tau<\infty$ $\as$ (考察第一个分量 $W^1$ 离开 $(-R,R)$ 的时刻即可). 令 $t\to\infty$, 由有界收敛定理, $f(\rvec{x})=p\,f(r)+(1-p)\,f(R)$ (这里 $f(r)$ 指 $f$ 在半径为 $r$ 的球面上的值). 于是
+\[
+p=\frac{f(R)-f(\abs{\rvec{x}})}{f(R)-f(r)}=\begin{cases}\dfrac{\log R-\log\abs{\rvec{x}}}{\log R-\log r},&d=2,\\[2ex]\dfrac{R^{2-d}-\abs{\rvec{x}}^{2-d}}{R^{2-d}-r^{2-d}},&d\ge3.\end{cases}
+\]
+\begin{itemize}
+\item 令 $R\to\infty$: $d=2$ 时 $p\to1$, 平面布朗运动必然进入任何小圆盘 (\textbf{邻域常返}); $d\ge3$ 时 $p\to(r/\abs{\rvec{x}})^{d-2}<1$, 布朗运动有正概率永不进入小球 (\textbf{暂留}). 可以进一步证明, $d\ge3$ 时 $\abs{\rvec{W}_t}\to\infty$ $\as$ (见~\cite{morters} 第 3 章).
+\item 令 $r\to0$ ($R$ 固定): 对一切 $d\ge2$, $p\to0$. 所以在走出大球之前击中原点的概率为零; 再令 $R\to\infty$, 得到 $d\ge2$ 时布朗运动 (从 $\rvec{x}\ne\rvec{0}$ 出发) 几乎必然永不击中原点: 单点是 ``极集'' (polar).
+\end{itemize}
+这就是 P\'olya 关于随机游动的著名结论的连续版本: ``醉汉总能回家, 醉鸟却可能永远迷路.''
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=2.6]
+  \fill[SABlue!6] (0,0) circle (1);
+  \fill[white] (0,0) circle (0.25);
+  \draw[SADark!70,thick] (0,0) circle (1);
+  \draw[SARed,thick] (0,0) circle (0.25);
+  \fill[SADark] (0,0) circle (0.6pt) node[below right,font=\scriptsize] {$\rvec{0}$};
+  \draw[SABlue,very thin] plot coordinates {(0.550,0.000) (0.545,0.057) (0.575,0.056) (0.531,0.028) (0.571,0.019) (0.592,0.013) (0.600,-0.044) (0.635,-0.042) (0.613,0.006) (0.596,0.031) (0.617,0.055) (0.577,0.070) (0.523,0.074) (0.556,0.113) (0.571,0.083) (0.547,0.101) (0.572,0.125) (0.538,0.158) (0.564,0.122) (0.521,0.096) (0.505,0.080) (0.515,0.061) (0.492,0.127) (0.517,0.110) (0.542,0.082) (0.572,0.075) (0.604,0.143) (0.601,0.144) (0.595,0.107) (0.566,0.095) (0.573,0.122) (0.543,0.139) (0.556,0.095) (0.599,0.116) (0.579,0.112) (0.574,0.133) (0.568,0.142) (0.546,0.108) (0.565,0.122) (0.543,0.106) (0.560,0.080) (0.574,0.114) (0.584,0.145) (0.574,0.129) (0.551,0.106) (0.537,0.125) (0.528,0.158) (0.462,0.180) (0.452,0.161) (0.480,0.144) (0.456,0.161) (0.459,0.128) (0.464,0.129) (0.475,0.131) (0.477,0.135) (0.483,0.118) (0.464,0.110) (0.471,0.087) (0.467,0.051) (0.515,0.096) (0.547,0.104) (0.520,0.126) (0.508,0.154) (0.496,0.136) (0.515,0.123) (0.532,0.128) (0.542,0.091) (0.530,0.103) (0.540,0.067) (0.538,0.075) (0.529,0.058) (0.521,0.077) (0.508,0.058) (0.493,0.062) (0.462,0.056) (0.502,0.023) (0.501,0.030) (0.549,0.048) (0.566,0.054) (0.618,0.077) (0.592,0.067) (0.622,0.083) (0.607,0.071) (0.628,0.048) (0.624,0.060) (0.602,0.055) (0.627,0.029) (0.611,0.023) (0.629,-0.000) (0.612,0.035) (0.690,-0.008) (0.706,0.003) (0.711,0.039) (0.710,0.032) (0.711,0.047) (0.705,0.046) (0.739,0.052) (0.756,0.061) (0.748,0.045) (0.732,0.069) (0.729,0.068) (0.727,0.123) (0.669,0.113) (0.696,0.114) (0.681,0.153) (0.663,0.172) (0.708,0.212) (0.739,0.255) (0.733,0.232) (0.689,0.200) (0.696,0.208) (0.683,0.234) (0.669,0.260) (0.645,0.238) (0.651,0.233) (0.634,0.254) (0.644,0.272) (0.675,0.281) (0.671,0.228) (0.676,0.180) (0.694,0.153) (0.664,0.132) (0.702,0.126) (0.669,0.130) (0.677,0.143) (0.695,0.094) (0.652,0.106) (0.649,0.096) (0.634,0.099) (0.609,0.104) (0.561,0.123) (0.561,0.129) (0.544,0.114) (0.558,0.139) (0.559,0.161) (0.557,0.181) (0.539,0.190) (0.560,0.192) (0.538,0.174) (0.534,0.195) (0.539,0.200) (0.482,0.219) (0.439,0.215) (0.446,0.187) (0.472,0.193) (0.480,0.211) (0.485,0.207) (0.441,0.216) (0.452,0.231) (0.428,0.241) (0.406,0.244) (0.414,0.288) (0.392,0.319) (0.376,0.328) (0.378,0.341) (0.359,0.343) (0.388,0.317) (0.394,0.365) (0.403,0.344) (0.386,0.341) (0.434,0.353) (0.476,0.377) (0.527,0.372) (0.566,0.380) (0.559,0.379) (0.557,0.406) (0.575,0.425) (0.570,0.448) (0.586,0.441) (0.614,0.416) (0.590,0.434) (0.586,0.453) (0.579,0.405) (0.568,0.402) (0.522,0.445) (0.502,0.452) (0.484,0.434) (0.508,0.462) (0.511,0.448) (0.528,0.472) (0.542,0.474) (0.543,0.507) (0.532,0.530) (0.549,0.549) (0.533,0.538) (0.545,0.547) (0.529,0.549) (0.547,0.553) (0.556,0.570) (0.546,0.583) (0.548,0.578) (0.535,0.597) (0.515,0.598) (0.490,0.625) (0.470,0.623) (0.529,0.627) (0.537,0.642) (0.514,0.622) (0.521,0.625) (0.534,0.643) (0.577,0.632) (0.569,0.634) (0.551,0.648) (0.541,0.639) (0.555,0.603) (0.575,0.602) (0.595,0.582) (0.581,0.602) (0.614,0.632) (0.594,0.598) (0.569,0.575) (0.505,0.608) (0.576,0.616) (0.587,0.627) (0.586,0.602) (0.612,0.576) (0.575,0.586) (0.610,0.648) (0.633,0.622) (0.632,0.679) (0.617,0.662) (0.603,0.619) (0.555,0.620) (0.571,0.647) (0.546,0.625) (0.542,0.644) (0.556,0.653) (0.509,0.640) (0.498,0.663) (0.509,0.677) (0.540,0.661) (0.553,0.669) (0.515,0.630) (0.495,0.652) (0.533,0.627) (0.512,0.578) (0.505,0.589) (0.492,0.587) (0.487,0.539) (0.485,0.566) (0.498,0.538) (0.498,0.529) (0.506,0.498) (0.495,0.470) (0.485,0.475) (0.465,0.503) (0.485,0.496) (0.478,0.475) (0.427,0.457) (0.460,0.442) (0.441,0.440) (0.414,0.428) (0.442,0.440) (0.404,0.503) (0.423,0.484) (0.432,0.466) (0.466,0.476) (0.490,0.509) (0.502,0.480) (0.554,0.527) (0.588,0.561) (0.595,0.565) (0.592,0.572) (0.597,0.532) (0.600,0.536) (0.597,0.525) (0.590,0.533) (0.613,0.549) (0.584,0.549) (0.566,0.559) (0.577,0.547) (0.545,0.550) (0.551,0.523) (0.552,0.519) (0.536,0.518) (0.517,0.532) (0.503,0.550) (0.520,0.530) (0.490,0.482) (0.475,0.484) (0.464,0.474) (0.443,0.469) (0.457,0.494) (0.464,0.487) (0.493,0.485) (0.501,0.527) (0.489,0.525) (0.526,0.533) (0.501,0.515) (0.490,0.562) (0.475,0.592) (0.518,0.530) (0.485,0.521) (0.520,0.519) (0.547,0.551) (0.565,0.556) (0.545,0.573) (0.511,0.588) (0.547,0.600) (0.562,0.612) (0.596,0.575) (0.598,0.576) (0.606,0.554) (0.615,0.561) (0.638,0.532) (0.661,0.514) (0.666,0.494) (0.652,0.486) (0.655,0.448) (0.657,0.450) (0.660,0.428) (0.656,0.445) (0.675,0.448) (0.672,0.409) (0.665,0.365) (0.674,0.347) (0.665,0.362) (0.648,0.344) (0.655,0.336) (0.696,0.352) (0.668,0.318) (0.660,0.292) (0.656,0.308) (0.653,0.304) (0.653,0.309) (0.642,0.280) (0.643,0.283) (0.692,0.318) (0.707,0.325) (0.741,0.313) (0.756,0.310) (0.742,0.324) (0.744,0.328) (0.738,0.342) (0.723,0.337) (0.717,0.310) (0.678,0.330) (0.676,0.319) (0.653,0.314) (0.638,0.303) (0.637,0.312) (0.633,0.285) (0.605,0.350) (0.641,0.364) (0.610,0.363) (0.613,0.378) (0.650,0.352) (0.645,0.315) (0.649,0.304) (0.639,0.310) (0.610,0.357) (0.617,0.313) (0.623,0.269) (0.595,0.253) (0.621,0.239) (0.654,0.253) (0.637,0.299) (0.608,0.284) (0.570,0.250) (0.573,0.233) (0.561,0.263) (0.540,0.266) (0.511,0.256) (0.516,0.280) (0.550,0.272) (0.613,0.312) (0.634,0.329) (0.630,0.350) (0.608,0.385) (0.617,0.397) (0.579,0.386) (0.599,0.382) (0.618,0.414) (0.561,0.441) (0.581,0.402) (0.565,0.415) (0.538,0.430) (0.559,0.392) (0.580,0.409) (0.623,0.434) (0.644,0.372) (0.650,0.353) (0.616,0.316) (0.630,0.319) (0.591,0.337) (0.555,0.317) (0.599,0.283) (0.627,0.286) (0.628,0.315) (0.631,0.281) (0.604,0.260) (0.613,0.255) (0.661,0.236) (0.664,0.210) (0.667,0.179) (0.676,0.173) (0.688,0.196) (0.659,0.239) (0.679,0.209) (0.671,0.222) (0.713,0.230) (0.718,0.203) (0.714,0.156) (0.677,0.125) (0.673,0.120) (0.688,0.103) (0.699,0.115) (0.674,0.134) (0.636,0.115) (0.652,0.143) (0.673,0.127) (0.660,0.109) (0.657,0.111) (0.610,0.105) (0.620,0.100) (0.583,0.070) (0.594,0.078) (0.554,0.041) (0.521,0.053) (0.552,0.046) (0.597,0.050) (0.597,0.023) (0.565,0.044) (0.554,0.075) (0.575,0.108) (0.558,0.113) (0.566,0.085) (0.543,0.122) (0.550,0.104) (0.526,0.124) (0.543,0.147) (0.483,0.150) (0.446,0.177) (0.450,0.188) (0.403,0.205) (0.411,0.194) (0.412,0.208) (0.388,0.256) (0.399,0.276) (0.402,0.334) (0.400,0.354) (0.431,0.323) (0.456,0.362) (0.401,0.323) (0.408,0.342) (0.410,0.341) (0.391,0.307) (0.415,0.289) (0.420,0.276) (0.434,0.248) (0.412,0.278) (0.437,0.269) (0.463,0.297) (0.477,0.283) (0.451,0.285) (0.464,0.265) (0.466,0.272) (0.450,0.280) (0.433,0.277) (0.405,0.280) (0.357,0.269) (0.355,0.293) (0.360,0.278) (0.371,0.303) (0.373,0.341) (0.369,0.335) (0.361,0.316) (0.344,0.320) (0.336,0.320) (0.353,0.249) (0.375,0.244) (0.362,0.250) (0.362,0.232) (0.413,0.240) (0.388,0.251) (0.408,0.272) (0.428,0.277) (0.435,0.292) (0.442,0.322) (0.395,0.284) (0.407,0.311) (0.399,0.289) (0.373,0.299) (0.394,0.331) (0.400,0.288) (0.405,0.269) (0.415,0.264) (0.442,0.226) (0.433,0.257) (0.413,0.262) (0.391,0.240) (0.391,0.226) (0.375,0.202) (0.402,0.203) (0.393,0.212) (0.423,0.205) (0.385,0.223) (0.378,0.233) (0.412,0.244) (0.366,0.203) (0.301,0.200) (0.294,0.178) (0.297,0.173) (0.311,0.189) (0.297,0.166) (0.284,0.161) (0.235,0.138) (0.222,0.139) (0.207,0.140)};
+  \fill[SAGreenText] (0.55,0) circle (0.9pt) node[above right,font=\small] {$\rvec{x}$};
+  \fill[SARed] (0.207,0.140) circle (0.9pt);
+  \draw[SADark!60,->] (0,0) -- (-0.6,0.8) node[midway,left,font=\small] {$R$};
+  \draw[SARed,->] (0,0) -- (-0.177,-0.177) node[midway,below left=-1pt,font=\scriptsize] {$r$};
+\end{tikzpicture}
+\caption{平面布朗运动从 $\rvec{x}$ 出发, 在走出半径为 $R$ 的大圆之前先进入半径为 $r$ 的小圆 (红点为进入点). 这一事件的概率为 $\frac{\log R-\log\abs{\rvec{x}}}{\log R-\log r}$, 当 $R\to\infty$ 时趋于 $1$, 当 $r\to0$ 时趋于 $0$}
+\label{fig:annulus}
+\end{figure}
+
+% =====================================================================
+\section{随机微积分进阶专题}
+\label{sec:5-4}
+
+本节介绍 It\^o 公式的几个深刻推论. L\'evy 刻画表明布朗运动由 ``连续鞅 + 二次变差为 $t$'' 唯一决定; 改变概率测度可以给布朗运动加上漂移, 这是 Girsanov 定理的内容; 鞅表示定理则断言, 布朗信息流下的一切平方可积鞅都能写成关于 $B$ 的随机积分. 它们是第~6~章与金融数学的基本工具. 最后简要介绍局部时, 它处理 It\^o 公式不能直接应用的非光滑函数 $\abs{x}$.
+
+% ---------------------------------------------------------------------
+\subsection{L\'evy 刻画}
+
+\begin{theorem}[L\'evy 刻画]\label{thm:levy-char}
+设 $\rvec{B}$ 是 $d$ 维 $\{\mathcal{F}_t\}$-布朗运动, $\sigma^{ik}\in\mathscr{L}^2_{\mathrm{loc}}$ ($i=1,\dots,n$, $k=1,\dots,d$), 令
+\[
+M^i_t=\sum_{k=1}^d\int_0^t\sigma^{ik}_s\dd B^k_s,\qquad i=1,\dots,n.
+\]
+若 $\ip{M^i,M^j}_t=\delta_{ij}t$, 即矩阵 $\mat{\Sigma}_s=(\sigma^{ik}_s)$ 对几乎每个 $(s,\omega)$ 满足 $\mat{\Sigma}_s\mat{\Sigma}_s^\T=\mat{I}_n$, 则 $\rvec{M}=(M^1,\dots,M^n)^\T$ 是 $n$ 维 $\{\mathcal{F}_t\}$-布朗运动.
+\end{theorem}
+
+\begin{proof}
+固定 $\rvec{u}\in\R^n$. 令 $f(t,\rvec{x})=\exp\big(\mathrm{i}\rvec{u}^\T\rvec{x}+\frac{1}{2}\abs{\rvec{u}}^2t\big)$, 对其实部与虚部分别应用多维 It\^o 公式 (定理~\ref{thm:ito-multi}). 由 $\partial_tf=\frac{1}{2}\abs{\rvec{u}}^2f$, $\partial_if=\mathrm{i}u_if$, $\partial_{ij}f=-u_iu_jf$ 与 $\dd\ip{M^i,M^j}_t=\delta_{ij}\dd t$,
+\[
+\dd f(t,\rvec{M}_t)=\frac{1}{2}\abs{\rvec{u}}^2f\dd t+\sum_i\mathrm{i}u_if\dd M^i_t-\frac{1}{2}\sum_iu_i^2f\dd t=\mathrm{i}\sum_{i,k}u_if(t,\rvec{M}_t)\sigma^{ik}_t\dd B^k_t.
+\]
+由于 $\abs{f(t,\rvec{M}_t)}=e^{\abs{\rvec{u}}^2t/2}\le e^{\abs{\rvec{u}}^2T/2}$, 且 $\sum_k(\sigma^{ik})^2=1$, 被积过程 (实部与虚部) 属于 $\mathscr{L}^2_T$, 所以 $f(t,\rvec{M}_t)$ 的实部与虚部都是鞅. 对 $s<t$, 用 $\mathcal{F}_s$-可测的有界因子 $e^{-\mathrm{i}\rvec{u}^\T\rvec{M}_s-\frac{1}{2}\abs{\rvec{u}}^2t}$ 乘鞅等式 $\E[f(t,\rvec{M}_t)\,|\,\mathcal{F}_s]=f(s,\rvec{M}_s)$, 得
+\[
+\E\Big[e^{\mathrm{i}\rvec{u}^\T(\rvec{M}_t-\rvec{M}_s)}\,\Big|\,\mathcal{F}_s\Big]=e^{-\frac{1}{2}\abs{\rvec{u}}^2(t-s)}.
+\]
+对 $A\in\mathcal{F}_s$, $\P(A)>0$, 上式表明 $\rvec{M}_t-\rvec{M}_s$ 在 $\P(\cdot\,|\,A)$ 下的特征函数是 $N(\rvec{0},(t-s)\mat{I}_n)$ 的特征函数. 由特征函数的唯一性 (第~1~章定理~\ref{thm:indep-cf} 之前的说明), 对一切 Borel 集 $C$, $\P(\rvec{M}_t-\rvec{M}_s\in C\,|\,A)=N(\rvec{0},(t-s)\mat{I}_n)(C)$. 于是 $\rvec{M}_t-\rvec{M}_s$ 与 $\mathcal{F}_s$ 独立, 服从 $N(\rvec{0},(t-s)\mat{I}_n)$. 又 $\rvec{M}$ 连续、适应、$\rvec{M}_0=\rvec{0}$, 所以是 $n$ 维 $\{\mathcal{F}_t\}$-布朗运动.
+\end{proof}
+
+更一般地, L\'evy 刻画对任意连续局部鞅成立: 若 $\rvec{M}$ 是 $n$ 维连续局部鞅, $\rvec{M}_0=\rvec{0}$, 且 $M^iM^j-\delta_{ij}t$ 都是局部鞅, 则 $\rvec{M}$ 是布朗运动 (见~\cite{karatzas} 定理 3.3.16). 证明与上面相同, 只是需要关于一般连续局部鞅的随机积分与 It\^o 公式. 这个结论是第~4~章定理~\ref{thm:bm-martingales} (1)(2) 的逆命题: 在连续鞅中, 布朗运动由二次变差 $\ip{M}_t=t$ 唯一刻画, 正态分布可由此推出.
+
+\begin{example}\label{ex:levy-applications}
+(1) 令 $\sgn(x)=1$ ($x>0$), $-1$ ($x\le0$), $W_t=\int_0^t\sgn(B_s)\dd B_s$. 由于 $\sgn(B_s)^2=1$, $W$ 是布朗运动. 注意 $W$ 与 $B$ 并不独立, 事实上 (5.4.4 小节) $\abs{B_t}=W_t+L_t$, 其中 $L$ 是局部时.
+
+(2) 设 $\mat{O}_s$ 是取值于 $d\times d$ 正交矩阵的循序可测过程, 则 $\int_0^t\mat{O}_s\dd\rvec{B}_s$ 是 $d$ 维布朗运动. 这是第~4~章旋转不变性 (命题~\ref{prop:bm-rotation}) 的随机版本: 即使旋转随时间随机变化 (但不偷看未来), 布朗运动仍然是布朗运动.
+
+(3) (Bessel 过程) 设 $d\ge2$, $\rvec{W}=\rvec{x}+\rvec{B}$, $\rvec{x}\ne\rvec{0}$. 由例~\ref{ex:bm-annulus}, $\rvec{W}$ 几乎必然永不击中原点, 而 $\rvec{y}\mapsto\abs{\rvec{y}}$ 在 $\R^d\setminus\{\rvec{0}\}$ 上光滑, $\partial_i\abs{\rvec{y}}=\frac{y_i}{\abs{\rvec{y}}}$, $\Delta\abs{\rvec{y}}=\frac{d-1}{\abs{\rvec{y}}}$. 对 $R_t=\abs{\rvec{W}_t}$ 应用 It\^o 公式 (用停时截断到 $\abs{\rvec{W}}$ 远离零与无穷的时段, 再取极限),
+\[
+R_t=\abs{\rvec{x}}+\beta_t+\frac{d-1}{2}\int_0^t\frac{\dd s}{R_s},\qquad\beta_t=\sum_{i=1}^d\int_0^t\frac{W^i_s}{R_s}\dd B^i_s.
+\]
+由于 $\sum_i(W^i_s/R_s)^2=1$, $\beta$ 是一维布朗运动. 所以 $d$ 维布朗运动到原点的距离是一个一维布朗运动加上一个向外的漂移 $\frac{d-1}{2R_t}$, 称为 $d$ 维 \textbf{Bessel 过程}. 维数越高, 向外的漂移越强, 这从另一个角度解释了例~\ref{ex:bm-annulus} 中的暂留性.
+\end{example}
+
+\begin{intuition}
+二次变差 $\ip{M}_t$ 是鞅 $M$ 的 ``内在时钟'' (第~3~章). L\'evy 刻画说: 内在时钟与真实时间同步的连续鞅就是布朗运动. 更一般地, 任何连续局部鞅都是 ``按照自己的时钟运行的布朗运动'', 这就是下面的定理.
+\end{intuition}
+
+\begin{theorem}[Dambis-Dubins-Schwarz]\label{thm:dds}
+设 $M$ 是连续局部鞅, $M_0=0$, $\ip{M}_\infty=\infty$ $\as$ 对 $s\ge0$ 令 $T_s=\inf\{t:\ip{M}_t>s\}$. 则 $W_s=M_{T_s}$ 是布朗运动 (关于信息流 $\{\mathcal{F}_{T_s}\}$), 且 $M_t=W_{\ip{M}_t}$ 对一切 $t$ 成立. (证明见~\cite{karatzas} 定理 3.4.6.)
+\end{theorem}
+
+例如, 对确定的 $\sigma$, Wiener 积分 $M_t=\int_0^t\sigma(s)\dd B_s$ 与 $W_{\int_0^t\sigma^2\dd s}$ 同分布 (二者都是均值为零、协方差为 $\int_0^{s\wedge t}\sigma^2$ 的高斯过程), 这正是 DDS 定理在高斯情形的特例. DDS 定理把关于连续鞅的许多问题 (例如重对数律、零点集的结构) 化归为布朗运动的相应问题.
+
+与此相关, 连续鞅的极大值与二次变差的各阶矩是可比的.
+
+\begin{theorem}[Burkholder-Davis-Gundy 不等式]\label{thm:bdg}
+对每个 $p>0$, 存在只依赖于 $p$ 的常数 $0<c_p\le C_p<\infty$, 使得对任意连续局部鞅 $M$ ($M_0=0$) 与停时 $\tau$,
+\[
+c_p\,\E\big[\ip{M}_\tau^{p/2}\big]\le\E\Big[\sup_{t\le\tau}\abs{M_t}^p\Big]\le C_p\,\E\big[\ip{M}_\tau^{p/2}\big].
+\]
+(证明见~\cite{karatzas} 定理 3.3.28.)
+\end{theorem}
+
+$p=2$ 的情形可由 Doob 不等式与 It\^o 等距直接得到 ($c_2=1$, $C_2=4$). 对 It\^o 积分 $M=H\cdot B$, BDG 不等式说 $\E\sup_{t\le T}\abs{\int_0^tH\dd B}^p\le C_p\E(\int_0^TH^2\dd s)^{p/2}$; 估计随机微分方程的解的高阶矩时要用到它 (第~6~章 Feynman-Kac 公式之后的注).
+
+% ---------------------------------------------------------------------
+\subsection{Girsanov 定理}
+
+先看一个有限维的例子. 设 $X\sim N(0,1)$ (在 $\P$ 下). 定义新的概率测度 $\widetilde{\P}(A)=\E[e^{\mu X-\mu^2/2};A]$. 则在 $\widetilde{\P}$ 下, $X$ 的密度为 $\varphi(x)e^{\mu x-\mu^2/2}=\varphi(x-\mu)$, 即 $X\sim N(\mu,1)$: 用似然比 $e^{\mu X-\mu^2/2}$ 重新加权, 就把正态变量的均值从 $0$ 平移到 $\mu$ (图~\ref{fig:girsanov}). Girsanov 定理是这个事实的过程版本: 用随机指数重新加权, 可以给布朗运动加上 (随机的) 漂移.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, width=11cm, height=5.4cm, xmin=-3.6, xmax=4.6, ymin=0, ymax=0.48,
+  xtick={-3,-2,-1,0,1,2,3,4}, ytick={0,0.2,0.4}, xlabel={$x$}, samples=161, domain=-3.6:4.6,
+  legend style={font=\small,draw=none,fill=none,at={(0.5,-0.22)},anchor=north}, legend columns=3, legend cell align=left]
+  \addplot[SABlue,thick] {exp(-x^2/2)/sqrt(2*pi)};
+  \addplot[SARed,thick] {exp(-(x-1)^2/2)/sqrt(2*pi)};
+  \addplot[SADark!60,dashed,domain=-3.6:1.9] {0.1*exp(x-0.5)};
+  \legend{{$\P$: $N(0,1)$}, {$\widetilde{\P}$: $N(1,1)$}, {似然比 $\frac{\dd\widetilde{\P}}{\dd\P}=e^{x-\frac12}$ (缩小 $10$ 倍)}}
+\end{axis}
+\end{tikzpicture}
+\caption{测度变换 ($\mu=1$). 似然比 $e^{\mu x-\mu^2/2}$ 给右侧的取值更大的权重, 把 $N(0,1)$ 变为 $N(\mu,1)$. Girsanov 定理把这个 ``指数倾斜'' 应用于整条布朗轨道}
+\label{fig:girsanov}
+\end{figure}
+
+\begin{theorem}[Girsanov 定理]\label{thm:girsanov}
+设 $\theta\in\mathscr{L}^2_{\mathrm{loc}}$, $Z_t=\exp\big(\int_0^t\theta_s\dd B_s-\frac{1}{2}\int_0^t\theta_s^2\dd s\big)$, 并设 $\E Z_T=1$ (等价地, $Z$ 在 $[0,T]$ 上是鞅, 命题~\ref{prop:stochastic-exp}). 在 $\mathcal{F}_T$ 上定义概率测度
+\[
+\widetilde{\P}(A)=\E\big[Z_T\1_A\big],\qquad A\in\mathcal{F}_T.
+\]
+则
+\[
+\widetilde{B}_t=B_t-\int_0^t\theta_s\dd s,\qquad t\in[0,T]
+\]
+在 $\widetilde{\P}$ 下是 $\{\mathcal{F}_t\}$-布朗运动.
+\end{theorem}
+
+\begin{proof}
+由于 $Z_T>0$ 且 $\E Z_T=1$, $\widetilde{\P}$ 是与 $\P$ 等价的概率测度 (二者的零概率集相同). 对 $t\le T$ 与有界 $\mathcal{F}_t$-可测的 $\xi$, 由 $Z$ 的鞅性质,
+\begin{equation}\label{eq:girsanov-bayes}
+\widetilde{\E}[\xi]=\E[Z_T\xi]=\E\big[\E[Z_T\,|\,\mathcal{F}_t]\,\xi\big]=\E[Z_t\xi].
+\end{equation}
+
+固定 $u\in\R$, 令 $Y_t=Z_t\exp\big(\mathrm{i}u\widetilde{B}_t+\frac{1}{2}u^2t\big)$. 合并指数, 并利用 $\frac{1}{2}(\theta+\mathrm{i}u)^2=\frac{1}{2}\theta^2+\mathrm{i}u\theta-\frac{1}{2}u^2$,
+\[
+Y_t=\exp\Big(\int_0^t(\theta_s+\mathrm{i}u)\dd B_s-\frac{1}{2}\int_0^t(\theta_s+\mathrm{i}u)^2\dd s\Big).
+\]
+与命题~\ref{prop:stochastic-exp} 的计算相同 (对实部与虚部应用二维 It\^o 公式, 或直接把 $e^x$ 的 It\^o 公式用于复值的 It\^o 过程), $\dd Y_t=(\theta_t+\mathrm{i}u)Y_t\dd B_t$, 所以 $Y$ (的实部与虚部) 是连续局部鞅. 下证 $Y$ 是鞅. 取局部化序列 $\rho_n\uparrow T$ ($\P(\rho_n=T)\to1$), 使 $Y_{\cdot\wedge\rho_n}$ 是鞅. 对 $t\le T$, 由可选停时定理 (推论~\ref{cor:ct-ost-bounded}) 应用于鞅 $Z$,
+\[
+\abs{Y_{t\wedge\rho_n}}=Z_{t\wedge\rho_n}e^{\frac{1}{2}u^2(t\wedge\rho_n)}\le e^{\frac{1}{2}u^2T}\,\E\big[Z_T\,\big|\,\mathcal{F}_{t\wedge\rho_n}\big].
+\]
+由引理~\ref{lem:ce-family-ui}, $\{Y_{t\wedge\rho_n}\}_{n\ge1}$ 一致可积, 而 $Y_{t\wedge\rho_n}\to Y_t$ $\as$ 由 Vitali 收敛定理~\ref{thm:vitali}, 收敛也在 $L^1$ 中成立, 所以对 $s\le t$, $\E[Y_t\,|\,\mathcal{F}_s]=\lim_n\E[Y_{t\wedge\rho_n}\,|\,\mathcal{F}_s]=\lim_nY_{s\wedge\rho_n}=Y_s$.
+
+现在对 $s<t\le T$ 与 $A\in\mathcal{F}_s$, 由 \eqref{eq:girsanov-bayes} (取 $\xi=e^{\mathrm{i}u(\widetilde{B}_t-\widetilde{B}_s)}\1_A$, 实部虚部分别处理) 与 $Y$ 的鞅性质,
+\begin{align*}
+\widetilde{\E}\Big[e^{\mathrm{i}u(\widetilde{B}_t-\widetilde{B}_s)};A\Big]&=\E\Big[Z_te^{\mathrm{i}u(\widetilde{B}_t-\widetilde{B}_s)};A\Big]=\E\Big[Y_t\,e^{-\mathrm{i}u\widetilde{B}_s-\frac{1}{2}u^2t};A\Big]\\
+&=\E\Big[Y_s\,e^{-\mathrm{i}u\widetilde{B}_s-\frac{1}{2}u^2t};A\Big]=e^{-\frac{1}{2}u^2(t-s)}\,\E[Z_s;A]=e^{-\frac{1}{2}u^2(t-s)}\,\widetilde{\P}(A).
+\end{align*}
+与定理~\ref{thm:levy-char} 的证明相同, 由此可知在 $\widetilde{\P}$ 下, $\widetilde{B}_t-\widetilde{B}_s$ 与 $\mathcal{F}_s$ 独立, 服从 $N(0,t-s)$. 又 $\widetilde{B}$ 连续、适应、从 $0$ 出发, 所以它是 $\widetilde{\P}$ 下的 $\{\mathcal{F}_t\}$-布朗运动.
+\end{proof}
+
+换一种说法: 在 $\widetilde{\P}$ 下, $B_t=\widetilde{B}_t+\int_0^t\theta_s\dd s$ 是 ``布朗运动加漂移 $\theta$''. 测度变换不改变轨道, 只改变各条轨道的权重; 它改变漂移, 但不改变扩散系数 (二次变差 $\ip{B}_t=t$ 是逐条轨道的性质, 在等价测度下不变).
+
+定理的条件 $\E Z_T=1$ 需要验证. 最常用的充分条件如下.
+
+\begin{proposition}\label{prop:novikov}
+\begin{enumerate}
+\item 若 $\theta$ 有界, 则 $\E Z_T=1$.
+\item (\textbf{Novikov 条件}) 若 $\E\exp\big(\frac{1}{2}\int_0^T\theta_s^2\dd s\big)<\infty$, 则 $\E Z_T=1$. (证明见~\cite{karatzas} 推论 3.5.13.)
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}[(1) 的证明]
+设 $\abs{\theta}\le K$. 由命题~\ref{prop:stochastic-exp}, $Z=1+\int Z\theta\dd B$; 只需证明 $Z\theta\in\mathscr{L}^2_T$, 则 $Z$ 是鞅. 记 $Z^{(2\theta)}_s=\exp(\int_0^s2\theta\dd B-\frac{1}{2}\int_0^s4\theta^2\dd u)$, 它也是随机指数, 所以 $\E Z^{(2\theta)}_s\le1$. 而
+\[
+Z_s^2=\exp\Big(2\int_0^s\theta\dd B-\int_0^s\theta^2\dd u\Big)=Z^{(2\theta)}_s\exp\Big(\int_0^s\theta^2\dd u\Big)\le e^{K^2T}Z^{(2\theta)}_s,
+\]
+所以 $\E\int_0^TZ_s^2\theta_s^2\dd s\le K^2Te^{K^2T}<\infty$.
+\end{proof}
+
+\begin{example}[带漂移布朗运动的首达时密度]\label{ex:girsanov-drift}
+取常数 $\theta\equiv\mu$, 则 $Z_t=e^{\mu B_t-\mu^2t/2}$, 由命题~\ref{prop:novikov} (1), Girsanov 定理适用: 在 $\widetilde{\P}$ 下, $B_t=\widetilde{B}_t+\mu t$ 是漂移为 $\mu$ 的布朗运动. 设 $a>0$, $\tau_a=\inf\{t: B_t=a\}$. 事件 $\{\tau_a\le t\}$ 属于 $\mathcal{F}_{\tau_a\wedge t}$ (对 $r\ge t$, $\{\tau_a\le t\}\cap\{\tau_a\wedge t\le r\}=\{\tau_a\le t\}\in\mathcal{F}_t\subseteq\mathcal{F}_r$; 对 $r<t$, 它等于 $\{\tau_a\le r\}\in\mathcal{F}_r$). 由 \eqref{eq:girsanov-bayes}、可选停时定理 ($\E[Z_t\,|\,\mathcal{F}_{\tau_a\wedge t}]=Z_{\tau_a\wedge t}$) 与 $B_{\tau_a}=a$,
+\[
+\widetilde{\P}(\tau_a\le t)=\E\big[Z_t;\tau_a\le t\big]=\E\big[Z_{\tau_a};\tau_a\le t\big]=\E\Big[e^{\mu a-\frac{1}{2}\mu^2\tau_a};\tau_a\le t\Big].
+\]
+代入 $\P$ 下 $\tau_a$ 的密度 (定理~\ref{thm:hitting-time}), 得到 $\widetilde{\P}$ 下 $\tau_a$ 的密度
+\[
+e^{\mu a-\frac{1}{2}\mu^2s}\cdot\frac{a}{\sqrt{2\pi s^3}}e^{-\frac{a^2}{2s}}=\frac{a}{\sqrt{2\pi s^3}}\exp\Big(-\frac{(a-\mu s)^2}{2s}\Big),\qquad s>0.
+\]
+这就是 \textbf{逆高斯分布}. 对它积分, $\widetilde{\P}(\tau_a<\infty)=e^{\mu a}\E e^{-\frac{1}{2}\mu^2\tau_a}=e^{\mu a-a\abs{\mu}}$ (定理~\ref{thm:hitting-time} (3)), 与定理~\ref{thm:drift-hitting} 一致. 第~4~章用指数鞅与可选停时定理只得到了 Laplace 变换; 这里 Girsanov 定理直接给出了整个分布.
+\end{example}
+
+\begin{remark}
+(1) Girsanov 定理对 $d$ 维布朗运动同样成立: 若 $\rvec{\theta}$ 取值于 $\R^d$, $Z=\exp(\sum_k\int\theta^k\dd B^k-\frac{1}{2}\int\abs{\rvec{\theta}}^2\dd s)$, $\E Z_T=1$, 则 $\rvec{B}-\int\rvec{\theta}\dd s$ 是 $\widetilde{\P}$ 下的 $d$ 维布朗运动. 证明相同.
+
+(2) 在 Black-Scholes 模型 $\dd S_t=\mu S_t\dd t+\sigma S_t\dd B_t$ 中, 取 $\theta=-\frac{\mu-r}{\sigma}$ ($r$ 为无风险利率, $\frac{\mu-r}{\sigma}$ 称为风险的市场价格), 则在 $\widetilde{\P}$ 下 $\dd S_t=rS_t\dd t+\sigma S_t\dd\widetilde{B}_t$, 贴现价格 $e^{-rt}S_t$ 是鞅. $\widetilde{\P}$ 称为\textbf{风险中性测度}, 衍生品的无套利价格是贴现收益在 $\widetilde{\P}$ 下的期望. 第~6~章将由此推出 Black-Scholes 公式.
+
+(3) $\widetilde{\P}$ 只定义在 $\mathcal{F}_T$ 上. 在无限时间区间上, 即使 $\theta$ 是常数, $\widetilde{\P}$ 与 $\P$ 一般也互相奇异: 在 $\P$ 下 $B_t/t\to0$, 在 $\widetilde{\P}$ 下 $B_t/t\to\mu$.
+\end{remark}
+
+\begin{intuition}
+Girsanov 定理的离散版本是第~3~章的似然比鞅 (例~\ref{ex:likelihood-ratio}): 把每一步的增量 $\Delta B$ 的分布从 $N(0,\Delta t)$ 换成 $N(\theta\Delta t,\Delta t)$, 似然比为 $\exp(\theta\Delta B-\frac{1}{2}\theta^2\Delta t)$, 把各步乘起来, 取极限, 就是随机指数 $Z_T$. 由于漂移 $\theta\Delta t$ 远小于噪声的标准差 $\sqrt{\Delta t}$, 单步的似然比接近 $1$, 两个测度在有限时间内仍然等价; 而扩散系数的改变会使每一步的似然比偏离 $1$ 的程度为 $O(1)$, 累积起来使两个测度奇异, 这就是 Girsanov 定理只能改变漂移的原因.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{鞅表示定理}
+
+本小节中 $\{\mathcal{F}_t\}$ 是布朗运动 $B$ 的扩充信息流 (定义~\ref{def:augmented}): 除了 $B$ 本身, 没有其他随机性来源. 此时 $\mathcal{F}_0$ 只含零概率集及其补集, $\mathcal{F}_0$-可测的随机变量几乎必然是常数.
+
+\begin{theorem}[It\^o 鞅表示定理]\label{thm:mart-rep}
+设 $F\in L^2(\Omega,\mathcal{F}_T,\P)$. 则存在唯一的 $H\in\mathscr{L}^2_T$, 使得
+\[
+F=\E F+\int_0^TH_s\dd B_s\qquad\as
+\]
+\end{theorem}
+
+\begin{proof}
+令 $\mathscr{R}$ 为可以如此表示的 $F\in L^2(\mathcal{F}_T)$ 全体.
+
+\emph{唯一性.} 若 $\E F+\int H\dd B=\E F+\int H'\dd B$, 则由 It\^o 等距 $\norm{H-H'}_T^2=\E(\int(H-H')\dd B)^2=0$.
+
+\emph{第一步: $\mathscr{R}$ 是闭线性子空间.} 线性是显然的. 设 $F_n=\E F_n+\int H^n\dd B\in\mathscr{R}$, $F_n\to F$ 于 $L^2$. 则 $\E F_n\to\E F$, 从而 $\int H^n\dd B=F_n-\E F_n$ 是 $L^2$ 中的 Cauchy 列. 由 It\^o 等距, $\{H^n\}$ 是 $\mathscr{L}^2_T$ 中的 Cauchy 列, 由完备性收敛到某个 $H$, 再由等距 $\int H^n\dd B\to\int H\dd B$. 所以 $F=\E F+\int H\dd B\in\mathscr{R}$.
+
+\emph{第二步: 指数泛函属于 $\mathscr{R}$.} 设 $h=\sum_{j=1}^n\lambda_j\1_{(t_{j-1},t_j]}$ 是 $[0,T]$ 上的阶梯函数 ($\lambda_j\in\R$), 令 $\mathscr{E}^h_t=\exp\big(\int_0^th\dd B-\frac{1}{2}\int_0^th^2\dd s\big)$. 由命题~\ref{prop:stochastic-exp}, $\mathscr{E}^h_T=1+\int_0^T\mathscr{E}^h_sh(s)\dd B_s$. 由于 $\int_0^sh\dd B\sim N(0,\int_0^sh^2)$ (命题~\ref{prop:wiener-integral}) 与例~\ref{ex:normal-mgf},
+\[
+\E\big(\mathscr{E}^h_s\big)^2=e^{-\int_0^sh^2}\,\E e^{2\int_0^sh\dd B}=e^{-\int_0^sh^2}e^{2\int_0^sh^2}=e^{\int_0^sh^2}\le e^{\int_0^Th^2},
+\]
+所以 $\mathscr{E}^hh\in\mathscr{L}^2_T$, 且 $\E\mathscr{E}^h_T=1$. 于是 $\mathscr{E}^h_T\in\mathscr{R}$.
+
+\emph{第三步: 指数泛函的线性张成在 $L^2(\mathcal{F}_T)$ 中稠密.} 设 $G\in L^2(\mathcal{F}_T)$ 与一切 $\mathscr{E}^h_T$ 正交. 由于 $\mathscr{E}^h_T$ 等于正的常数乘以 $\exp(\sum_j\lambda_j\Delta B_j)$ ($\Delta B_j=B_{t_j}-B_{t_{j-1}}$), 对任意分割 $0=t_0<\cdots<t_n=T$ 与 $\rvec{\lambda}\in\R^n$,
+\[
+\phi(\rvec{z}):=\E\Big[G\exp\Big(\sum_{j=1}^nz_j\Delta B_j\Big)\Big]
+\]
+在 $\rvec{z}=\rvec{\lambda}\in\R^n$ 处为零. 对 $\rvec{z}\in\mathbb{C}^n$, 由 Cauchy-Schwarz 不等式, $\E\big[\abs{G}e^{\sum_j\abs{z_j}\abs{\Delta B_j}}\big]<\infty$, 所以 $\phi$ 在 $\mathbb{C}^n$ 上有定义; 由期望号下求导 (定理~\ref{thm:diff-under-E} 对复变量同样成立, 控制函数取 $\abs{G}\abs{\Delta B_j}e^{\sum_j(\abs{z_j}+1)\abs{\Delta B_j}}$), $\phi$ 关于每个变量都是整函数. 固定 $z_2,\dots,z_n\in\R$, $z_1\mapsto\phi$ 是在实轴上为零的整函数, 由解析函数的唯一性定理, 它在 $\mathbb{C}$ 上恒为零; 再固定 $z_1\in\mathbb{C}$ 与 $z_3,\dots,z_n\in\R$, 对 $z_2$ 重复这一论证; 依此类推, $\phi\equiv0$ 于 $\mathbb{C}^n$. 特别地, 对一切 $\rvec{u}\in\R^n$,
+\[
+\E\big[G^+e^{\mathrm{i}\rvec{u}^\T\Delta\rvec{B}}\big]=\E\big[G^-e^{\mathrm{i}\rvec{u}^\T\Delta\rvec{B}}\big],\qquad\Delta\rvec{B}=(\Delta B_1,\dots,\Delta B_n)^\T.
+\]
+令 $\mu^\pm(C)=\E[G^\pm;\Delta\rvec{B}\in C]$, 它们是 $\R^n$ 上的有限测度, 由 $\rvec{u}=\rvec{0}$ 知总质量相等, 记为 $c$. 若 $c=0$, 则 $G=0$ $\as$; 若 $c>0$, 则 $\mu^\pm/c$ 是特征函数相同的概率测度, 由唯一性定理它们相等. 总之 $\E[G;\Delta\rvec{B}\in C]=0$ 对一切 Borel 集 $C$ 成立, 即 $\E[G;A]=0$ 对一切 $A\in\sigma(B_{t_1},\dots,B_{t_n})$ 成立. 所有这样的 $A$ (对一切有限分割) 构成生成 $\mathcal{F}^B_T$ 的 $\pi$-系 (两个分割取公共加细即可), 而使 $\E[G;A]=0$ 的 $A$ 构成 $\lambda$-系 (由控制收敛定理), 由 $\pi$-$\lambda$ 定理, $\E[G;A]=0$ 对一切 $A\in\mathcal{F}^B_T$ 成立. 由引理~\ref{lem:null-augment}, $\mathcal{F}_T$ 中的事件与 $\mathcal{F}^B_T$ 中的某个事件只相差零概率集, 所以 $\E[G;A]=0$ 对一切 $A\in\mathcal{F}_T$ 成立. 取 $A=\{G>0\}$ 与 $\{G<0\}$, 得 $G=0$ $\as$
+
+\emph{结论.} 由第二步, 指数泛函的线性张成包含于 $\mathscr{R}$; 由第一步, 其闭包也包含于 $\mathscr{R}$. 由第三步, 这个闭包的正交补为 $\{0\}$, 所以闭包就是 $L^2(\mathcal{F}_T)$ (投影定理~\ref{thm:projection}). 因此 $\mathscr{R}=L^2(\mathcal{F}_T)$.
+\end{proof}
+
+\begin{corollary}[布朗信息流下的鞅]\label{cor:mart-rep}
+设 $M$ 是关于 $B$ 的扩充信息流的平方可积鞅. 则存在唯一的 $H\in\mathscr{L}^2_T$, 使得对一切 $t\le T$, $M_t=\E M_0+\int_0^tH_s\dd B_s$ $\as$ 特别地, $M$ 有连续修正.
+\end{corollary}
+
+\begin{proof}
+对 $F=M_T$ 应用定理~\ref{thm:mart-rep}, 并注意 $\E M_T=\E M_0$. 由鞅性与 It\^o 积分的鞅性, $M_t=\E[M_T\,|\,\mathcal{F}_t]=\E M_0+\E[\int_0^TH\dd B\,|\,\mathcal{F}_t]=\E M_0+\int_0^tH\dd B$. 右端是连续过程.
+\end{proof}
+
+\begin{example}\label{ex:mart-rep}
+表示中的被积过程常常可以用 It\^o 公式求出.
+(1) $B_T^2=T+\int_0^T2B_s\dd B_s$ (由 \eqref{eq:int-BdB}).
+(2) 由 It\^o 公式与例~\ref{ex:int-sdB}, $B_T^3=3\int_0^TB_s^2\dd B_s+3\int_0^TB_s\dd s=\int_0^T3\big(B_s^2+T-s\big)\dd B_s$.
+(3) $N_t=\E[e^{B_T}\,|\,\mathcal{F}_t]=e^{B_t+\frac{1}{2}(T-t)}$ 满足 $\dd N_t=N_t\dd B_t$ (It\^o 公式), 所以 $e^{B_T}=e^{T/2}+\int_0^Te^{B_s+\frac{1}{2}(T-s)}\dd B_s$.
+一般地, 若 $F=f(B_T)$, 则 $u(t,x)=\E f(x+B_{T-t})$ 满足向后热方程 (定理~\ref{thm:heat-equation}), 由命题~\ref{prop:space-time-harmonic}, $H_t=\partial_xu(t,B_t)$.
+\end{example}
+
+\begin{remark}
+(1) 推论~\ref{cor:mart-rep} 对局部鞅也成立: 布朗信息流下的每个局部鞅都形如 $M_0+\int H\dd B$, $H\in\mathscr{L}^2_{\mathrm{loc}}$. 这是一个结构性的结论: 在布朗信息流下, 随机性只有 ``一个来源'', 每个鞅的增量都与 $\dd B$ 成比例. 若信息流中还有与 $B$ 独立的随机性 (例如一个独立的 Poisson 过程), 结论就不成立了.
+(2) 被积过程 $H$ 的显式公式由 Malliavin 分析中的 \textbf{Clark-Ocone 公式} 给出: $H_t=\E[D_tF\,|\,\mathcal{F}_t]$, 其中 $D_tF$ 表示 $F$ 对轨道扰动的 ``导数'', 扰动发生在时刻 $t$. 例如 $F=B_T^3$ 时 $D_tF=3B_T^2$, $\E[3B_T^2\,|\,\mathcal{F}_t]=3(B_t^2+T-t)$, 与例~\ref{ex:mart-rep} (2) 一致.
+(3) 在金融中, 鞅表示定理保证 Black-Scholes 市场是\textbf{完备}的: 任何 (平方可积的) 衍生品收益 $F$ 都可以由股票与债券的自融资组合完全复制, 复制组合的股票头寸由 $H$ 决定.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{局部时与 Tanaka 公式}
+
+It\^o 公式要求 $f\in C^2$. 对 $f(x)=\abs{x}$, 形式上 $f'(x)=\sgn(x)$, $f''(x)=2\delta_0(x)$ ($\delta_0$ 为 Dirac 函数), 若不顾一切地套用 It\^o 公式, 得到
+\[
+\abs{B_t}=\int_0^t\sgn(B_s)\dd B_s+\int_0^t\delta_0(B_s)\dd s.
+\]
+最后一项应理解为布朗运动在零点 ``停留的时间密度''. 布朗运动在零点停留的总时间 $\int_0^t\1_{\{B_s=0\}}\dd s$ 为零 (由 Fubini 定理, 其期望为 $\int_0^t\P(B_s=0)\dd s=0$), 但把 $\delta_0$ 换成 $\frac{1}{2\varepsilon}\1_{(-\varepsilon,\varepsilon)}$ 再令 $\varepsilon\to0$, 极限并不为零.
+
+\begin{definition}[局部时]\label{def:local-time}
+布朗运动在 $0$ 处的\textbf{局部时}定义为
+\[
+L_t=\lim_{\varepsilon\downarrow0}\frac{1}{2\varepsilon}\int_0^t\1_{\{\abs{B_s}<\varepsilon\}}\dd s,
+\]
+可以证明, 极限几乎必然存在, 且关于 $t\in[0,T]$ 一致成立 (见~\cite{karatzas} 3.6 节).
+\end{definition}
+
+由定义, $L$ 连续、单调不减、$L_0=0$, 并且只在 $B$ 的零点集 $\{t: B_t=0\}$ 上增长 (若 $B$ 在 $[s,t]$ 上不为零, 则当 $\varepsilon$ 足够小时被积函数在 $[s,t]$ 上为零). 由于零点集的 Lebesgue 测度为零, $L$ 是一个 ``奇异'' 的增函数, 类似于 Cantor 函数.
+
+\begin{theorem}[Tanaka 公式]\label{thm:tanaka}
+几乎必然地, 对一切 $t\le T$,
+\[
+\abs{B_t}=\int_0^t\sgn(B_s)\dd B_s+L_t.
+\]
+\end{theorem}
+
+\begin{proof}[证明梗概]
+对 $\varepsilon>0$ 令 $f_\varepsilon(x)=\abs{x}$ ($\abs{x}\ge\varepsilon$), $f_\varepsilon(x)=\frac{x^2+\varepsilon^2}{2\varepsilon}$ ($\abs{x}<\varepsilon$). 则 $f_\varepsilon\in C^1$, $f_\varepsilon'(x)=\big(\frac{x}{\varepsilon}\wedge1\big)\vee(-1)$, $f''_\varepsilon=\frac{1}{\varepsilon}\1_{(-\varepsilon,\varepsilon)}$ 除两点外存在. It\^o 公式可以推广到这类函数 (用光滑函数逼近 $f_\varepsilon$), 给出
+\[
+f_\varepsilon(B_t)=f_\varepsilon(0)+\int_0^tf'_\varepsilon(B_s)\dd B_s+\frac{1}{2\varepsilon}\int_0^t\1_{\{\abs{B_s}<\varepsilon\}}\dd s.
+\]
+令 $\varepsilon\to0$: $f_\varepsilon(x)\to\abs{x}$ 一致成立; 由 It\^o 等距, $\E\big(\int_0^t(f'_\varepsilon(B_s)-\sgn(B_s))\dd B_s\big)^2\le\E\int_0^t\1_{\{\abs{B_s}<\varepsilon\}}\dd s\to0$. 于是最后一项在 $L^2$ 中收敛, 其极限就是 $L_t$, 公式成立.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, width=12cm, height=6cm, xmin=0, xmax=1.03, ymin=-1.35, ymax=1.35,
+  xtick={0,0.25,0.5,0.75,1}, ytick={-1,-0.5,0,0.5,1}, xlabel={$t$},
+  legend style={font=\small,draw=none,fill=none,at={(0.5,-0.2)},anchor=north}, legend columns=3, legend cell align=left]
+  \addplot[SADark!20,forget plot] coordinates {(0,0) (1,0)};
+  \addplot[SABlue,thin] coordinates {(0.000,0.000) (0.002,0.013) (0.004,0.003) (0.006,0.089) (0.008,0.115) (0.010,0.115) (0.012,0.145) (0.014,0.145) (0.016,0.056) (0.018,0.051) (0.020,0.017) (0.022,0.010) (0.024,0.043) (0.026,0.003) (0.028,0.029) (0.030,0.058) (0.032,0.087) (0.034,0.094) (0.036,0.172) (0.038,0.188) (0.040,0.203) (0.042,0.216) (0.044,0.202) (0.046,0.179) (0.048,0.198) (0.050,0.212) (0.052,0.271) (0.054,0.266) (0.056,0.199) (0.058,0.227) (0.060,0.242) (0.062,0.198) (0.064,0.116) (0.066,0.041) (0.068,0.034) (0.070,0.066) (0.072,0.016) (0.074,0.042) (0.076,0.018) (0.078,0.036) (0.080,0.074) (0.082,0.115) (0.084,0.012) (0.086,0.016) (0.088,0.011) (0.090,0.085) (0.092,0.227) (0.094,0.291) (0.096,0.233) (0.098,0.221) (0.100,0.151) (0.102,0.161) (0.104,0.131) (0.106,0.163) (0.108,0.116) (0.110,0.122) (0.112,0.176) (0.114,0.263) (0.116,0.352) (0.118,0.348) (0.120,0.303) (0.122,0.243) (0.124,0.213) (0.126,0.228) (0.128,0.247) (0.130,0.261) (0.132,0.226) (0.134,0.181) (0.136,0.158) (0.138,0.171) (0.140,0.162) (0.142,0.150) (0.144,0.117) (0.146,0.128) (0.148,0.100) (0.150,0.190) (0.152,0.268) (0.154,0.280) (0.156,0.266) (0.158,0.357) (0.160,0.378) (0.162,0.343) (0.164,0.346) (0.166,0.318) (0.168,0.327) (0.170,0.264) (0.172,0.281) (0.174,0.293) (0.176,0.359) (0.178,0.366) (0.180,0.396) (0.182,0.410) (0.184,0.342) (0.186,0.335) (0.188,0.257) (0.190,0.238) (0.192,0.223) (0.194,0.153) (0.196,0.182) (0.198,0.154) (0.200,0.121) (0.202,0.095) (0.204,0.118) (0.206,0.130) (0.208,0.092) (0.210,0.080) (0.212,0.155) (0.214,0.135) (0.216,0.134) (0.218,0.113) (0.220,0.176) (0.222,0.207) (0.224,0.230) (0.226,0.177) (0.228,0.143) (0.230,0.122) (0.232,0.110) (0.234,0.132) (0.236,0.047) (0.238,0.080) (0.240,0.089) (0.242,0.061) (0.244,0.060) (0.246,0.058) (0.248,0.112) (0.250,0.092) (0.252,0.102) (0.254,0.088) (0.256,0.079) (0.258,0.084) (0.260,0.036) (0.262,0.061) (0.264,0.091) (0.266,0.157) (0.268,0.226) (0.270,0.182) (0.272,0.202) (0.274,0.313) (0.276,0.369) (0.278,0.378) (0.280,0.422) (0.282,0.411) (0.284,0.436) (0.286,0.470) (0.288,0.549) (0.290,0.592) (0.292,0.532) (0.294,0.553) (0.296,0.591) (0.298,0.612) (0.300,0.635) (0.302,0.599) (0.304,0.641) (0.306,0.643) (0.308,0.629) (0.310,0.651) (0.312,0.654) (0.314,0.640) (0.316,0.639) (0.318,0.587) (0.320,0.537) (0.322,0.519) (0.324,0.455) (0.326,0.501) (0.328,0.438) (0.330,0.442) (0.332,0.450) (0.334,0.400) (0.336,0.388) (0.338,0.363) (0.340,0.333) (0.342,0.311) (0.344,0.353) (0.346,0.317) (0.348,0.259) (0.350,0.228) (0.352,0.215) (0.354,0.275) (0.356,0.349) (0.358,0.403) (0.360,0.402) (0.362,0.402) (0.364,0.439) (0.366,0.412) (0.368,0.414) (0.370,0.469) (0.372,0.411) (0.374,0.432) (0.376,0.411) (0.378,0.424) (0.380,0.418) (0.382,0.415) (0.384,0.367) (0.386,0.408) (0.388,0.428) (0.390,0.341) (0.392,0.366) (0.394,0.406) (0.396,0.409) (0.398,0.373) (0.400,0.351) (0.402,0.383) (0.404,0.361) (0.406,0.331) (0.408,0.324) (0.410,0.291) (0.412,0.320) (0.414,0.267) (0.416,0.275) (0.418,0.266) (0.420,0.262) (0.422,0.329) (0.424,0.316) (0.426,0.257) (0.428,0.261) (0.430,0.209) (0.432,0.263) (0.434,0.305) (0.436,0.288) (0.438,0.299) (0.440,0.256) (0.442,0.233) (0.444,0.407) (0.446,0.341) (0.448,0.297) (0.450,0.196) (0.452,0.168) (0.454,0.135) (0.456,0.172) (0.458,0.212) (0.460,0.247) (0.462,0.282) (0.464,0.317) (0.466,0.243) (0.468,0.268) (0.470,0.266) (0.472,0.284) (0.474,0.358) (0.476,0.350) (0.478,0.271) (0.480,0.218) (0.482,0.188) (0.484,0.140) (0.486,0.080) (0.488,0.192) (0.490,0.187) (0.492,0.191) (0.494,0.209) (0.496,0.125) (0.498,0.089) (0.500,0.028) (0.502,0.032) (0.504,0.092) (0.506,0.050) (0.508,0.133) (0.510,0.179) (0.512,0.245) (0.514,0.284) (0.516,0.355) (0.518,0.312) (0.520,0.302) (0.522,0.273) (0.524,0.227) (0.526,0.217) (0.528,0.177) (0.530,0.193) (0.532,0.146) (0.534,0.113) (0.536,0.111) (0.538,0.187) (0.540,0.199) (0.542,0.175) (0.544,0.191) (0.546,0.123) (0.548,0.144) (0.550,0.172) (0.552,0.213) (0.554,0.257) (0.556,0.289) (0.558,0.339) (0.560,0.267) (0.562,0.211) (0.564,0.175) (0.566,0.117) (0.568,0.149) (0.570,0.106) (0.572,0.162) (0.574,0.085) (0.576,0.059) (0.578,0.098) (0.580,0.065) (0.582,0.033) (0.584,0.030) (0.586,0.021) (0.588,0.009) (0.590,0.018) (0.592,0.009) (0.594,0.130) (0.596,0.168) (0.598,0.106) (0.600,0.123) (0.602,0.078) (0.604,0.024) (0.606,0.009) (0.608,0.026) (0.610,0.054) (0.612,0.038) (0.614,0.027) (0.616,0.009) (0.618,0.108) (0.620,0.072) (0.622,0.020) (0.624,0.010) (0.626,0.029) (0.628,0.049) (0.630,0.042) (0.632,0.075) (0.634,0.081) (0.636,0.093) (0.638,0.062) (0.640,0.103) (0.642,0.090) (0.644,0.088) (0.646,0.140) (0.648,0.148) (0.650,0.107) (0.652,0.128) (0.654,0.101) (0.656,0.035) (0.658,0.014) (0.660,0.071) (0.662,0.037) (0.664,0.017) (0.666,0.032) (0.668,0.026) (0.670,0.003) (0.672,0.028) (0.674,0.080) (0.676,0.040) (0.678,0.072) (0.680,0.084) (0.682,0.049) (0.684,0.016) (0.686,0.055) (0.688,0.034) (0.690,0.003) (0.692,0.044) (0.694,0.006) (0.696,0.027) (0.698,0.031) (0.700,0.046) (0.702,0.022) (0.704,0.033) (0.706,0.003) (0.708,0.033) (0.710,0.046) (0.712,0.063) (0.714,0.016) (0.716,0.089) (0.718,0.095) (0.720,0.145) (0.722,0.144) (0.724,0.116) (0.726,0.118) (0.728,0.146) (0.730,0.152) (0.732,0.080) (0.734,0.104) (0.736,0.103) (0.738,0.193) (0.740,0.227) (0.742,0.281) (0.744,0.239) (0.746,0.218) (0.748,0.233) (0.750,0.251) (0.752,0.233) (0.754,0.262) (0.756,0.332) (0.758,0.374) (0.760,0.442) (0.762,0.405) (0.764,0.446) (0.766,0.481) (0.768,0.454) (0.770,0.496) (0.772,0.497) (0.774,0.469) (0.776,0.469) (0.778,0.481) (0.780,0.418) (0.782,0.414) (0.784,0.417) (0.786,0.431) (0.788,0.434) (0.790,0.411) (0.792,0.471) (0.794,0.468) (0.796,0.497) (0.798,0.556) (0.800,0.616) (0.802,0.685) (0.804,0.638) (0.806,0.742) (0.808,0.717) (0.810,0.711) (0.812,0.734) (0.814,0.844) (0.816,0.829) (0.818,0.835) (0.820,0.803) (0.822,0.706) (0.824,0.738) (0.826,0.779) (0.828,0.796) (0.830,0.777) (0.832,0.814) (0.834,0.781) (0.836,0.751) (0.838,0.734) (0.840,0.670) (0.842,0.678) (0.844,0.672) (0.846,0.724) (0.848,0.748) (0.850,0.811) (0.852,0.807) (0.854,0.771) (0.856,0.674) (0.858,0.706) (0.860,0.635) (0.862,0.563) (0.864,0.491) (0.866,0.436) (0.868,0.462) (0.870,0.483) (0.872,0.446) (0.874,0.424) (0.876,0.379) (0.878,0.419) (0.880,0.430) (0.882,0.420) (0.884,0.394) (0.886,0.391) (0.888,0.419) (0.890,0.416) (0.892,0.468) (0.894,0.477) (0.896,0.461) (0.898,0.529) (0.900,0.538) (0.902,0.576) (0.904,0.506) (0.906,0.504) (0.908,0.628) (0.910,0.588) (0.912,0.546) (0.914,0.537) (0.916,0.433) (0.918,0.371) (0.920,0.357) (0.922,0.327) (0.924,0.290) (0.926,0.287) (0.928,0.324) (0.930,0.357) (0.932,0.350) (0.934,0.329) (0.936,0.304) (0.938,0.282) (0.940,0.312) (0.942,0.284) (0.944,0.339) (0.946,0.316) (0.948,0.242) (0.950,0.303) (0.952,0.331) (0.954,0.345) (0.956,0.326) (0.958,0.407) (0.960,0.429) (0.962,0.453) (0.964,0.432) (0.966,0.383) (0.968,0.369) (0.970,0.372) (0.972,0.412) (0.974,0.407) (0.976,0.335) (0.978,0.310) (0.980,0.333) (0.982,0.342) (0.984,0.278) (0.986,0.284) (0.988,0.242) (0.990,0.202) (0.992,0.211) (0.994,0.226) (0.996,0.265) (0.998,0.263) (1.000,0.214)};
+  \addplot[SARed,thick] coordinates {(0.000,0.000) (0.002,0.063) (0.004,0.112) (0.006,0.118) (0.008,0.118) (0.010,0.118) (0.012,0.118) (0.014,0.118) (0.016,0.118) (0.018,0.120) (0.020,0.146) (0.022,0.189) (0.024,0.214) (0.026,0.216) (0.028,0.231) (0.030,0.231) (0.032,0.231) (0.034,0.231) (0.036,0.231) (0.038,0.231) (0.040,0.231) (0.042,0.231) (0.044,0.231) (0.046,0.231) (0.048,0.231) (0.050,0.231) (0.052,0.231) (0.054,0.231) (0.056,0.231) (0.058,0.231) (0.060,0.231) (0.062,0.231) (0.064,0.231) (0.066,0.231) (0.068,0.252) (0.070,0.252) (0.072,0.257) (0.074,0.257) (0.076,0.270) (0.078,0.287) (0.080,0.287) (0.082,0.287) (0.084,0.306) (0.086,0.371) (0.088,0.398) (0.090,0.430) (0.092,0.430) (0.094,0.430) (0.096,0.430) (0.098,0.430) (0.100,0.430) (0.102,0.430) (0.104,0.430) (0.106,0.430) (0.108,0.430) (0.110,0.430) (0.112,0.430) (0.114,0.430) (0.116,0.430) (0.118,0.430) (0.120,0.430) (0.122,0.430) (0.124,0.430) (0.126,0.430) (0.128,0.430) (0.130,0.430) (0.132,0.430) (0.134,0.430) (0.136,0.430) (0.138,0.430) (0.140,0.430) (0.142,0.430) (0.144,0.430) (0.146,0.430) (0.148,0.430) (0.150,0.430) (0.152,0.430) (0.154,0.430) (0.156,0.430) (0.158,0.430) (0.160,0.430) (0.162,0.430) (0.164,0.430) (0.166,0.430) (0.168,0.430) (0.170,0.430) (0.172,0.430) (0.174,0.430) (0.176,0.430) (0.178,0.430) (0.180,0.430) (0.182,0.430) (0.184,0.430) (0.186,0.430) (0.188,0.430) (0.190,0.430) (0.192,0.430) (0.194,0.430) (0.196,0.430) (0.198,0.430) (0.200,0.430) (0.202,0.430) (0.204,0.430) (0.206,0.430) (0.208,0.430) (0.210,0.430) (0.212,0.430) (0.214,0.430) (0.216,0.430) (0.218,0.430) (0.220,0.430) (0.222,0.430) (0.224,0.430) (0.226,0.430) (0.228,0.430) (0.230,0.430) (0.232,0.430) (0.234,0.430) (0.236,0.430) (0.238,0.430) (0.240,0.430) (0.242,0.430) (0.244,0.430) (0.246,0.436) (0.248,0.436) (0.250,0.436) (0.252,0.436) (0.254,0.436) (0.256,0.436) (0.258,0.436) (0.260,0.443) (0.262,0.448) (0.264,0.448) (0.266,0.448) (0.268,0.448) (0.270,0.448) (0.272,0.448) (0.274,0.448) (0.276,0.448) (0.278,0.448) (0.280,0.448) (0.282,0.448) (0.284,0.448) (0.286,0.448) (0.288,0.448) (0.290,0.448) (0.292,0.448) (0.294,0.448) (0.296,0.448) (0.298,0.448) (0.300,0.448) (0.302,0.448) (0.304,0.448) (0.306,0.448) (0.308,0.448) (0.310,0.448) (0.312,0.448) (0.314,0.448) (0.316,0.448) (0.318,0.448) (0.320,0.448) (0.322,0.448) (0.324,0.448) (0.326,0.448) (0.328,0.448) (0.330,0.448) (0.332,0.448) (0.334,0.448) (0.336,0.448) (0.338,0.448) (0.340,0.448) (0.342,0.448) (0.344,0.448) (0.346,0.448) (0.348,0.448) (0.350,0.448) (0.352,0.448) (0.354,0.448) (0.356,0.448) (0.358,0.448) (0.360,0.448) (0.362,0.448) (0.364,0.448) (0.366,0.448) (0.368,0.448) (0.370,0.448) (0.372,0.448) (0.374,0.448) (0.376,0.448) (0.378,0.448) (0.380,0.448) (0.382,0.448) (0.384,0.448) (0.386,0.448) (0.388,0.448) (0.390,0.448) (0.392,0.448) (0.394,0.448) (0.396,0.448) (0.398,0.448) (0.400,0.448) (0.402,0.448) (0.404,0.448) (0.406,0.448) (0.408,0.448) (0.410,0.448) (0.412,0.448) (0.414,0.448) (0.416,0.448) (0.418,0.448) (0.420,0.448) (0.422,0.448) (0.424,0.448) (0.426,0.448) (0.428,0.448) (0.430,0.448) (0.432,0.448) (0.434,0.448) (0.436,0.448) (0.438,0.448) (0.440,0.448) (0.442,0.448) (0.444,0.448) (0.446,0.448) (0.448,0.448) (0.450,0.448) (0.452,0.448) (0.454,0.448) (0.456,0.448) (0.458,0.448) (0.460,0.448) (0.462,0.448) (0.464,0.448) (0.466,0.448) (0.468,0.448) (0.470,0.448) (0.472,0.448) (0.474,0.448) (0.476,0.448) (0.478,0.448) (0.480,0.448) (0.482,0.448) (0.484,0.448) (0.486,0.448) (0.488,0.448) (0.490,0.448) (0.492,0.448) (0.494,0.448) (0.496,0.448) (0.498,0.448) (0.500,0.454) (0.502,0.454) (0.504,0.454) (0.506,0.454) (0.508,0.454) (0.510,0.454) (0.512,0.454) (0.514,0.454) (0.516,0.454) (0.518,0.454) (0.520,0.454) (0.522,0.454) (0.524,0.454) (0.526,0.454) (0.528,0.454) (0.530,0.454) (0.532,0.454) (0.534,0.454) (0.536,0.454) (0.538,0.454) (0.540,0.454) (0.542,0.454) (0.544,0.454) (0.546,0.454) (0.548,0.454) (0.550,0.454) (0.552,0.454) (0.554,0.454) (0.556,0.454) (0.558,0.454) (0.560,0.454) (0.562,0.454) (0.564,0.454) (0.566,0.454) (0.568,0.454) (0.570,0.454) (0.572,0.454) (0.574,0.454) (0.576,0.454) (0.578,0.454) (0.580,0.454) (0.582,0.454) (0.584,0.454) (0.586,0.519) (0.588,0.562) (0.590,0.589) (0.592,0.598) (0.594,0.602) (0.596,0.602) (0.598,0.602) (0.600,0.602) (0.602,0.602) (0.604,0.603) (0.606,0.616) (0.608,0.636) (0.610,0.636) (0.612,0.666) (0.614,0.701) (0.616,0.716) (0.618,0.734) (0.620,0.734) (0.622,0.741) (0.624,0.765) (0.626,0.808) (0.628,0.846) (0.630,0.886) (0.632,0.886) (0.634,0.886) (0.636,0.886) (0.638,0.886) (0.640,0.886) (0.642,0.886) (0.644,0.886) (0.646,0.886) (0.648,0.886) (0.650,0.886) (0.652,0.886) (0.654,0.886) (0.656,0.886) (0.658,0.923) (0.660,0.923) (0.662,0.928) (0.664,0.964) (0.666,0.971) (0.668,1.026) (0.670,1.068) (0.672,1.084) (0.674,1.091) (0.676,1.091) (0.678,1.091) (0.680,1.091) (0.682,1.091) (0.684,1.092) (0.686,1.092) (0.688,1.092) (0.690,1.099) (0.692,1.106) (0.694,1.114) (0.696,1.127) (0.698,1.133) (0.700,1.133) (0.702,1.149) (0.704,1.161) (0.706,1.203) (0.708,1.232) (0.710,1.232) (0.712,1.232) (0.714,1.234) (0.716,1.244) (0.718,1.244) (0.720,1.244) (0.722,1.244) (0.724,1.244) (0.726,1.244) (0.728,1.244) (0.730,1.244) (0.732,1.244) (0.734,1.244) (0.736,1.244) (0.738,1.244) (0.740,1.244) (0.742,1.244) (0.744,1.244) (0.746,1.244) (0.748,1.244) (0.750,1.244) (0.752,1.244) (0.754,1.244) (0.756,1.244) (0.758,1.244) (0.760,1.244) (0.762,1.244) (0.764,1.244) (0.766,1.244) (0.768,1.244) (0.770,1.244) (0.772,1.244) (0.774,1.244) (0.776,1.244) (0.778,1.244) (0.780,1.244) (0.782,1.244) (0.784,1.244) (0.786,1.244) (0.788,1.244) (0.790,1.244) (0.792,1.244) (0.794,1.244) (0.796,1.244) (0.798,1.244) (0.800,1.244) (0.802,1.244) (0.804,1.244) (0.806,1.244) (0.808,1.244) (0.810,1.244) (0.812,1.244) (0.814,1.244) (0.816,1.244) (0.818,1.244) (0.820,1.244) (0.822,1.244) (0.824,1.244) (0.826,1.244) (0.828,1.244) (0.830,1.244) (0.832,1.244) (0.834,1.244) (0.836,1.244) (0.838,1.244) (0.840,1.244) (0.842,1.244) (0.844,1.244) (0.846,1.244) (0.848,1.244) (0.850,1.244) (0.852,1.244) (0.854,1.244) (0.856,1.244) (0.858,1.244) (0.860,1.244) (0.862,1.244) (0.864,1.244) (0.866,1.244) (0.868,1.244) (0.870,1.244) (0.872,1.244) (0.874,1.244) (0.876,1.244) (0.878,1.244) (0.880,1.244) (0.882,1.244) (0.884,1.244) (0.886,1.244) (0.888,1.244) (0.890,1.244) (0.892,1.244) (0.894,1.244) (0.896,1.244) (0.898,1.244) (0.900,1.244) (0.902,1.244) (0.904,1.244) (0.906,1.244) (0.908,1.244) (0.910,1.244) (0.912,1.244) (0.914,1.244) (0.916,1.244) (0.918,1.244) (0.920,1.244) (0.922,1.244) (0.924,1.244) (0.926,1.244) (0.928,1.244) (0.930,1.244) (0.932,1.244) (0.934,1.244) (0.936,1.244) (0.938,1.244) (0.940,1.244) (0.942,1.244) (0.944,1.244) (0.946,1.244) (0.948,1.244) (0.950,1.244) (0.952,1.244) (0.954,1.244) (0.956,1.244) (0.958,1.244) (0.960,1.244) (0.962,1.244) (0.964,1.244) (0.966,1.244) (0.968,1.244) (0.970,1.244) (0.972,1.244) (0.974,1.244) (0.976,1.244) (0.978,1.244) (0.980,1.244) (0.982,1.244) (0.984,1.244) (0.986,1.244) (0.988,1.244) (0.990,1.244) (0.992,1.244) (0.994,1.244) (0.996,1.244) (0.998,1.244) (1.000,1.244)};
+  \addplot[SADark!45,thin] coordinates {(0.000,0.000) (0.002,-0.050) (0.004,-0.109) (0.006,-0.029) (0.008,-0.003) (0.010,-0.003) (0.012,0.027) (0.014,0.027) (0.016,-0.062) (0.018,-0.069) (0.020,-0.129) (0.022,-0.179) (0.024,-0.171) (0.026,-0.213) (0.028,-0.201) (0.030,-0.172) (0.032,-0.144) (0.034,-0.137) (0.036,-0.059) (0.038,-0.042) (0.040,-0.028) (0.042,-0.015) (0.044,-0.029) (0.046,-0.052) (0.048,-0.033) (0.050,-0.019) (0.052,0.040) (0.054,0.035) (0.056,-0.032) (0.058,-0.004) (0.060,0.011) (0.062,-0.033) (0.064,-0.115) (0.066,-0.190) (0.068,-0.218) (0.070,-0.186) (0.072,-0.241) (0.074,-0.215) (0.076,-0.252) (0.078,-0.251) (0.080,-0.213) (0.082,-0.172) (0.084,-0.294) (0.086,-0.355) (0.088,-0.387) (0.090,-0.345) (0.092,-0.203) (0.094,-0.139) (0.096,-0.197) (0.098,-0.209) (0.100,-0.279) (0.102,-0.269) (0.104,-0.299) (0.106,-0.267) (0.108,-0.314) (0.110,-0.308) (0.112,-0.254) (0.114,-0.167) (0.116,-0.078) (0.118,-0.082) (0.120,-0.127) (0.122,-0.187) (0.124,-0.217) (0.126,-0.202) (0.128,-0.183) (0.130,-0.169) (0.132,-0.204) (0.134,-0.249) (0.136,-0.272) (0.138,-0.259) (0.140,-0.268) (0.142,-0.280) (0.144,-0.313) (0.146,-0.302) (0.148,-0.330) (0.150,-0.240) (0.152,-0.162) (0.154,-0.150) (0.156,-0.164) (0.158,-0.073) (0.160,-0.052) (0.162,-0.087) (0.164,-0.084) (0.166,-0.112) (0.168,-0.103) (0.170,-0.166) (0.172,-0.149) (0.174,-0.137) (0.176,-0.071) (0.178,-0.064) (0.180,-0.034) (0.182,-0.020) (0.184,-0.088) (0.186,-0.095) (0.188,-0.173) (0.190,-0.192) (0.192,-0.207) (0.194,-0.277) (0.196,-0.248) (0.198,-0.276) (0.200,-0.309) (0.202,-0.335) (0.204,-0.312) (0.206,-0.300) (0.208,-0.338) (0.210,-0.350) (0.212,-0.275) (0.214,-0.295) (0.216,-0.296) (0.218,-0.317) (0.220,-0.254) (0.222,-0.223) (0.224,-0.200) (0.226,-0.253) (0.228,-0.287) (0.230,-0.308) (0.232,-0.320) (0.234,-0.298) (0.236,-0.383) (0.238,-0.350) (0.240,-0.341) (0.242,-0.369) (0.244,-0.370) (0.246,-0.377) (0.248,-0.324) (0.250,-0.343) (0.252,-0.334) (0.254,-0.348) (0.256,-0.356) (0.258,-0.352) (0.260,-0.407) (0.262,-0.387) (0.264,-0.357) (0.266,-0.292) (0.268,-0.223) (0.270,-0.266) (0.272,-0.246) (0.274,-0.135) (0.276,-0.080) (0.278,-0.070) (0.280,-0.026) (0.282,-0.038) (0.284,-0.013) (0.286,0.021) (0.288,0.100) (0.290,0.144) (0.292,0.083) (0.294,0.105) (0.296,0.143) (0.298,0.164) (0.300,0.187) (0.302,0.151) (0.304,0.193) (0.306,0.195) (0.308,0.181) (0.310,0.203) (0.312,0.206) (0.314,0.192) (0.316,0.191) (0.318,0.138) (0.320,0.089) (0.322,0.071) (0.324,0.007) (0.326,0.053) (0.328,-0.011) (0.330,-0.006) (0.332,0.002) (0.334,-0.048) (0.336,-0.060) (0.338,-0.085) (0.340,-0.116) (0.342,-0.137) (0.344,-0.095) (0.346,-0.131) (0.348,-0.189) (0.350,-0.220) (0.352,-0.233) (0.354,-0.173) (0.356,-0.099) (0.358,-0.045) (0.360,-0.046) (0.362,-0.046) (0.364,-0.010) (0.366,-0.036) (0.368,-0.034) (0.370,0.021) (0.372,-0.038) (0.374,-0.017) (0.376,-0.037) (0.378,-0.024) (0.380,-0.030) (0.382,-0.033) (0.384,-0.081) (0.386,-0.040) (0.388,-0.020) (0.390,-0.107) (0.392,-0.083) (0.394,-0.043) (0.396,-0.039) (0.398,-0.075) (0.400,-0.098) (0.402,-0.066) (0.404,-0.088) (0.406,-0.117) (0.408,-0.124) (0.410,-0.157) (0.412,-0.128) (0.414,-0.182) (0.416,-0.174) (0.418,-0.182) (0.420,-0.187) (0.422,-0.119) (0.424,-0.132) (0.426,-0.191) (0.428,-0.187) (0.430,-0.240) (0.432,-0.185) (0.434,-0.143) (0.436,-0.160) (0.438,-0.150) (0.440,-0.192) (0.442,-0.215) (0.444,-0.041) (0.446,-0.107) (0.448,-0.151) (0.450,-0.253) (0.452,-0.280) (0.454,-0.314) (0.456,-0.277) (0.458,-0.236) (0.460,-0.201) (0.462,-0.166) (0.464,-0.131) (0.466,-0.205) (0.468,-0.180) (0.470,-0.182) (0.472,-0.164) (0.474,-0.090) (0.476,-0.098) (0.478,-0.177) (0.480,-0.230) (0.482,-0.260) (0.484,-0.309) (0.486,-0.368) (0.488,-0.257) (0.490,-0.261) (0.492,-0.257) (0.494,-0.240) (0.496,-0.324) (0.498,-0.359) (0.500,-0.427) (0.502,-0.422) (0.504,-0.363) (0.506,-0.404) (0.508,-0.321) (0.510,-0.275) (0.512,-0.209) (0.514,-0.171) (0.516,-0.099) (0.518,-0.143) (0.520,-0.152) (0.522,-0.182) (0.524,-0.227) (0.526,-0.237) (0.528,-0.277) (0.530,-0.262) (0.532,-0.309) (0.534,-0.341) (0.536,-0.343) (0.538,-0.268) (0.540,-0.256) (0.542,-0.280) (0.544,-0.263) (0.546,-0.332) (0.548,-0.310) (0.550,-0.283) (0.552,-0.241) (0.554,-0.197) (0.556,-0.165) (0.558,-0.115) (0.560,-0.187) (0.562,-0.244) (0.564,-0.280) (0.566,-0.337) (0.568,-0.305) (0.570,-0.348) (0.572,-0.293) (0.574,-0.370) (0.576,-0.395) (0.578,-0.357) (0.580,-0.389) (0.582,-0.422) (0.584,-0.425) (0.586,-0.498) (0.588,-0.553) (0.590,-0.572) (0.592,-0.589) (0.594,-0.472) (0.596,-0.434) (0.598,-0.496) (0.600,-0.479) (0.602,-0.524) (0.604,-0.579) (0.606,-0.608) (0.608,-0.610) (0.610,-0.581) (0.612,-0.628) (0.614,-0.674) (0.616,-0.707) (0.618,-0.626) (0.620,-0.662) (0.622,-0.721) (0.624,-0.754) (0.626,-0.779) (0.628,-0.797) (0.630,-0.844) (0.632,-0.811) (0.634,-0.805) (0.636,-0.793) (0.638,-0.824) (0.640,-0.783) (0.642,-0.796) (0.644,-0.798) (0.646,-0.746) (0.648,-0.738) (0.650,-0.779) (0.652,-0.758) (0.654,-0.785) (0.656,-0.851) (0.658,-0.909) (0.660,-0.852) (0.662,-0.892) (0.664,-0.947) (0.666,-0.939) (0.668,-1.000) (0.670,-1.065) (0.672,-1.056) (0.674,-1.011) (0.676,-1.051) (0.678,-1.019) (0.680,-1.007) (0.682,-1.042) (0.684,-1.076) (0.686,-1.037) (0.688,-1.058) (0.690,-1.096) (0.692,-1.063) (0.694,-1.107) (0.696,-1.101) (0.698,-1.103) (0.700,-1.088) (0.702,-1.126) (0.704,-1.129) (0.706,-1.200) (0.708,-1.199) (0.710,-1.186) (0.712,-1.169) (0.714,-1.218) (0.716,-1.155) (0.718,-1.150) (0.720,-1.099) (0.722,-1.101) (0.724,-1.128) (0.726,-1.126) (0.728,-1.098) (0.730,-1.093) (0.732,-1.164) (0.734,-1.140) (0.736,-1.141) (0.738,-1.051) (0.740,-1.018) (0.742,-0.963) (0.744,-1.006) (0.746,-1.027) (0.748,-1.012) (0.750,-0.994) (0.752,-1.011) (0.754,-0.983) (0.756,-0.912) (0.758,-0.871) (0.760,-0.803) (0.762,-0.840) (0.764,-0.798) (0.766,-0.764) (0.768,-0.790) (0.770,-0.749) (0.772,-0.747) (0.774,-0.775) (0.776,-0.776) (0.778,-0.763) (0.780,-0.826) (0.782,-0.830) (0.784,-0.828) (0.786,-0.814) (0.788,-0.811) (0.790,-0.833) (0.792,-0.773) (0.794,-0.777) (0.796,-0.747) (0.798,-0.689) (0.800,-0.629) (0.802,-0.560) (0.804,-0.606) (0.806,-0.502) (0.808,-0.527) (0.810,-0.533) (0.812,-0.510) (0.814,-0.400) (0.816,-0.415) (0.818,-0.410) (0.820,-0.442) (0.822,-0.538) (0.824,-0.507) (0.826,-0.466) (0.828,-0.448) (0.830,-0.467) (0.832,-0.430) (0.834,-0.463) (0.836,-0.494) (0.838,-0.510) (0.840,-0.574) (0.842,-0.567) (0.844,-0.573) (0.846,-0.520) (0.848,-0.496) (0.850,-0.433) (0.852,-0.437) (0.854,-0.473) (0.856,-0.571) (0.858,-0.538) (0.860,-0.610) (0.862,-0.682) (0.864,-0.753) (0.866,-0.808) (0.868,-0.782) (0.870,-0.761) (0.872,-0.799) (0.874,-0.820) (0.876,-0.866) (0.878,-0.826) (0.880,-0.815) (0.882,-0.824) (0.884,-0.851) (0.886,-0.854) (0.888,-0.826) (0.890,-0.828) (0.892,-0.776) (0.894,-0.767) (0.896,-0.783) (0.898,-0.716) (0.900,-0.707) (0.902,-0.669) (0.904,-0.738) (0.906,-0.741) (0.908,-0.617) (0.910,-0.656) (0.912,-0.698) (0.914,-0.707) (0.916,-0.811) (0.918,-0.873) (0.920,-0.888) (0.922,-0.917) (0.924,-0.955) (0.926,-0.958) (0.928,-0.921) (0.930,-0.888) (0.932,-0.895) (0.934,-0.915) (0.936,-0.941) (0.938,-0.962) (0.940,-0.932) (0.942,-0.961) (0.944,-0.905) (0.946,-0.929) (0.948,-1.003) (0.950,-0.941) (0.952,-0.913) (0.954,-0.899) (0.956,-0.919) (0.958,-0.837) (0.960,-0.815) (0.962,-0.792) (0.964,-0.812) (0.966,-0.862) (0.968,-0.876) (0.970,-0.873) (0.972,-0.832) (0.974,-0.837) (0.976,-0.909) (0.978,-0.934) (0.980,-0.911) (0.982,-0.902) (0.984,-0.966) (0.986,-0.960) (0.988,-1.002) (0.990,-1.042) (0.992,-1.033) (0.994,-1.019) (0.996,-0.979) (0.998,-0.982) (1.000,-1.031)};
+  \legend{$\abs{B_t}$, 局部时 $L_t$, $W_t=\int_0^t\sgn(B_s)\dd B_s$}
+\end{axis}
+\end{tikzpicture}
+\caption{Tanaka 公式 $\abs{B_t}=W_t+L_t$. 局部时 $L$ (红色) 只在 $\abs{B}$ 触及零时增长, 在 $\abs{B}$ 远离零的时段保持不变; 它恰好把布朗运动 $W$ (灰色) ``推回'' 非负区域. 图中 $L$ 用 $\frac{1}{2\varepsilon}\int_0^t\1_{\{\abs{B_s}<\varepsilon\}}\dd s$ ($\varepsilon=0.01$) 近似}
+\label{fig:local-time}
+\end{figure}
+
+\begin{example}[局部时的简单性质]\label{ex:local-time}
+(1) \emph{期望.} 在 Tanaka 公式两端取期望, 由于 $\sgn(B)\in\mathscr{L}^2_T$, 随机积分的期望为零, 所以
+\[
+\E L_t=\E\abs{B_t}=\sqrt{\frac{2t}{\pi}}.
+\]
+也可以从定义直接验证: $\frac{1}{2\varepsilon}\int_0^t\P(\abs{B_s}<\varepsilon)\dd s\to\int_0^t\frac{1}{\sqrt{2\pi s}}\dd s=\sqrt{\frac{2t}{\pi}}$, 因为 $\frac{1}{2\varepsilon}\P(\abs{B_s}<\varepsilon)$ 趋于 $B_s$ 在 $0$ 处的密度 $\frac{1}{\sqrt{2\pi s}}$.
+
+(2) \emph{反射布朗运动.} 由例~\ref{ex:levy-applications} (1), $W_t=\int_0^t\sgn(B_s)\dd B_s$ 是布朗运动. 所以 Tanaka 公式表明, 反射布朗运动 $\abs{B}$ 等于布朗运动 $W$ 与增过程 $L$ 之和, 后者只在零点增长, 恰好足以使 $W+L\ge0$ (图~\ref{fig:local-time}). 可以证明 (Skorokhod 引理), 这样的 $L$ 是唯一的, 且 $L_t=\max_{s\le t}(-W_s)$. 再由 $-W$ 也是布朗运动, 得到 L\'evy 定理: $(\abs{B_t},L_t)_{t\ge0}$ 与 $(M_t-B_t,M_t)_{t\ge0}$ 同分布, 其中 $M_t=\max_{s\le t}B_s$ (参见 4.5.2 小节末的注). 特别地, $L_t\overset{d}{=}M_t\overset{d}{=}\abs{B_t}$, 这与 (1) 中的期望一致.
+
+(3) \emph{一般水平的局部时.} 对 $a\in\R$, 同样定义 $L^a_t=\lim_{\varepsilon\downarrow0}\frac{1}{2\varepsilon}\int_0^t\1_{\{\abs{B_s-a}<\varepsilon\}}\dd s$. 则 Tanaka 公式推广为 $\abs{B_t-a}=\abs{a}+\int_0^t\sgn(B_s-a)\dd B_s+L^a_t$, 并且有\textbf{占位时公式}: 对有界 Borel 函数 $g$,
+\[
+\int_0^tg(B_s)\dd s=\int_{\R}g(a)L^a_t\dd a,
+\]
+即 $a\mapsto L^a_t$ 是布朗运动在 $[0,t]$ 上的 ``占位时间'' 的密度 (见~\cite{karatzas} 3.6 节). 若 $f$ 是两个凸函数之差, 由此得到 It\^o-Tanaka 公式 $f(B_t)=f(B_0)+\int_0^tf'_-(B_s)\dd B_s+\frac{1}{2}\int_{\R}L^a_t\,f''(\dd a)$, 其中 $f''$ 理解为广义二阶导数 (一个测度).
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection*{本章小结}
+\addcontentsline{toc}{subsection}{本章小结}
+
+\begin{center}
+\begin{minipage}{\textwidth}
+\centering
+\captionof{table}{随机微积分的主要结论}
+\label{tab:ch5-summary}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.22\textwidth} >{\raggedright\arraybackslash}p{0.46\textwidth} >{\raggedright\arraybackslash}p{0.22\textwidth}}
+\toprule
+结论 & 内容 & 后续应用 \\
+\midrule
+It\^o 等距 & $\E(\int_0^tH\dd B)^2=\E\int_0^tH^2\dd s$ & 积分的构造与估计 \\
+It\^o 积分的性质 & $H\in\mathscr{L}^2_T$ 时是连续鞅, $\ip{H\cdot B}=\int H^2\dd s$ & SDE 解的鞅部分 \\
+局部化 & $\int_0^TH^2\dd s<\infty$ $\as$ 时是连续局部鞅 & 一般的被积过程 \\
+It\^o 公式 & $\dd f=\partial_tf\dd t+\partial_xf\dd X+\frac12\partial_{xx}f\dd\ip{X}$ & 一切计算 \\
+随机指数 & $\dd Z=\theta Z\dd B$, $Z=\mathscr{E}(\theta\cdot B)$ & Girsanov, 线性 SDE \\
+L\'evy 刻画 & $\ip{M}_t=t$ 的连续鞅是布朗运动 & 识别布朗运动 \\
+Girsanov 定理 & 测度变换 $\dd\widetilde{\P}=Z_T\dd\P$ 给 $B$ 加漂移 $\theta$ & 风险中性定价, 弱解 \\
+鞅表示定理 & 布朗泛函 $F=\E F+\int H\dd B$ & 市场完备性, 对冲 \\
+Tanaka 公式 & $\abs{B_t}=\int\sgn(B)\dd B+L_t$ & 反射, 非光滑函数 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{center}

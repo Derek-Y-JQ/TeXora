@@ -1,0 +1,325 @@
+%======================================================================
+\FloatBarrier
+\section{Proofs}\label{app:proofs}
+%======================================================================
+
+\subsection{Discounting}\label{app:discount}
+
+\begin{lemma}[discounting]\label{lem:discount}
+\leavevmode
+\begin{enumerate}[label=(\roman*)]
+\item $(Y,Z)$ solves \eqref{eq:cbsde} if and only if $(e^{-rt}Y_t,e^{-rt}Z_t)$ solves \eqref{eq:cbsde} with $r=0$ and links $\tilde g_j(x,y)=e^{-rT_j}g_j(x,e^{rT_j}y)$. If $g_j$ satisfies \cref{ass:link}, so does $\tilde g_j$, with constant $e^{-rT_j}L_g\le L_g$.
+\item Let $\beta_i=(1+rh)^{-i}$. The undiscounted step $\hY_{j,u_{i+1}}=(1+rh)\hY_{j,u_i}+\hZ_{u_i}^\top\Delta W_i$ is equivalent to
+\[
+\beta_{i+1}\hY_{j,u_{i+1}}=\beta_i\hY_{j,u_i}+\left(\beta_{i+1}\hZ_{u_i}\right)^\top\Delta W_i ,
+\]
+an exact martingale transform for every choice of $\hZ$. Moreover $1\le\beta_ie^{ru_i}\le e^{r^2u_ih/2}$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(i) On layer $j$, we have $\dd Y_{j,t}=rY_{j,t}\dd t+Z_{j,t}^\top\dd W_t$. Applying It\^o's formula, we obtain $\dd(e^{-rt}Y_{j,t})=e^{-rt}Z_{j,t}^\top\dd W_t$. At the interface, the link condition reads
+\[
+e^{-rT_j}Y_{j,T_j}=e^{-rT_j}g_j\left(S_{[0,T_j]},e^{rT_j}e^{-rT_j}Y_{j+1,T_j}\right)=\tilde g_j\left(S_{[0,T_j]},e^{-rT_j}Y_{j+1,T_j}\right).
+\]
+Multiplying by $e^{rt}$ reverses the argument and proves the converse. For the Lipschitz constant, \cref{ass:link} implies
+\begin{align*}
+\abs{\tilde g_j(x,y)-\tilde g_j(x',y')}&\le e^{-rT_j}\max\bigl\{L_g\norm{x-x'}_{T_j},e^{rT_j}\abs{y-y'}\bigr\}\\
+&=\max\bigl\{e^{-rT_j}L_g\norm{x-x'}_{T_j},\abs{y-y'}\bigr\}.
+\end{align*}
+
+(ii) Multiplying the undiscounted step by $\beta_{i+1}$, we arrive at the displayed recursion. Since $\E[\Delta W_i\mid\cF_{u_i}]=0$, the discounted values form a martingale. As $u_i=ih$, we can write $\beta_ie^{ru_i}=\exp(i[rh-\log(1+rh)])$. The elementary bound $0\le x-\log(1+x)\le x^2/2$ for $x\ge0$ then shows $0\le i[rh-\log(1+rh)]\le r^2u_ih/2$.
+\end{proof}
+
+The relative mismatch between $\beta_i$ and $e^{-ru_i}$ is at most $e^{r^2Th/2}-1=O(h)$ and adds $O(h^2)$ to every squared error below. It is not tracked further.
+
+\subsection{Proof of \texorpdfstring{\cref{thm:wellposed}}{Theorem 1}}\label{app:wellposed}
+
+\begin{proof}
+
+Let $L$ denote the Lipschitz constant of $b$ and $\sigma$.
+
+(i) \emph{Existence.} Under \cref{ass:sde}, \eqref{eq:sde} admits a unique strong solution with $\E\norm{S}_T^2<\infty$. Since $\abs{\Phi_K(S_{[0,T]})}\le\abs{\Phi_K(0)}+L_g\norm{S}_T$, the terminal payoff is square integrable. Define $Y_{K,t}=\E[\Phi_K(S_{[0,T]})\mid\cF_t]$ on $[T_{K-1},T]$. By the martingale representation theorem, there exists $Z_K$ with $Y_{K,t}=\Phi_K-\int_t^TZ_{K,s}^\top\dd W_s$. Suppose layer $j+1$ has been constructed. According to \cref{ass:link},
+\[
+\abs{g_j(S_{[0,T_j]},Y_{j+1,T_j})}\le\abs{g_j(0,0)}+L_g\norm{S}_{T_j}+\abs{Y_{j+1,T_j}},
+\]
+which shows that the terminal value of layer $j$ is square integrable. We define $Y_{j,t}=\E[g_j(S_{[0,T_j]},Y_{j+1,T_j})\mid\cF_t]$ and obtain $Z_j$ from the martingale representation theorem. By Doob's inequality and It\^o's isometry, we get
+\[
+\E\sup_{t\in[T_{j-1},T_j]}\abs{Y_{j,t}}^2\le4\E\abs{Y_{j,T_j}}^2,\quad
+\E\int_{T_{j-1}}^{T_j}\abs{Z_{j,t}}^2\dd t=\E\abs{Y_{j,T_j}-Y_{j,T_{j-1}}}^2\le\E\abs{Y_{j,T_j}}^2 .
+\]
+\emph{Uniqueness.} Taking conditional expectations in the last layer, we find $Y_{K,t}=\E[\Phi_K\mid\cF_t]$ for every square-integrable solution. Two candidates $Z_K,Z_K'$ satisfy $\int_{T_{K-1}}^T(Z_{K,t}-Z'_{K,t})^\top\dd W_t=0$, and It\^o's isometry implies $Z_K=Z'_K$. Once layer $j+1$ is unique, the terminal value of layer $j$ is determined, and the same argument applies.
+
+(ii) Define $u_K(t,x)=\E[\Phi_K(S^{t,x}_{[0,T]})]$ and $u_j$ recursively as in the statement. Given $\cF_t$, the past path is fixed, and the future depends only on $S_t$ and on the increments of $W$ after $t$, which are independent of $\cF_t$. We therefore obtain $\E[\Phi_K(S_{[0,T]})\mid\cF_t]=u_K(t,S_{[0,t]})$. If $Y_{j+1,T_j}=u_{j+1}(T_j,S_{[0,T_j]})$, the same argument shows $Y_{j,t}=u_j(t,S_{[0,t]})$.
+
+(iii) Let $S=S^{t,x}$ and $S'=S^{t,x'}$. For $s\ge t$,
+\[
+S_s-S'_s=x_t-x'_t+\int_t^s[b(q,S_q)-b(q,S'_q)]\dd q+\int_t^s[\sigma(q,S_q)-\sigma(q,S'_q)]\dd W_q .
+\]
+Fix $v\in[t,T]$. By the Cauchy--Schwarz inequality, the squared supremum of the drift term is at most $TL^2\int_t^v\norm{S-S'}_q^2\dd q$. Doob's inequality and It\^o's isometry bound the expected squared supremum of the stochastic term by $4L^2\int_t^v\E\norm{S-S'}_q^2\dd q$. Using $\abs{a+b+c}^2\le3(\abs a^2+\abs b^2+\abs c^2)$, we deduce
+\[
+\E\norm{S-S'}_v^2\le3\norm{x-x'}_t^2+3L^2(T+4)\int_t^v\E\norm{S-S'}_q^2\dd q ,
+\]
+and Gronwall's inequality leads to $\E\norm{S-S'}_T\le\sqrt3\exp\left(\tfrac32L^2(T+4)T\right)\norm{x-x'}_t=:C\norm{x-x'}_t$. Let $F_j(y)=g_j(y,u_{j+1}(T_j,y))$ for $j<K$ and $F_K=\Phi_K$. Both paths are driven by the same Brownian motion, so the flow property yields $u_{j+1}(T_j,S_{[0,T_j]})=\E[F_{j+1}(S)\mid\cF_{T_j}]$, and likewise for $S'$. We claim that $\abs{F_j(S)-F_j(S')}\le L_g\E[\norm{S-S'}_T\mid\cF_{T_j}]$. The claim is immediate for $j=K$. Assuming it for $j+1$, we derive from \cref{ass:link}
+\[
+\begin{aligned}\abs{F_j(S)-F_j(S')}&\le\max\bigl\{L_g\norm{S-S'}_{T_j},\ \E[\abs{F_{j+1}(S)-F_{j+1}(S')}\mid\cF_{T_j}]\bigr\}\\&\le L_g\E[\norm{S-S'}_T\mid\cF_{T_j}] .\end{aligned}
+\]
+Taking expectations, we conclude $\abs{u_j(t,x)-u_j(t,x')}\le L_g\E\norm{S-S'}_T\le CL_g\norm{x-x'}_t$ for every $j$, where $C$ does not depend on $K$.
+
+(iv) For Bermudan links, we have $Y_{k,T_k}=\max\{\Phi_k,\E[Y_{k+1,T_{k+1}}\mid\cF_{T_k}]\}$ and $Y_{K,T_K}=\Phi_K$. This is the Snell recursion, so $(Y_{k,T_k})$ is the smallest supermartingale dominating $(\Phi_k)$. Concatenating the layer martingales, we obtain
+\[
+Y_{k,T_k}-\int_0^{T_k}Z_s^\top\dd W_s=Y_{1,0}-\sum_{j=1}^{k-1}(Y_{j,T_j}-Y_{j+1,T_j})=Y_{1,0}-\sum_{j=1}^{k-1}\left(\Phi_j-Y_{j+1,T_j}\right)^+ .
+\]
+Since $\Phi_k\le Y_{k,T_k}$, this implies $\Phi_k-\int_0^{T_k}Z_s^\top\dd W_s\le Y_{1,0}$ for all $k$. On $\{\tau^*=T_k\}$, every earlier date satisfies $\Phi_j<Y_{j+1,T_j}$ and $\Phi_k=Y_{k,T_k}$, so equality holds at $k$. This establishes \eqref{eq:dual-identity}, and taking expectations at $\tau^*$ gives $V_0=\E\Phi_{\tau^*}=Y_{1,0}$.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{lem:nonanticipation}}{Lemma 3}}\label{app:nonanticipation}
+
+\begin{proof}
+
+(i) Each simulation step $S^{\mathrm f}_{t_{n+1}}$ is a Borel function of $S^{\mathrm f}_{t_n}$ and $W_{t_{n+1}}-W_{t_n}$. By induction over $n$, we get $\cG^{\pi}_{u_i}\subseteq\cF_{u_i}$. Each $\ell_k$ is a Borel function of the fine-grid prices on $[u_k,u_{k+1}]$, and $u_{k+1}\le u_i$ for $k<i$, which shows $\cG^{M}_{u_i}\subseteq\cG^{\pi}_{u_i}$. The complete Runge--Kutta update over one learning interval is a Borel map $H_{u_{i+1}}=R_\theta(H_{u_i},\ell_i)$. If $H_{u_i}$ is $\cG^{M}_{u_i}$-measurable, it follows that $H_{u_{i+1}}$ is $\cG^{M}_{u_{i+1}}$-measurable, and induction completes (i).
+
+(ii) The heads take $\xi_i=(H_{u_i},X_{u_i})$ as input. The price part of $X_{u_i}$ equals $X_0$ plus the sum of the level-one price coordinates of $\ell_0,\dots,\ell_{i-1}$, and the time part is deterministic. Combined with (i), this shows that $\xi_i$, $\hZ_{u_i}$, and $\hY_{j,T_{j-1}}$ have the stated measurability.
+
+(iii) Since $\Delta W_i$ is independent of $\cF_{u_i}$, we have $\E[\Delta W_i\mid\cF_{u_i}]=0$ and $\E[\Delta W_i\Delta W_i^\top\mid\cF_{u_i}]=hI_d$. Together with (ii), we obtain
+\[
+\E[\hY_{j,u_{i+1}}\mid\cF_{u_i}]=\hY_{j,u_i},\quad
+\E[\abs{\hY_{j,u_{i+1}}}^2\mid\cF_{u_i}]=\abs{\hY_{j,u_i}}^2+h\abs{\hZ_{u_i}}^2 .
+\]
+Iterating this identity, we find $\E\abs{\hY_{j,u_i}}^2=\E\abs{\hY_{j,T_{j-1}}}^2+h\sum_{T_{j-1}\le u_k<u_i}\E\abs{\hZ_{u_k}}^2<\infty$. For the piecewise-constant integrand $\hZ_t=\sum_i\hZ_{u_i}\1_{(u_i,u_{i+1}]}(t)$, we have $\E\int_{T_{j-1}}^{T_j}\abs{\hZ_t}^2\dd t=h\sum_i\E\abs{\hZ_{u_i}}^2<\infty$. The stochastic integral is therefore a square-integrable martingale, and so is $\hY_{j,t}=\hY_{j,T_{j-1}}+\int_{T_{j-1}}^t\hZ_v^\top\dd W_v$.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{thm:discretisation}}{Theorem 4}}\label{app:discretisation}
+
+\begin{proof}
+
+We first show that $\bZ$ is optimal. Let $A\in L^2(\cF_{u_i};\R^d)$ and expand $\E\int_{u_i}^{u_{i+1}}\abs{Z_t-A}^2\dd t$ around $\bZ_{u_i}$. Conditioning on $\cF_{u_i}$, we find that the cross term equals
+\[
+\E\left[\left(\E\left[\int_{u_i}^{u_{i+1}}Z_t\dd t\Bigm|\cF_{u_i}\right]-h\bZ_{u_i}\right)^\top(A-\bZ_{u_i})\right]=0 .
+\]
+We thus obtain
+\begin{equation}\label{eq:proj-best}
+\E\int_{u_i}^{u_{i+1}}\abs{Z_t-A}^2\dd t=\E\int_{u_i}^{u_{i+1}}\abs{Z_t-\bZ_{u_i}}^2\dd t+h\,\E\abs{A-\bZ_{u_i}}^2 ,
+\end{equation}
+which shows $\varepsilon^\pi(Z)=\inf_{\hZ}\E\int_0^T\abs{Z_t-\hZ_t}^2\dd t$ over integrands that are constant and $\cF_{u_i}$-measurable on each $[u_i,u_{i+1})$.
+
+(a) Let $D=L_g\norm{S-\Ipl S^{\mathrm f}}_T$. We claim $\abs{Y_{j,t}-Y^{\mathrm f}_{j,t}}\le\E[D\mid\cF_t]$ on every layer. At maturity, $\abs{Y_{K,T}-Y^{\mathrm f}_{K,T}}=\abs{\Phi_K(S)-\Phi_K(\Ipl S^{\mathrm f})}\le D$, and conditioning on $\cF_t$ proves the claim on layer $K$. Suppose the claim holds at $T_j$ for layer $j+1$. By \cref{ass:link}, we get
+\[
+\abs{Y_{j,T_j}-Y^{\mathrm f}_{j,T_j}}\le\max\bigl\{L_g\norm{S-\Ipl S^{\mathrm f}}_{T_j},\abs{Y_{j+1,T_j}-Y^{\mathrm f}_{j+1,T_j}}\bigr\}\le\E[D\mid\cF_{T_j}],
+\]
+because $L_g\norm{S-\Ipl S^{\mathrm f}}_{T_j}$ is $\cF_{T_j}$-measurable and bounded by $D$. Conditioning extends the claim to $[T_{j-1},T_j]$. By the conditional Jensen inequality, we obtain $\E\abs{Y_{j,t}-Y^{\mathrm f}_{j,t}}^2\le\E D^2=L_g^2\emon$. For the hedge, It\^o's isometry implies
+\[
+\E\int_{T_{j-1}}^{T_j}\abs{Z_{j,t}-Z^{\mathrm f}_{j,t}}^2\dd t=\E\abs{Y_{j,T_j}-Y^{\mathrm f}_{j,T_j}}^2-\E\abs{Y_{j,T_{j-1}}-Y^{\mathrm f}_{j,T_{j-1}}}^2\le L_g^2\emon ,
+\]
+and summing over $j$ completes the proof of (a).
+
+(b) \emph{Monitoring.} Let $\underline S^{\mathrm f}_t=S^{\mathrm f}_{t_n}$ on $[t_n,t_{n+1})$. Under \cref{ass:sde}, \cite[Thm.~4.2]{zhang2004} shows $\E\norm{S-\underline S^{\mathrm f}}_T^2\le C\hf\log(2T/\hf)$. It remains to pass to the interpolation. On each fine interval we have $\norm{\Ipl S^{\mathrm f}-\underline S^{\mathrm f}}\le\max_n\abs{S^{\mathrm f}_{t_{n+1}}-S^{\mathrm f}_{t_n}}$, and
+\[
+\abs{S^{\mathrm f}_{t_{n+1}}-S^{\mathrm f}_{t_n}}\le\abs{S^{\mathrm f}_{t_{n+1}}-S_{t_{n+1}}}+\lim_{t\uparrow t_{n+1}}\abs{S_t-\underline S^{\mathrm f}_t}\le2\norm{S-\underline S^{\mathrm f}}_T .
+\]
+By the triangle inequality, we deduce $\norm{S-\Ipl S^{\mathrm f}}_T\le3\norm{S-\underline S^{\mathrm f}}_T$, and hence $\emon\le9\E\norm{S-\underline S^{\mathrm f}}_T^2\le C\hf\log(2T/\hf)$.
+
+\emph{Grid regularity.} Let $F_j(x)=g_j(x,u_{j+1}(T_j,x))$ for $j<K$ and $F_K=\Phi_K$. From \cref{ass:link} and \cref{thm:wellposed}(iii), we get $\abs{F_j(x)-F_j(x')}\le CL_g\norm{x-x'}_{T_j}$. Subtracting a constant does not change the integrand, so we may assume $F_j(0)=0$. Let $\tilde Z_j$ be the integrand of $\E[F_j(S)\mid\cF_t]=\E F_j(S)+\int_0^t\tilde Z_{j,s}^\top\dd W_s$ on $[0,T]$. Uniqueness in the martingale representation shows $\tilde Z_j=Z_j$ on $[T_{j-1},T_j]$. Take smooth coefficients $b^{(n)},\sigma^{(n)}$ and smooth functionals $F^{(n)}_j$ of finitely many path values with $\E\norm{S^{(n)}-S}_T^2\to0$, $F_j^{(n)}(0)=0$, $\abs{F_j^{(n)}(x)-F_j^{(n)}(x')}\le CL_g\norm{x-x'}_T$, and $F_j^{(n)}\to F_j$ pointwise \cite{zhang2004}. By the Lipschitz property, we have
+\[
+\norm{F_j^{(n)}(S^{(n)})-F_j(S)}_{L^2}\le CL_g\left(\E\norm{S^{(n)}-S}_T^2\right)^{1/2}+\norm{F_j^{(n)}(S)-F_j(S)}_{L^2}\to0,
+\]
+where the second term vanishes by dominated convergence with the bound $2CL_g\norm{S}_T$. It\^o's isometry then implies $\E\int_0^T\abs{\tilde Z^{(n)}_{j,t}-\tilde Z_{j,t}}^2\dd t\to0$. For the smooth problems, Zhang's regularity theorem \cite{zhang2004} provides $\sum_i\E\int_{u_i}^{u_{i+1}}\abs{\tilde Z^{(n)}_{j,t}-\tilde Z^{(n)}_{j,u_i}}^2\dd t\le Ch$, and \eqref{eq:proj-best} reduces this to $\varepsilon^\pi(\tilde Z^{(n)}_j)\le Ch$. Since $Z\mapsto Z-\bZ$ is an orthogonal projection in $L^2$, we find
+\[
+\Bigl\lvert\sqrt{\varepsilon^\pi(\tilde Z^{(n)}_j)}-\sqrt{\varepsilon^\pi(\tilde Z_j)}\Bigr\rvert\le\left(\E\int_0^T\abs{\tilde Z^{(n)}_{j,t}-\tilde Z_{j,t}}^2\dd t\right)^{1/2}\to0 .
+\]
+Letting $n\to\infty$, we obtain $\varepsilon^\pi(Z_j)\le Ch$ on each layer. Summing over $j$, we conclude $\varepsilon^\pi(Z)\le CKh$.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{thm:aposteriori}}{Theorem 5}}\label{app:aposteriori}
+
+\begin{proof}
+
+Let $\delta Y_{j,t}=Y^{\mathrm f}_{j,t}-\hY_{j,t}$ and $\delta Z_{j,t}=Z^{\mathrm f}_{j,t}-\hZ_t$. Both processes are martingales on layer $j$, so $\delta Y_{j,t}=\delta Y_{j,T_{j-1}}+\int_{T_{j-1}}^t\delta Z_{j,s}^\top\dd W_s$. By It\^o's isometry, we obtain
+\[
+\E\abs{\delta Y_{j,t}}^2=\E\abs{\delta Y_{j,T_{j-1}}}^2+\E\int_{T_{j-1}}^t\abs{\delta Z_{j,s}}^2\dd s .
+\]
+This identity shows $\sup_t\E\abs{\delta Y_{j,t}}^2=\E\abs{\delta Y_{j,T_j}}^2$ and $\E\int_{T_{j-1}}^{T_j}\abs{\delta Z_{j,t}}^2\dd t=\norm{\delta Y_{j,T_j}}_{L^2}^2-\norm{\delta Y_{j,T_{j-1}}}_{L^2}^2$. At maturity, $\delta Y_{K,T}=-e_K$. For $j<K$, the definition of the residual gives
+\[
+\delta Y_{j,T_j}=g^{\mathrm f}_j(Y^{\mathrm f}_{j+1,T_j})-g^{\mathrm f}_j(\hY_{j+1,T_j})-e_j,
+\]
+and the $1$-Lipschitz property of the link in $y$ implies
+\[
+\norm{\delta Y_{j,T_j}}_{L^2}\le\norm{\delta Y_{j+1,T_j}}_{L^2}+\norm{e_j}_{L^2}\le\norm{\delta Y_{j+1,T_{j+1}}}_{L^2}+\norm{e_j}_{L^2}.
+\]
+By backward induction, we get $\norm{\delta Y_{j,T_j}}_{L^2}\le\sum_{k\ge j}\norm{e_k}_{L^2}$. The Cauchy--Schwarz inequality then shows $\max_j\sup_t\E\abs{\delta Y_{j,t}}^2\le(\sum_k\norm{e_k}_{L^2})^2\le K\cL(\theta)$. Telescoping the isometries over the layers, we derive
+\begin{align*}
+\abs{y_0-V^{\mathrm f}_0}^2+\sum_{j=1}^K\E\int_{T_{j-1}}^{T_j}\abs{\delta Z_{j,t}}^2\dd t
+&=\norm{e_K}_{L^2}^2+\sum_{j=1}^{K-1}\left(\norm{\delta Y_{j,T_j}}_{L^2}^2-\norm{\delta Y_{j+1,T_j}}_{L^2}^2\right)\\
+&\le\sum_{j=1}^K\norm{e_j}_{L^2}^2+2\sum_{j=1}^{K-1}\norm{e_j}_{L^2}\norm{\delta Y_{j+1,T_j}}_{L^2}\\
+&\le\left(\sum_{j=1}^K\norm{e_j}_{L^2}\right)^2\le K\cL(\theta).
+\end{align*}
+Adding the two bounds, we arrive at \eqref{eq:aposteriori}. For the converse, we write $e_j=-\delta Y_{j,T_j}+g^{\mathrm f}_j(Y^{\mathrm f}_{j+1,T_j})-g^{\mathrm f}_j(\hY_{j+1,T_j})$ and find $\E\abs{e_j}^2\le2\E\abs{\delta Y_{j,T_j}}^2+2\E\abs{\delta Y_{j+1,T_{j+1}}}^2$. Summing over $j$ yields $\cL(\theta)\le4\sum_j\E\abs{\delta Y_{j,T_j}}^2$. Finally, combining $(a+b)^2\le2a^2+2b^2$ with \cref{thm:discretisation}(a), we obtain the bound $4K\cL(\theta)+2(L_g^2+KL_g^2)\emon$ for the continuous reference.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{lem:information}}{Lemma 6}}\label{app:information}
+
+\begin{proof}
+
+(i) Under \cref{ass:obs}, future fine-grid prices are Borel functions of the current price and future increments of $W$, which are independent of $\cF_{u_i}$. Backward induction through $Y^{\mathrm f}_{j,T_j}=g^{\mathrm f}_j(Y^{\mathrm f}_{j+1,T_j})$ shows that each layer terminal value is a function of the grid prices up to $T_j$. It follows that $Y^{\mathrm f}_{j,u_i}=\E[Y^{\mathrm f}_{j,T_j}\mid\cF_{u_i}]=\E[Y^{\mathrm f}_{j,T_j}\mid\cG^{\pi}_{u_i}]$. By It\^o's isometry, $\E[Y^{\mathrm f}_{j,T_j}\Delta W_i\mid\cF_{u_i}]=h\bZ^{\mathrm f}_{u_i}$, and the same independence argument gives
+\begin{equation}\label{eq:information-hedge}
+\bZ^{\mathrm f}_{u_i}=\frac1h\E\left[Y^{\mathrm f}_{j,T_j}\Delta W_i\mid\cG^{\pi}_{u_i}\right].
+\end{equation}
+
+(ii) The level-$M$ log-signature is a function of the level-$(M+1)$ log-signature, which shows $\cG^{M}_{u_i}\subseteq\cG^{M+1}_{u_i}$. For square-integrable $U$, the orthogonality of conditional expectations leads to
+\[
+\E\abs{U-\E[U\mid\cG^{M}_{u_i}]}^2=\E\abs{U-\E[U\mid\cG^{M+1}_{u_i}]}^2+\E\abs{\E[U\mid\cG^{M+1}_{u_i}]-\E[U\mid\cG^{M}_{u_i}]}^2 .
+\]
+Applying this identity to each term of $\etr(M)$, we obtain $\etr(M+1)\le\etr(M)$.
+
+(iii) Write $\bar S_t=D^{-1}(\Ipl S^{\mathrm f}_t-\mu)$ for the price part of $X$. The truncated tensor exponential recovers the signature from $\ell_i$. Let $\mathbf S_i^{0^ra}$ denote the signature coordinate with $r$ time letters followed by price letter $a$. For $r=0,\dots,m-1$, we compute on the piecewise-linear path
+\begin{align*}
+\mathbf S_i^{0^ra}&=\frac1{r!}\int_{u_i}^{u_{i+1}}\left(\frac{s-u_i}{T}\right)^r\dd\bar S^a_s\\
+&=\sum_{q=1}^m\frac{(\hf/T)^r\left(q^{r+1}-(q-1)^{r+1}\right)}{(r+1)!}\left(\bar S^a_{u_i+q\hf}-\bar S^a_{u_i+(q-1)\hf}\right).
+\end{align*}
+Row $r$ of the coefficient matrix $B$ evaluates a polynomial of degree $r$ with leading coefficient $(\hf/T)^r/r!$ at $q=1,\dots,m$. Row operations reduce $B$ to a scaled Vandermonde matrix, and we find
+\[
+\det B=\left(\prod_{r=0}^{m-1}\frac{(\hf/T)^r}{r!}\right)\prod_{1\le p<q\le m}(q-p)=\left(\frac{\hf}{T}\right)^{m(m-1)/2}>0 .
+\]
+If $M\ge m$, all these coordinates are available, and $B^{-1}$ recovers the $m$ fine increments of every price coordinate. Starting from the deterministic $s_0$, we recover every grid price up to $u_i$. This shows $\cG^{\pi}_{u_i}\subseteq\cG^{M}_{u_i}$, while the reverse inclusion is \cref{lem:nonanticipation}(i). According to (i), every projection in $\etr(M)$ then equals its target, so $\etr(M)=0$.
+
+(iv) Summing the level-one increments, we get $\bar S_{u_i}=\bar S_0+\sum_{k<i}\ell_k^{(1),\mathrm{price}}$, so $S^{\mathrm f}_{u_i}$ is $\cG^1_{u_i}$-measurable. For payoffs of the current price, the Markov property and \eqref{eq:information-hedge} imply that $Y^{\mathrm f}_{j,u_i}$ and $\bZ^{\mathrm f}_{u_i}$ are functions of $S^{\mathrm f}_{u_i}$, hence $\etr(M)=0$ for $M\ge1$. For average-type payoffs, the level-two coordinate with price letter $a$ followed by time satisfies
+\[
+\mathbf S_i^{a0}=\frac1T\int_{u_i}^{u_{i+1}}(\bar S^a_t-\bar S^a_{u_i})\dd t,\quad
+\int_0^{u_i}\bar S^a_t\dd t=\sum_{k<i}\left(h\bar S^a_{u_k}+T\mathbf S_k^{a0}\right),
+\]
+and $\int_0^{u_i}\Ipl S^{\mathrm f}_t\dd t=u_i\mu+D\int_0^{u_i}\bar S_t\dd t$. We conclude that the pair $(S^{\mathrm f}_{u_i},\int_0^{u_i}\Ipl S^{\mathrm f}_t\dd t)$ is $\cG^2_{u_i}$-measurable. This pair is a Markov state, because each fine step updates the price and adds $\hf(S^{\mathrm f}_{t_n}+S^{\mathrm f}_{t_{n+1}})/2$ to the integral. By backward induction and \eqref{eq:information-hedge}, both targets are functions of this state, and we obtain $\etr(M)=0$ for $M\ge2$.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{thm:attainable}}{Theorem 7}}\label{app:attainable}
+
+\begin{proof}
+
+(a) For the upper bound, choose $y_0=V^{\mathrm f}_0$, $\hY_{j,T_{j-1}}=\E[Y^{\mathrm f}_{j,T_{j-1}}\mid\cG^{M}_{T_{j-1}}]$, and $\hZ_{u_i}=\E[\bZ^{\mathrm f}_{u_i}\mid\cG^{M}_{u_i}]$. Applying \eqref{eq:proj-best} with $A=\hZ_{u_i}$, we obtain
+\[
+\sum_j\E\int_{T_{j-1}}^{T_j}\abs{Z^{\mathrm f}_{j,t}-\hZ_t}^2\dd t=\varepsilon^\pi(Z^{\mathrm f})+h\sum_i\E\bigl\lvert\bZ^{\mathrm f}_{u_i}-\E[\bZ^{\mathrm f}_{u_i}\mid\cG^{M}_{u_i}]\bigr\rvert^2 .
+\]
+The cross terms between the initial errors and the stochastic integrals vanish after conditioning on $\cF_{T_{j-1}}$. By the layerwise martingale identity and It\^o's isometry, we get
+\[
+\sum_{j=1}^K\E\abs{Y^{\mathrm f}_{j,T_j}-\hY_{j,T_j}}^2=\varepsilon^\pi(Z^{\mathrm f})+\etr(M).
+\]
+Write $e_j=(\hY_{j,T_j}-Y^{\mathrm f}_{j,T_j})+(g^{\mathrm f}_j(Y^{\mathrm f}_{j+1,T_j})-g^{\mathrm f}_j(\hY_{j+1,T_j}))$. Using the triangle inequality in $L^2$ and the $1$-Lipschitz property of the links, we deduce
+\[
+\begin{aligned}\sqrt{\cL}&\le\sqrt{\varepsilon^\pi(Z^{\mathrm f})+\etr(M)}+\left(\sum_{j=2}^K\E\abs{Y^{\mathrm f}_{j,T_{j-1}}-\hY_{j,T_{j-1}}}^2\right)^{1/2}\\&\le\sqrt{\varepsilon^\pi(Z^{\mathrm f})+\etr(M)}+\sqrt{\etr(M)},\end{aligned}
+\]
+which implies $\Lstar\le2\varepsilon^\pi(Z^{\mathrm f})+4\etr(M)$, and $\Lstar\le\varepsilon^\pi(Z^{\mathrm f})$ if $\etr(M)=0$. For the lower bound, take any admissible output. By \eqref{eq:proj-best} and \cref{thm:aposteriori}, we have $\varepsilon^\pi(Z^{\mathrm f})\le\sum_j\E\int\abs{Z^{\mathrm f}_{j,t}-\hZ_t}^2\dd t\le K\cL$, and taking the infimum proves the claim. Finally, applying \eqref{eq:proj-best} with $A=\bZ_{u_i}$ together with \cref{thm:discretisation}, we find
+\[
+\begin{aligned}\varepsilon^\pi(Z^{\mathrm f})&\le\sum_i\E\int_{u_i}^{u_{i+1}}\abs{Z^{\mathrm f}_t-\bZ_{u_i}}^2\dd t\\&\le2\E\int_0^T\abs{Z^{\mathrm f}_t-Z_t}^2\dd t+2\varepsilon^\pi(Z)\le2KL_g^2\emon+2\varepsilon^\pi(Z),\end{aligned}
+\]
+and \cref{thm:discretisation}(b) bounds the right-hand side by $CK(h+\hf\log(2T/\hf))$.
+
+(b) Write $\cL(\theta)=\Lstar+\enet(\theta)$. Combining \cref{thm:aposteriori} with (a), we obtain
+\begin{align*}
+&\max_j\sup_t\E\abs{Y_{j,t}-\hY_{j,t}}^2+\sum_j\E\int\abs{Z_{j,t}-\hZ_t}^2\dd t\\
+&\quad\le4K\left(\Lstar+\enet(\theta)\right)+2(K+1)L_g^2\emon\\
+&\quad\le16K\varepsilon^\pi(Z)+(16K^2+2K+2)L_g^2\emon\\&\quad+16K\etr(M)+4K\enet(\theta).
+\end{align*}
+Inserting the rates of \cref{thm:discretisation}(b), we arrive at the stated bound.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{thm:stationary}}{Theorem 8} and \texorpdfstring{\cref{ex:downward}}{Example 9}}\label{app:stationary}
+
+\begin{proof}
+
+By the layerwise martingale property and $\cG^{M}_{T_{j-1}}\subseteq\cF_{T_{j-1}}$, we have
+\begin{equation}\label{eq:stationary-residual-mean}
+\E[e_j\mid\cG^{M}_{T_{j-1}}]=\hY_{j,T_{j-1}}-\E\left[g^{\mathrm f}_j(\hY_{j+1,T_j})\bigm|\cG^{M}_{T_{j-1}}\right],
+\end{equation}
+with $g^{\mathrm f}_K=\Phi^{\mathrm f}_K$. Under either rule, a perturbation of $y_0$ changes only $e_1$, with derivative one. Stationarity therefore reduces to $0=2\omega_1\E e_1$, which is the first statement.
+
+(i) Fix $j\ge2$ and a bounded $\cG^{M}_{T_{j-1}}$-measurable $v$, and replace $\hY_{j,T_{j-1}}$ by $\hY_{j,T_{j-1}}+\eta v$, which (H) allows. With frozen targets only $e_j$ moves, and stationarity gives $0=2\omega_j\E[e_jv]=2\omega_j\E[v\,\E[e_j\mid\cG^{M}_{T_{j-1}}]]$ for all such $v$. We conclude $\E[e_j\mid\cG^{M}_{T_{j-1}}]=0$, and \eqref{eq:stationary-residual-mean} at $\theta^-=\theta$ leads to the recursion. Under (I), we define
+\[
+Y^{(M)}_{K,T_{K-1}}=\E[\Phi^{\mathrm f}_K\mid\cG^{M}_{T_{K-1}}],\quad
+Y^{(M)}_{j,T_{j-1}}=\E\left[\max\{\Phi^{\mathrm f}_j,Y^{(M)}_{j+1,T_j}\}\bigm|\cG^{M}_{T_{j-1}}\right],\quad j<K .
+\]
+Both entries of each maximum are $\cG^{M}_{T_j}$-observable. By backward induction, the conditional payoff of every admissible stopping rule is bounded by this recursion, with equality for the rule that exercises at the first $T_j$ with $\Phi^{\mathrm f}_j\ge Y^{(M)}_{j+1,T_j}$. This shows $Y^{(M)}_{1,0}=V^{(M)}_0$. The stop-gradient recursion coincides with it, so $y_0=V^{(M)}_0$. The inclusions $\cG^{M}\subseteq\cG^{M+1}\subseteq\F$ enlarge the set of admissible rules, and we get $V^{(M)}_0\le V^{(M+1)}_0\le V^{\mathrm f}_0$. Suppose now that each $Y^{\mathrm f}_{j,T_{j-1}}$ is $\cG^{M}_{T_{j-1}}$-measurable, which holds when $\etr(M)=0$. Backward induction and the tower property then give
+\[
+\hY_{j,T_{j-1}}=\E\left[\E[g^{\mathrm f}_j(Y^{\mathrm f}_{j+1,T_j})\mid\cF_{T_{j-1}}]\bigm|\cG^{M}_{T_{j-1}}\right]=Y^{\mathrm f}_{j,T_{j-1}},\quad y_0=V^{\mathrm f}_0 .
+\]
+
+(ii) Under joint training, the same perturbation changes $e_j$ by $v$ and, by (T), changes $e_{j-1}$ by $-v\1\{\hY_{j,T_{j-1}}>\Phi^{\mathrm f}_{j-1}\}$. The boundedness of $v$ and the Lipschitz property of the maximum allow us to differentiate under the expectation, and stationarity reads
+\[
+0=2\E\left[v\,\E\left[\omega_je_j-\omega_{j-1}e_{j-1}\1\{\hY_{j,T_{j-1}}>\Phi^{\mathrm f}_{j-1}\}\bigm|\cG^{M}_{T_{j-1}}\right]\right]
+\]
+for all $v$. Combining this with \eqref{eq:stationary-residual-mean}, we obtain (ii).
+
+(iii) We subtract the recursion for $Y^{(M)}$ from (ii). By the conditional Jensen inequality and the $1$-Lipschitz links, we find, for $2\le j<K$,
+\[
+\E\abs{\hY_{j,T_{j-1}}-Y^{(M)}_{j,T_{j-1}}}\le\E\abs{\hY_{j+1,T_j}-Y^{(M)}_{j+1,T_j}}+\frac{\omega_{j-1}}{\omega_j}\E\left[\abs{e_{j-1}}\1\{\hY_{j,T_{j-1}}>\Phi^{\mathrm f}_{j-1}\}\right],
+\]
+and the same estimate without the first term for $j=K$. Since $\abs{y_0-V^{(M)}_0}\le\E\abs{\hY_{2,T_1}-Y^{(M)}_{2,T_1}}$, iterating these estimates proves (iii).
+\end{proof}
+
+The joint price error admits an exact decomposition for two layers.
+
+\begin{proposition}\label{prop:twolayer}
+Let $K=2$, assume (T) and (H) with full information $\F$, and set $\lambda=\omega_1/\omega_2$, $\delta=\hY_{2,T_1}-Y^{\mathrm f}_{2,T_1}$, and $D=Y^{\mathrm f}_{2,T_1}-\Phi^{\mathrm f}_1$. At a joint stationary point,
+\[
+\hY_{2,T_1}=\begin{cases}\dfrac{Y^{\mathrm f}_{2,T_1}+\lambda\hY_{1,T_1}}{1+\lambda},&\hY_{2,T_1}>\Phi^{\mathrm f}_1,\\[6pt] Y^{\mathrm f}_{2,T_1},&\text{otherwise},\end{cases}
+\quad
+y_0-V^{\mathrm f}_0=\E[\delta\1\{D>0\}]+R,
+\]
+with $0\le R\le\E[\abs\delta\1\{\abs D<\abs\delta\}]$.
+\end{proposition}
+
+\begin{proof}
+With full information, $e_1$ and the continuation indicator are $\cF_{T_1}$-measurable. \Cref{thm:stationary}(ii) then reduces to $\delta=\lambda e_1\1\{\hY_{2,T_1}>\Phi^{\mathrm f}_1\}$. On the continuation set we have $e_1=\hY_{1,T_1}-\hY_{2,T_1}$, and solving for $\hY_{2,T_1}$ gives the first formula. For the price error, we compute
+\[
+y_0-V^{\mathrm f}_0=\E\left[\max\{\Phi^{\mathrm f}_1,\hY_{2,T_1}\}-\max\{\Phi^{\mathrm f}_1,Y^{\mathrm f}_{2,T_1}\}\right]=\E[(D+\delta)^+-D^+].
+\]
+A case distinction shows that the remainder $(D+\delta)^+-D^+-\delta\1\{D>0\}$ equals $(-D-\delta)^+$ if $D>0$ and $(D+\delta)^+$ if $D\le0$. In both cases it is nonnegative and bounded by $\abs\delta\1\{\abs D<\abs\delta\}$, which proves the bound on $R$.
+\end{proof}
+
+\begin{proof}[Verification of \cref{ex:downward}] In this example, $Y^{\mathrm f}_{2,1}=\abs{W_1}$ and $V^{\mathrm f}_0=1+\E(\abs{W_1}-1)^+$. Since $y_0>1$, the predicted continuation set is $\{\abs{W_1}>1\}$, and (T) holds. A direct computation gives the residuals
+\[
+e_1=\begin{cases}y_0-1,&\abs{W_1}\le1,\\(y_0-\abs{W_1})/2,&\abs{W_1}>1,\end{cases}\quad e_2=e_1\1\{\abs{W_1}>1\}.
+\]
+For every bounded $\cF_1$-measurable $v$, we verify
+\begin{gather*}
+2\E e_1=(y_0-1)\left(2-\Q(\abs{W_1}>1)\right)-\E(\abs{W_1}-1)^+=0,\\
+\E\left[(e_2-e_1\1\{\abs{W_1}>1\})v\right]=0,\quad
+\E[e_1W_1]=0,\quad\E[e_2v(W_2-W_1)]=0 .
+\end{gather*}
+The third identity holds because $e_1$ is an even function of $W_1$. These conditions cover $y_0$, the second value head, the first hedge, and all directions of the second hedge, so the outputs form a joint stationary point. Since $0<\Q(\abs{W_1}>1)<1$, we finally obtain $y_0<1+\E(\abs{W_1}-1)^+=V^{\mathrm f}_0$.
+\end{proof}
+
+\subsection{Proof of \texorpdfstring{\cref{thm:primaldual}}{Theorem 10}}\label{app:primaldual}
+
+\begin{proof}
+
+The finite-date Snell recursion provides a square-integrable monitored solution. The Bermudan links are $1$-Lipschitz in $y$, so \cref{thm:aposteriori} applies.
+
+(a) The exercise decisions are $\cF_{T_k}$-measurable, so $\hat\tau$ is admissible and $L_0\le V^{\mathrm f}_0$. For every admissible $\tau$, the optional sampling theorem shows $\E\Phi^{\mathrm f}_\tau=\E(\Phi^{\mathrm f}_\tau-\int_0^\tau\hZ_s^\top\dd W_s)\le U_0$. Taking the supremum over $\tau$, we get $V^{\mathrm f}_0\le U_0$.
+
+(b) Let $N_t=\int_0^t(Z^{\mathrm f}_s-\hZ_s)^\top\dd W_s$ and $N^*_t=\sup_{s\le t}N_s$. According to the dual identity \eqref{eq:dual-identity} for the monitored problem,
+\[
+U_0-V^{\mathrm f}_0=\E\max_k\left(\Phi^{\mathrm f}_k-\int_0^{T_k}(Z^{\mathrm f}_s)^\top\dd W_s+N_{T_k}\right)-V^{\mathrm f}_0\le\E N^*_T .
+\]
+Since $N$ is continuous, the measure $\dd N^*$ is carried by $\{N=N^*\}$. Integration by parts then shows $N_TN^*_T=\int_0^TN^*_t\dd N_t+\frac12(N^*_T)^2$. Taking expectations, we find $\E(N^*_T-N_T)^2=\E N_T^2$, and hence $\E N^*_T=\E(N^*_T-N_T)\le\norm{N_T}_{L^2}$; localization and Doob's inequality justify these steps. It\^o's isometry and \cref{thm:aposteriori} complete the proof of (b).
+
+(c) Concatenating the monitored layer martingales, we obtain
+\[
+Y^{\mathrm f}_{j,T_j}=V^{\mathrm f}_0+\int_0^{T_j}(Z^{\mathrm f}_s)^\top\dd W_s-\sum_{k=1}^{j-1}\left(\Phi^{\mathrm f}_k-Y^{\mathrm f}_{k+1,T_k}\right)^+ .
+\]
+For $j<K$, we have $Y^{\mathrm f}_{j,T_j}-\Phi^{\mathrm f}_j=(Y^{\mathrm f}_{j+1,T_j}-\Phi^{\mathrm f}_j)^+$, and $Y^{\mathrm f}_{K,T}=\Phi^{\mathrm f}_K$. Evaluating at $\hat\tau$ and applying optional sampling, we get
+\[
+V^{\mathrm f}_0-L_0=\sum_{k=1}^{K-1}\E\left[\1_{\{\hat\tau=T_k\}}\left(Y^{\mathrm f}_{k+1,T_k}-\Phi^{\mathrm f}_k\right)^++\1_{\{\hat\tau>T_k\}}\left(\Phi^{\mathrm f}_k-Y^{\mathrm f}_{k+1,T_k}\right)^+\right].
+\]
+On $\{\hat\tau=T_k\}$, the exercise rule shows that the first term is at most $(Y^{\mathrm f}_{k+1,T_k}-\hY_{k+1,T_k}-\eex)^+\le\abs{\hY_{k+1,T_k}-Y^{\mathrm f}_{k+1,T_k}}$. On $\{\hat\tau>T_k\}$ with $\Phi^{\mathrm f}_k>0$, the rule implies $\Phi^{\mathrm f}_k<\hY_{k+1,T_k}+\eex$, so the second term is at most $\abs{\hY_{k+1,T_k}-Y^{\mathrm f}_{k+1,T_k}}+\eex$. If $\Phi^{\mathrm f}_k=0$, the second term vanishes because $Y^{\mathrm f}_{k+1,T_k}\ge0$. The two events are disjoint, and summing over $k$ proves (c).
+
+(d) From the network recursion and the interface identity $\hY_{k,T_k}-\hY_{k+1,T_k}=(\Phi^{\mathrm f}_k-\hY_{k+1,T_k})^++e_k$, we derive, for $j<K$,
+\[
+\Phi^{\mathrm f}_j-\int_0^{T_j}\hZ_s^\top\dd W_s=y_0-\sum_{k=1}^je_k-\sum_{k=1}^{j-1}\left(\Phi^{\mathrm f}_k-\hY_{k+1,T_k}\right)^+-\left(\hY_{j+1,T_j}-\Phi^{\mathrm f}_j\right)^+\le y_0+\sum_{k=1}^Ke_k^- ,
+\]
+and the same bound holds for $j=K$. Taking the maximum over $j$ and the expectation, we obtain $U_0\le y_0+\sum_j\E e_j^-$.
+
+For the lower bound, let $P_{j,t}$, $t\in[T_{j-1},T_j]$, denote the conditional expected payoff of following $\hat\tau$ from $T_j$ on. Each $P_j$ is a nonnegative square-integrable martingale with $P_{1,0}=L_0$, $P_{K,T}=\Phi^{\mathrm f}_K$, and $P_{j,T_j}=\Phi^{\mathrm f}_j$ on the exercise branch and $P_{j+1,T_j}$ otherwise. On the exercise branch, $\max\{\Phi^{\mathrm f}_j,\hY_{j+1,T_j}\}=P_{j,T_j}$. On the continuation branch with $\Phi^{\mathrm f}_j>0$, the maximum is at most $\hY_{j+1,T_j}+\eex$. If $\Phi^{\mathrm f}_j=0$, the nonnegativity of $P_{j+1}$ gives the same bound without $\eex$. In all cases, we get
+\[
+(\hY_{j,T_j}-P_{j,T_j})^+\le e_j^++(\hY_{j+1,T_j}-P_{j+1,T_j})^++\eex ,
+\]
+By the conditional Jensen inequality, $\E(\hY_{j,T_{j-1}}-P_{j,T_{j-1}})^+\le\E(\hY_{j,T_j}-P_{j,T_j})^+$. Since $(\hY_{K,T}-P_{K,T})^+=e_K^+$, backward iteration shows $y_0-L_0\le\sum_j\E e_j^++(K-1)\eex$. Combining the two bounds with $\E\abs{e_j}\le\norm{e_j}_{L^2}$, we conclude (d).
+\end{proof}

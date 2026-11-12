@@ -1,0 +1,3030 @@
+% =====================================================================
+%  第 1 章  现代概率论基础
+% =====================================================================
+\chapter{现代概率论基础}
+\label{ch:1}
+
+随机分析研究的对象是随时间演化的随机现象, 例如股票价格、花粉颗粒的运动以及信号中的噪声. 要对这些对象做严格的微积分运算, 首先需要一个足够牢固的概率论框架: 它既要能够处理 ``无穷多次'' 试验, 又要允许我们对随机量取极限、交换极限与期望. 这个框架就是 Kolmogorov 在 1933 年建立的测度论概率论.
+
+本章依次回答以下问题: 什么是事件与概率 (1.1 节)? 什么是随机变量和它的分布 (1.2 节)? 如何定义并计算期望, 何时可以交换极限与期望 (1.3 节)? 随机变量序列有哪些收敛方式 (1.4 节)? 多个随机变量如何联合描述, 特别是多元正态分布 (1.5 节)? 最后, 平方可积随机变量构成一个 Hilbert 空间, 这一几何观点 (1.6 节) 将直接引出第~2~章的条件期望.
+
+% =====================================================================
+\section{概率的公理化结构}
+\label{sec:1-1}
+
+设想把一枚均匀硬币无限次地抛掷下去, 并问: ``正面出现的频率最终趋于 $\frac{1}{2}$'' 这件事发生的概率是多少? 为了让这个问题有意义, 需要先说清楚三件事.
+
+\begin{enumerate}
+\item \textbf{所有可能的结果.} 用 $1$ 表示正面, $0$ 表示反面, 一次完整的试验结果是一个无穷 $0$-$1$ 序列 $\omega=(\omega_1,\omega_2,\dots)$, 全体结果构成集合 $\Omega=\{0,1\}^{\N}$. 这是一个不可数集.
+\item \textbf{哪些子集算作 ``事件''.} 记 $S_n(\omega)=\omega_1+\cdots+\omega_n$ 为前 $n$ 次中正面的次数. 我们关心的事件是
+\[
+A=\Big\{\omega:\ \lim_{n\to\infty}\frac{S_n(\omega)}{n}=\frac{1}{2}\Big\}.
+\]
+把极限的定义逐层写开 (对任意 $m$, 存在 $N$, 使得对所有 $n\ge N$ 都有误差小于 $\frac{1}{m}$), 得到
+\begin{equation}\label{eq:1-freq-event}
+A=\bigcap_{m=1}^{\infty}\ \bigcup_{N=1}^{\infty}\ \bigcap_{n=N}^{\infty}\Big\{\omega:\ \Big|\frac{S_n(\omega)}{n}-\frac{1}{2}\Big|<\frac{1}{m}\Big\}.
+\end{equation}
+最里层的集合只与前 $n$ 次抛掷有关, 它的概率可以用排列组合算出; 但 $A$ 本身是由它们经过\emph{可列次}交与并得到的. 事件的全体因此必须对可列次集合运算封闭.
+\item \textbf{如何给事件赋予概率.} 只涉及前 $n$ 次抛掷的事件, 可以按 ``每种结果的概率为 $2^{-n}$'' 计算; 对 $A$ 这样的事件, 则需要概率能够 ``穿过'' 可列次集合运算. 这就是可列可加性.
+\end{enumerate}
+
+这三点分别对应样本空间 $\Omega$、$\sigma$-代数 $\mathcal{F}$ 和概率测度 $\P$. 本节先介绍这三个对象, 再介绍处理 $\sigma$-代数的基本工具 $\pi$-$\lambda$ 定理, 最后讨论独立性, 以及刻画 ``无穷多次发生'' 的 Borel-Cantelli 引理与 Kolmogorov 0-1 律.
+
+% ---------------------------------------------------------------------
+\subsection{样本空间与 \texorpdfstring{$\sigma$}{sigma}-代数}
+
+\begin{definition}[$\sigma$-代数与可测空间]\label{def:sigma-algebra}
+设 $\Omega$ 是非空集合, 其元素 $\omega$ 称为\textbf{样本点}, $\Omega$ 称为\textbf{样本空间}. 记 $2^\Omega$ 为 $\Omega$ 的全体子集. 子集族 $\mathcal{F}\subseteq 2^\Omega$ 称为 $\Omega$ 上的 \textbf{$\sigma$-代数} (或 $\sigma$-域), 如果
+\begin{enumerate}
+\item $\Omega\in\mathcal{F}$;
+\item 对补运算封闭: 若 $A\in\mathcal{F}$, 则 $A^c=\Omega\setminus A\in\mathcal{F}$;
+\item 对可列并封闭: 若 $A_1,A_2,\dots\in\mathcal{F}$, 则 $\bigcup_{n=1}^\infty A_n\in\mathcal{F}$.
+\end{enumerate}
+$\mathcal{F}$ 中的元素称为\textbf{事件} (或可测集), 二元组 $(\Omega,\mathcal{F})$ 称为\textbf{可测空间}.
+\end{definition}
+
+\begin{proposition}\label{prop:sigma-closure}
+设 $\mathcal{F}$ 是 $\sigma$-代数, 则
+\begin{enumerate}
+\item $\varnothing\in\mathcal{F}$;
+\item $\mathcal{F}$ 对可列交封闭: 若 $A_1,A_2,\dots\in\mathcal{F}$, 则 $\bigcap_{n=1}^\infty A_n\in\mathcal{F}$;
+\item $\mathcal{F}$ 对有限并、有限交以及差运算封闭.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 由定义中的 (1)(2), $\varnothing=\Omega^c\in\mathcal{F}$.
+
+(2) 由补运算封闭, $A_n^c\in\mathcal{F}$; 由可列并封闭, $\bigcup_n A_n^c\in\mathcal{F}$; 再由 De Morgan 公式与补运算封闭,
+\[
+\bigcap_{n=1}^\infty A_n=\Big(\bigcup_{n=1}^\infty A_n^c\Big)^c\in\mathcal{F}.
+\]
+
+(3) 对 $A_1,\dots,A_k\in\mathcal{F}$, 令 $A_n=\varnothing$ ($n>k$), 则 $\bigcup_{n=1}^k A_n=\bigcup_{n=1}^\infty A_n\in\mathcal{F}$; 令 $A_n=\Omega$ ($n>k$) 并利用 (2) 可得有限交封闭. 最后 $A\setminus B=A\cap B^c\in\mathcal{F}$.
+\end{proof}
+
+\begin{intuition}
+$\sigma$-代数是 ``可以谈论其概率的事件'' 的全体. 三条公理保证: 能谈论 $A$, 就能谈论 ``$A$ 不发生''; 能谈论每个 $A_n$, 就能谈论 ``至少一个 $A_n$ 发生'' 和 ``所有 $A_n$ 都发生''. 在随机过程理论中, $\sigma$-代数还有第二层含义: 它表示\emph{信息}. 一个事件属于 $\mathcal{F}$, 意味着掌握信息 $\mathcal{F}$ 的观察者能判断该事件是否发生.
+\end{intuition}
+
+\begin{example}\label{ex:sigma-examples}
+\begin{enumerate}
+\item \textbf{平凡 $\sigma$-代数} $\{\varnothing,\Omega\}$: 最小的 $\sigma$-代数, 代表 ``毫无信息''.
+\item \textbf{幂集} $2^\Omega$: 最大的 $\sigma$-代数, 代表 ``完全信息''.
+\item 对给定的 $A\subseteq\Omega$, $\{\varnothing,A,A^c,\Omega\}$ 是 $\sigma$-代数, 代表 ``只知道 $A$ 是否发生''.
+\item \textbf{由有限分割生成的 $\sigma$-代数.} 设 $\Omega=D_1\cup\cdots\cup D_k$, 其中 $D_i$ 非空且两两不交. 令 $\mathcal{F}$ 为所有形如 $\bigcup_{i\in I}D_i$ ($I\subseteq\{1,\dots,k\}$, 约定 $I=\varnothing$ 时为 $\varnothing$) 的集合全体. 补集对应 $I$ 的补集, 并集对应指标集的并集, 所以 $\mathcal{F}$ 是 $\sigma$-代数, 共有 $2^k$ 个元素. 它代表的信息是: 观察者知道 $\omega$ 落在哪一块 $D_i$ 中, 但不知道块内的具体位置 (图~\ref{fig:partition}).
+\end{enumerate}
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1]
+  \fill[SABlue!18] (0,0) rectangle (2.4,1.6);
+  \fill[SABlue!18] (2.4,1.6) -- (5,1.6) -- (5,3) -- (3.1,3) -- cycle;
+  \draw[SADark,thick] (0,0) rectangle (5,3);
+  \draw[SADark] (0,1.6) -- (5,1.6);
+  \draw[SADark] (2.4,0) -- (2.4,1.6);
+  \draw[SADark] (2.4,1.6) -- (3.1,3);
+  \node at (1.2,0.8) {$D_3$};
+  \node at (3.7,0.8) {$D_4$};
+  \node at (1.3,2.3) {$D_1$};
+  \node at (4.1,2.3) {$D_2$};
+  \node[SADark] at (5.35,2.8) {$\Omega$};
+  \fill[SARed] (0.55,0.45) circle (1.5pt) node[right,font=\small] {$\omega$};
+  \node[align=left,font=\small,anchor=west] at (5.8,1.5)
+    {阴影部分 $D_2\cup D_3\in\mathcal{F}$.\\[2pt]
+     观察者只知道 $\omega\in D_3$,\\[2pt]
+     不知道 $\omega$ 在 $D_3$ 中的位置.};
+\end{tikzpicture}
+\caption{由分割 $\{D_1,D_2,D_3,D_4\}$ 生成的 $\sigma$-代数有 $2^4=16$ 个元素}
+\label{fig:partition}
+\end{figure}
+
+既然幂集 $2^\Omega$ 是最大的 $\sigma$-代数, 为什么不总取 $\mathcal{F}=2^\Omega$? 下面的例子说明: 当 $\Omega$ 不可数时, 幂集太大, 以至于连 ``$[0,1)$ 上的均匀分布'' 都无法定义在全体子集上.
+
+\begin{example}[Vitali 集]\label{ex:vitali}
+对 $x\in[0,1)$ 与 $q\in[0,1)$, 记 $x\oplus q$ 为 $x+q$ 的小数部分 (即模 $1$ 的平移), 对 $V\subseteq[0,1)$ 记 $V\oplus q=\{v\oplus q: v\in V\}$. 假设存在定义在 $[0,1)$ 的\emph{全体}子集上的函数 $\P$, 满足 $\P([0,1))=1$、可列可加性 (定义~\ref{def:probability} 中的条件 (2)), 以及平移不变性 $\P(V\oplus q)=\P(V)$. 我们来导出矛盾.
+
+在 $[0,1)$ 上定义等价关系: $x\sim y$ 当且仅当 $x-y\in\Q$. 由选择公理, 可以从每个等价类中恰好取出一个元素, 组成集合 $V$. 记 $Q=\Q\cap[0,1)$, 它是可列集.
+\begin{itemize}
+\item \emph{$\{V\oplus q\}_{q\in Q}$ 两两不交.} 若 $x\in(V\oplus q)\cap(V\oplus r)$, 则存在 $v,v'\in V$ 使 $x=v\oplus q=v'\oplus r$, 于是 $v-v'$ 等于 $r-q$ 加上某个整数, 是有理数. 从而 $v\sim v'$. 由于 $V$ 在每个等价类中只取一个元素, $v=v'$, 进而 $q-r$ 是整数. 又因为 $q,r\in[0,1)$, 所以 $q=r$.
+\item \emph{$\bigcup_{q\in Q}(V\oplus q)=[0,1)$.} 任取 $x\in[0,1)$, 设 $v\in V$ 是 $x$ 所在等价类的代表元, 则 $x-v\in\Q\cap(-1,1)$. 若 $x-v\ge 0$, 取 $q=x-v$; 否则取 $q=x-v+1$. 两种情况都有 $q\in Q$ 且 $x=v\oplus q$.
+\end{itemize}
+由可列可加性与平移不变性,
+\[
+1=\P([0,1))=\sum_{q\in Q}\P(V\oplus q)=\sum_{q\in Q}\P(V).
+\]
+右边是可列个相同非负数之和: 若 $\P(V)=0$, 和为 $0$; 若 $\P(V)>0$, 和为 $+\infty$. 两者都不等于 $1$, 矛盾.
+\end{example}
+
+因此我们只能在比 $2^\Omega$ 小的 $\sigma$-代数上定义概率. 最常用的办法是先指定一族 ``基本'' 集合 (比如区间), 然后取包含它们的最小 $\sigma$-代数.
+
+\begin{lemma}\label{lem:intersection-sigma}
+设 $\{\mathcal{F}_i\}_{i\in I}$ 是 $\Omega$ 上的一族 $\sigma$-代数 ($I$ 为任意非空指标集), 则 $\bigcap_{i\in I}\mathcal{F}_i$ 也是 $\sigma$-代数.
+\end{lemma}
+
+\begin{proof}
+记 $\mathcal{G}=\bigcap_{i\in I}\mathcal{F}_i$. 对每个 $i$ 都有 $\Omega\in\mathcal{F}_i$, 故 $\Omega\in\mathcal{G}$. 若 $A\in\mathcal{G}$, 则对每个 $i$ 都有 $A\in\mathcal{F}_i$, 从而 $A^c\in\mathcal{F}_i$, 故 $A^c\in\mathcal{G}$. 若 $A_1,A_2,\dots\in\mathcal{G}$, 则对每个 $i$ 都有 $\bigcup_n A_n\in\mathcal{F}_i$, 故 $\bigcup_n A_n\in\mathcal{G}$.
+\end{proof}
+
+\begin{definition}[生成的 $\sigma$-代数]\label{def:generated-sigma}
+设 $\mathcal{C}\subseteq 2^\Omega$ 是任意子集族. 所有包含 $\mathcal{C}$ 的 $\sigma$-代数之交 (这样的 $\sigma$-代数至少有 $2^\Omega$ 一个, 由引理~\ref{lem:intersection-sigma}, 交仍是 $\sigma$-代数) 称为由 $\mathcal{C}$ \textbf{生成的 $\sigma$-代数}, 记为 $\sigma(\mathcal{C})$. 它是包含 $\mathcal{C}$ 的\emph{最小} $\sigma$-代数: 若 $\mathcal{G}$ 是 $\sigma$-代数且 $\mathcal{C}\subseteq\mathcal{G}$, 则 $\sigma(\mathcal{C})\subseteq\mathcal{G}$.
+\end{definition}
+
+``最小性'' 给出了一个反复使用的证明模式: 要证 $\sigma(\mathcal{C})\subseteq\mathcal{G}$, 只需验证 $\mathcal{G}$ 是 $\sigma$-代数且 $\mathcal{C}\subseteq\mathcal{G}$. 例如 $\sigma(\{A\})=\{\varnothing,A,A^c,\Omega\}$, 而例~\ref{ex:sigma-examples} (4) 中的 $\sigma$-代数就是 $\sigma(\{D_1,\dots,D_k\})$.
+
+\begin{definition}[Borel $\sigma$-代数]\label{def:borel}
+$\R$ 上由全体开集生成的 $\sigma$-代数称为 \textbf{Borel $\sigma$-代数}, 记为 $\mathcal{B}(\R)$, 其元素称为 Borel 集. 类似地, 对 $\R$ 的子集 $E$ (如 $E=[0,1]$), $\mathcal{B}(E)=\{B\cap E: B\in\mathcal{B}(\R)\}$.
+\end{definition}
+
+开集、闭集、单点集、可列集以及各种区间都是 Borel 集. 实际使用中最方便的是下面这组生成元.
+
+\begin{proposition}\label{prop:borel-generator}
+$\mathcal{B}(\R)=\sigma\big(\{(-\infty,x]: x\in\R\}\big)$.
+\end{proposition}
+
+\begin{proof}
+记 $\mathcal{C}=\{(-\infty,x]: x\in\R\}$.
+
+``$\supseteq$'': 每个 $(-\infty,x]$ 是闭集, 是开集 $(x,\infty)$ 的补集, 故属于 $\mathcal{B}(\R)$. 由 $\sigma(\mathcal{C})$ 的最小性, $\sigma(\mathcal{C})\subseteq\mathcal{B}(\R)$.
+
+``$\subseteq$'': 只需证明每个开集属于 $\sigma(\mathcal{C})$. 对 $a<b$, 有 $(a,b]=(-\infty,b]\setminus(-\infty,a]\in\sigma(\mathcal{C})$, 进而
+\[
+(a,b)=\bigcup_{n>1/(b-a)}\Big(a,\,b-\frac{1}{n}\Big]\in\sigma(\mathcal{C}).
+\]
+设 $G$ 是开集. 对每个 $x\in G$, 存在 $\varepsilon>0$ 使 $(x-\varepsilon,x+\varepsilon)\subseteq G$, 再取有理数 $p,q$ 满足 $x-\varepsilon<p<x<q<x+\varepsilon$, 便有 $x\in(p,q)\subseteq G$. 因此 $G$ 是所有满足 $(p,q)\subseteq G$ 的有理端点区间 $(p,q)$ 之并. 这样的区间至多可列个, 故 $G\in\sigma(\mathcal{C})$. 由最小性, $\mathcal{B}(\R)\subseteq\sigma(\mathcal{C})$.
+\end{proof}
+
+\begin{remark}
+同样的论证表明, $\mathcal{B}(\R)$ 也可以由 $\{(a,b): a<b\}$、$\{(-\infty,x]: x\in\Q\}$ 等生成. 生成元越 ``简单'', 验证某个性质对全体 Borel 集成立时就越方便, 这正是 1.1.3 小节 $\pi$-$\lambda$ 定理的用武之地.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{概率测度}
+
+\begin{definition}[概率测度, Kolmogorov 公理]\label{def:probability}
+设 $(\Omega,\mathcal{F})$ 是可测空间. 函数 $\P:\mathcal{F}\to[0,1]$ 称为\textbf{概率测度}, 如果
+\begin{enumerate}
+\item 规范性: $\P(\Omega)=1$;
+\item 可列可加性: 若 $A_1,A_2,\dots\in\mathcal{F}$ 两两不交, 则
+$\P\Big(\bigcup_{n=1}^\infty A_n\Big)=\sum_{n=1}^\infty\P(A_n)$.
+\end{enumerate}
+三元组 $(\Omega,\mathcal{F},\P)$ 称为\textbf{概率空间}. 若 $\P(A)=1$, 称事件 $A$ \textbf{几乎必然} (almost surely, 简记 $\as$) 发生; 若 $\P(N)=0$, 称 $N$ 为\textbf{零概率集}.
+\end{definition}
+
+\begin{remark}
+若把值域 $[0,1]$ 换成 $[0,\infty]$, 并把规范性换成 $\mu(\varnothing)=0$, 得到一般的\textbf{测度} $\mu$. 本书用到的非概率测度主要是 $\R$ 上的 \textbf{Lebesgue 测度} $\lambda$, 它满足 $\lambda((a,b])=b-a$.
+\end{remark}
+
+\begin{proposition}[概率的基本性质]\label{prop:prob-basic}
+设 $(\Omega,\mathcal{F},\P)$ 是概率空间, $A,B,A_1,A_2,\dots\in\mathcal{F}$. 则
+\begin{enumerate}
+\item $\P(\varnothing)=0$;
+\item 有限可加性: 若 $A_1,\dots,A_k$ 两两不交, 则 $\P\big(\bigcup_{n=1}^k A_n\big)=\sum_{n=1}^k\P(A_n)$;
+\item $\P(A^c)=1-\P(A)$;
+\item 若 $A\subseteq B$, 则 $\P(B\setminus A)=\P(B)-\P(A)$, 特别地 $\P(A)\le\P(B)$ (单调性);
+\item $\P(A\cup B)=\P(A)+\P(B)-\P(A\cap B)$;
+\item 可列次可加性: $\P\Big(\bigcup_{n=1}^\infty A_n\Big)\le\sum_{n=1}^\infty\P(A_n)$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 取 $A_1=\Omega$, $A_n=\varnothing$ ($n\ge2$), 它们两两不交. 由可列可加性, $1=\P(\Omega)=1+\sum_{n\ge2}\P(\varnothing)$. 右端的级数各项相同且非负, 只能都为 $0$.
+
+(2) 令 $A_n=\varnothing$ ($n>k$), 由可列可加性和 (1) 即得.
+
+(3) $A$ 与 $A^c$ 不交且并为 $\Omega$, 由 (2), $\P(A)+\P(A^c)=1$.
+
+(4) $B$ 是不交并 $A\cup(B\setminus A)$, 由 (2), $\P(B)=\P(A)+\P(B\setminus A)$. 由于 $\P(B\setminus A)\ge0$, 得 $\P(A)\le\P(B)$.
+
+(5) 把 $A\cup B$ 写成不交并 $A\cup(B\setminus(A\cap B))$, 再由 (2) 和 (4),
+\begin{align*}
+\P(A\cup B)&=\P(A)+\P\big(B\setminus(A\cap B)\big)\\
+&=\P(A)+\P(B)-\P(A\cap B).
+\end{align*}
+
+(6) 令 $B_1=A_1$, $B_n=A_n\setminus\bigcup_{k<n}A_k$ ($n\ge2$). 则 $B_n$ 两两不交, $B_n\subseteq A_n$, 且 $\bigcup_n B_n=\bigcup_n A_n$ (对任意 $\omega\in\bigcup_n A_n$, 取满足 $\omega\in A_n$ 的最小指标 $n$, 则该样本点属于 $B_n$). 由可列可加性和单调性,
+\[
+\P\Big(\bigcup_{n=1}^\infty A_n\Big)=\sum_{n=1}^\infty\P(B_n)\le\sum_{n=1}^\infty\P(A_n). \qedhere
+\]
+\end{proof}
+
+可列可加性最重要的推论是概率与单调集合序列的极限可以交换. 记号 $A_n\uparrow A$ 表示 $A_1\subseteq A_2\subseteq\cdots$ 且 $A=\bigcup_n A_n$; $A_n\downarrow A$ 表示 $A_1\supseteq A_2\supseteq\cdots$ 且 $A=\bigcap_n A_n$.
+
+\begin{theorem}[概率的连续性]\label{thm:continuity}
+设 $(\Omega,\mathcal{F},\P)$ 是概率空间.
+\begin{enumerate}
+\item 下连续性: 若 $A_n\uparrow A$, 则 $\P(A_n)\uparrow\P(A)$.
+\item 上连续性: 若 $A_n\downarrow A$, 则 $\P(A_n)\downarrow\P(A)$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 令 $B_1=A_1$, $B_n=A_n\setminus A_{n-1}$ ($n\ge2$). 由于 $A_n$ 单调增加, $B_n$ 两两不交, 且 $A_n=\bigcup_{k=1}^n B_k$, $A=\bigcup_{k=1}^\infty B_k$. 由可列可加性与有限可加性,
+\[
+\P(A)=\sum_{k=1}^\infty\P(B_k)=\lim_{n\to\infty}\sum_{k=1}^n\P(B_k)=\lim_{n\to\infty}\P(A_n).
+\]
+由单调性, $\P(A_n)$ 单调不减, 所以收敛是单调的.
+
+(2) 由 De Morgan 公式, $A_n^c\uparrow A^c$. 由 (1), $\P(A_n^c)\uparrow\P(A^c)$, 即 $1-\P(A_n)\uparrow1-\P(A)$.
+\end{proof}
+
+\begin{intuition}
+概率是 ``连续'' 的集合函数: 集合单调地逼近 $A$, 概率就逼近 $\P(A)$. 反过来, 可列可加性等价于 ``有限可加性 + 下连续性'': 若 $\P$ 有限可加且下连续, 对两两不交的 $A_n$, 令 $C_n=\bigcup_{k\le n}A_k\uparrow\bigcup_k A_k$, 则 $\P\big(\bigcup_k A_k\big)=\lim_n\P(C_n)=\lim_n\sum_{k\le n}\P(A_k)$. 后文一切极限定理 (单调收敛定理、控制收敛定理) 的根源都在这里.
+\end{intuition}
+
+\begin{example}[离散概率空间]\label{ex:discrete-space}
+设 $\Omega$ 是有限集或可列集, $p:\Omega\to[0,1]$ 满足 $\sum_{\omega\in\Omega}p(\omega)=1$. 取 $\mathcal{F}=2^\Omega$, 令 $\P(A)=\sum_{\omega\in A}p(\omega)$. 由于非负项级数可以任意重排和分组求和, 对两两不交的 $A_n$ 有
+$\P\big(\bigcup_n A_n\big)=\sum_{\omega\in\bigcup_n A_n}p(\omega)=\sum_n\sum_{\omega\in A_n}p(\omega)=\sum_n\P(A_n)$, 故 $\P$ 是概率测度. 掷骰子、有限次抛硬币等古典概型都属于此类.
+\end{example}
+
+当 $\Omega$ 不可数时, 我们通常只能在一小族 ``基本集合'' 上直接写出概率 (比如区间的长度、只依赖前 $n$ 次抛掷的事件的概率), 然后需要把它扩张到这族集合生成的 $\sigma$-代数上. 这个扩张由下面的测度论定理保证.
+
+\begin{definition}[代数]\label{def:algebra}
+子集族 $\mathcal{A}\subseteq2^\Omega$ 称为\textbf{代数} (或域), 如果 $\Omega\in\mathcal{A}$, 且 $\mathcal{A}$ 对补运算和有限并封闭.
+\end{definition}
+
+\begin{theorem}[Carath\'eodory 扩张定理]\label{thm:caratheodory}
+设 $\mathcal{A}$ 是 $\Omega$ 上的代数, $\P_0:\mathcal{A}\to[0,1]$ 满足 $\P_0(\Omega)=1$, 并且在 $\mathcal{A}$ 上可列可加 (即只要两两不交的 $A_n\in\mathcal{A}$ 满足 $\bigcup_n A_n\in\mathcal{A}$, 就有 $\P_0(\bigcup_n A_n)=\sum_n\P_0(A_n)$). 则存在 $\sigma(\mathcal{A})$ 上\emph{唯一}的概率测度 $\P$, 使得 $\P$ 在 $\mathcal{A}$ 上与 $\P_0$ 一致.
+\end{theorem}
+
+这是纯测度论的结果, 存在性的证明从略 (见~\cite{durrett} 附录 A 或~\cite{billingsley} 第 3 节); 唯一性将在推论~\ref{cor:uniqueness} 中由 $\pi$-$\lambda$ 定理给出.
+
+\begin{example}\label{ex:basic-spaces}
+\begin{enumerate}
+\item \textbf{$[0,1]$ 上的均匀分布.} 取 $\Omega=[0,1]$, $\mathcal{F}=\mathcal{B}([0,1])$. 形如 $(a,b]\cap[0,1]$ 的区间的有限不交并构成代数, 在其上令 $\P_0$ 为总长度. 可以验证 $\P_0$ 在此代数上可列可加, 由 Carath\'eodory 扩张定理~\ref{thm:caratheodory}, 得到 $\mathcal{B}([0,1])$ 上唯一的概率测度 $\P$, 满足 $\P((a,b])=b-a$. 它就是 $[0,1]$ 上的 Lebesgue 测度. 由例~\ref{ex:vitali}, 它无法再扩张到 $[0,1]$ 的全体子集上.
+\item \textbf{无穷次抛硬币.} 取 $\Omega=\{0,1\}^{\N}$. 对 $a_1,\dots,a_n\in\{0,1\}$, 称 $\{\omega:\omega_1=a_1,\dots,\omega_n=a_n\}$ 为\textbf{柱集}, 规定其概率为 $2^{-n}$. 柱集的有限不交并构成代数, 并且可以验证上述赋值在其上可列可加. 由 Carath\'eodory 扩张定理, 得到 $\mathcal{F}=\sigma(\text{柱集})$ 上的概率测度 $\P$. 引言中的事件 \eqref{eq:1-freq-event} 由柱集经可列次运算得到, 所以属于 $\mathcal{F}$, 其概率有意义 (强大数定律断言它等于 $1$).
+\end{enumerate}
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{\texorpdfstring{$\pi$-$\lambda$}{pi-lambda} 定理}
+
+$\sigma$-代数通常没有显式的描述: 我们无法 ``列出'' 全体 Borel 集. 于是, 要证明某个性质对 $\sigma(\mathcal{C})$ 中的每个集合成立, 一般采用 ``好集合原理'': 把满足该性质的集合收集起来, 记为 $\mathcal{G}$, 然后证明 $\mathcal{G}\supseteq\sigma(\mathcal{C})$. 困难在于, $\mathcal{G}$ 常常只对 ``不交并'' 和 ``差'' 封闭 (因为概率只在这些运算下有好的公式), 未必是 $\sigma$-代数. $\pi$-$\lambda$ 定理正是为解决这一困难而设计的.
+
+\begin{definition}[$\pi$-系与 $\lambda$-系]\label{def:pi-lambda}
+设 $\mathcal{P},\mathcal{L}\subseteq2^\Omega$.
+\begin{enumerate}
+\item 称 $\mathcal{P}$ 为 \textbf{$\pi$-系}, 如果它对有限交封闭: $A,B\in\mathcal{P}\Rightarrow A\cap B\in\mathcal{P}$.
+\item 称 $\mathcal{L}$ 为 \textbf{$\lambda$-系} (或 Dynkin 系), 如果
+  \begin{enumerate}[(a)]
+  \item $\Omega\in\mathcal{L}$;
+  \item 对真差封闭: 若 $A,B\in\mathcal{L}$ 且 $A\subseteq B$, 则 $B\setminus A\in\mathcal{L}$;
+  \item 对单调增极限封闭: 若 $A_n\in\mathcal{L}$ 且 $A_n\uparrow A$, 则 $A\in\mathcal{L}$.
+  \end{enumerate}
+\end{enumerate}
+\end{definition}
+
+\begin{example}\label{ex:pi-lambda}
+\begin{enumerate}
+\item $\{(-\infty,x]: x\in\R\}$ 是 $\pi$-系, 因为 $(-\infty,x]\cap(-\infty,y]=(-\infty,x\wedge y]$. 加上空集后, 无穷次抛硬币的柱集全体也是 $\pi$-系.
+\item 每个 $\sigma$-代数既是 $\pi$-系又是 $\lambda$-系. $\lambda$-系对补运算封闭, 因为 $A^c=\Omega\setminus A$.
+\item $\lambda$-系未必是 $\pi$-系. 取 $\Omega=\{1,2,3,4\}$,
+\[
+\mathcal{L}=\big\{\varnothing,\Omega,\{1,2\},\{3,4\},\{1,3\},\{2,4\}\big\}.
+\]
+$\mathcal{L}$ 中的真包含关系只有 $\varnothing\subseteq X$ 与 $X\subseteq\Omega$ 两类, 其差分别为 $X$ 与 $X^c$, 都在 $\mathcal{L}$ 中; $\mathcal{L}$ 是有限族, 单调增序列最终为常数. 所以 $\mathcal{L}$ 是 $\lambda$-系. 但 $\{1,2\}\cap\{1,3\}=\{1\}\notin\mathcal{L}$, 它不是 $\pi$-系.
+\end{enumerate}
+\end{example}
+
+\begin{lemma}\label{lem:pi-and-lambda}
+若 $\mathcal{F}$ 既是 $\pi$-系又是 $\lambda$-系, 则 $\mathcal{F}$ 是 $\sigma$-代数.
+\end{lemma}
+
+\begin{proof}
+由 $\lambda$-系的性质 (a), $\Omega\in\mathcal{F}$; 由 (a)(b), $A^c=\Omega\setminus A\in\mathcal{F}$. 对 $A,B\in\mathcal{F}$, 由补运算封闭与 $\pi$-系性质, $A\cup B=(A^c\cap B^c)^c\in\mathcal{F}$, 归纳可知 $\mathcal{F}$ 对有限并封闭. 对 $A_1,A_2,\dots\in\mathcal{F}$, 令 $C_n=\bigcup_{k=1}^n A_k\in\mathcal{F}$, 则 $C_n\uparrow\bigcup_k A_k$, 由性质 (c), $\bigcup_k A_k\in\mathcal{F}$.
+\end{proof}
+
+\begin{theorem}[Dynkin $\pi$-$\lambda$ 定理]\label{thm:pi-lambda}
+设 $\mathcal{P}$ 是 $\pi$-系, $\mathcal{L}$ 是 $\lambda$-系, 且 $\mathcal{P}\subseteq\mathcal{L}$. 则 $\sigma(\mathcal{P})\subseteq\mathcal{L}$.
+\end{theorem}
+
+\begin{proof}
+与引理~\ref{lem:intersection-sigma} 的证明完全相同, 任意多个 $\lambda$-系之交仍是 $\lambda$-系. 令 $\ell(\mathcal{P})$ 为包含 $\mathcal{P}$ 的所有 $\lambda$-系之交, 它是包含 $\mathcal{P}$ 的最小 $\lambda$-系, 且 $\ell(\mathcal{P})\subseteq\mathcal{L}$. 下面证明 $\ell(\mathcal{P})$ 也是 $\pi$-系. 一旦证得, 由引理~\ref{lem:pi-and-lambda}, $\ell(\mathcal{P})$ 是包含 $\mathcal{P}$ 的 $\sigma$-代数, 于是
+\[
+\sigma(\mathcal{P})\subseteq\ell(\mathcal{P})\subseteq\mathcal{L}.
+\]
+
+对集合 $A\subseteq\Omega$, 令 $\mathcal{G}_A=\{B\subseteq\Omega: A\cap B\in\ell(\mathcal{P})\}$.
+
+\emph{第一步: 若 $A\in\ell(\mathcal{P})$, 则 $\mathcal{G}_A$ 是 $\lambda$-系.} 逐条验证:
+(a) $A\cap\Omega=A\in\ell(\mathcal{P})$, 故 $\Omega\in\mathcal{G}_A$.
+(b) 设 $B,C\in\mathcal{G}_A$, $B\subseteq C$. 则 $A\cap B\subseteq A\cap C$ 都属于 $\ell(\mathcal{P})$, 而
+$A\cap(C\setminus B)=(A\cap C)\setminus(A\cap B)$, 由 $\ell(\mathcal{P})$ 对真差封闭, $C\setminus B\in\mathcal{G}_A$.
+(c) 设 $B_n\in\mathcal{G}_A$, $B_n\uparrow B$. 则 $A\cap B_n\uparrow A\cap B$, 由 $\ell(\mathcal{P})$ 对单调增极限封闭, $B\in\mathcal{G}_A$.
+
+\emph{第二步: 若 $A\in\mathcal{P}$, 则 $\ell(\mathcal{P})\subseteq\mathcal{G}_A$.} 因为 $\mathcal{P}$ 是 $\pi$-系, 对任意 $B\in\mathcal{P}$ 有 $A\cap B\in\mathcal{P}\subseteq\ell(\mathcal{P})$, 即 $\mathcal{P}\subseteq\mathcal{G}_A$. 由第一步 ($A\in\mathcal{P}\subseteq\ell(\mathcal{P})$), $\mathcal{G}_A$ 是 $\lambda$-系; 由 $\ell(\mathcal{P})$ 的最小性, $\ell(\mathcal{P})\subseteq\mathcal{G}_A$, 即
+\[
+A\in\mathcal{P},\ B\in\ell(\mathcal{P})\ \Longrightarrow\ A\cap B\in\ell(\mathcal{P}).
+\]
+
+\emph{第三步: 若 $B\in\ell(\mathcal{P})$, 则 $\ell(\mathcal{P})\subseteq\mathcal{G}_B$.} 由第二步, 对任意 $A\in\mathcal{P}$ 有 $A\cap B\in\ell(\mathcal{P})$, 即 $\mathcal{P}\subseteq\mathcal{G}_B$. 由第一步, $\mathcal{G}_B$ 是 $\lambda$-系; 由最小性, $\ell(\mathcal{P})\subseteq\mathcal{G}_B$. 因此对任意 $B,C\in\ell(\mathcal{P})$ 都有 $B\cap C\in\ell(\mathcal{P})$, 即 $\ell(\mathcal{P})$ 是 $\pi$-系.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \draw[SADark,thick,fill=SABlue!6] (0,0) ellipse (4.6 and 1.9);
+  \draw[SADark,thick,fill=SABlue!16] (-0.6,0) ellipse (3.2 and 1.35);
+  \draw[SADark,thick,fill=SARed!18] (-1.6,0) ellipse (1.5 and 0.75);
+  \node at (-1.6,0) {$\mathcal{P}$\ ($\pi$-系)};
+  \node[align=center] at (1.25,0) {$\sigma(\mathcal{P})=\ell(\mathcal{P})$};
+  \node[align=center] at (3.65,0) {$\mathcal{L}$\\ ($\lambda$-系)};
+\end{tikzpicture}
+\caption{$\pi$-$\lambda$ 定理: 包含 $\pi$-系 $\mathcal{P}$ 的最小 $\lambda$-系恰为 $\sigma(\mathcal{P})$, 因而任何包含 $\mathcal{P}$ 的 $\lambda$-系都包含 $\sigma(\mathcal{P})$}
+\label{fig:pi-lambda}
+\end{figure}
+
+\begin{intuition}
+$\pi$-$\lambda$ 定理把 ``对 $\sigma(\mathcal{P})$ 验证性质'' 化归为两件容易的事: (i) 在一个对交封闭的简单集族 $\mathcal{P}$ 上验证性质; (ii) 验证 ``好集合'' 对真差和单调增极限封闭. 后者通常可以由概率的有限可加性和连续性直接得到. 证明中的关键是 $\ell(\mathcal{P})$ 对交封闭, 而这需要 $\mathcal{P}$ 本身对交封闭.
+\end{intuition}
+
+\begin{remark}
+测度论教材中还有一个形式相近的 \textbf{单调类定理}: 若 $\mathcal{A}$ 是代数, 则包含 $\mathcal{A}$ 的最小单调类 (对单调增、单调减极限封闭的集族) 等于 $\sigma(\mathcal{A})$. 它与 $\pi$-$\lambda$ 定理的作用相同, 但要求生成元构成代数, 条件更强. 本书统一使用 $\pi$-$\lambda$ 定理.
+\end{remark}
+
+下面是 $\pi$-$\lambda$ 定理最典型的应用.
+
+\begin{corollary}[概率测度的唯一性]\label{cor:uniqueness}
+设 $\P_1,\P_2$ 是 $(\Omega,\mathcal{F})$ 上的两个概率测度, $\mathcal{P}\subseteq\mathcal{F}$ 是 $\pi$-系. 若 $\P_1$ 与 $\P_2$ 在 $\mathcal{P}$ 上相等, 则它们在 $\sigma(\mathcal{P})$ 上相等.
+\end{corollary}
+
+\begin{proof}
+令 $\mathcal{L}=\{A\in\mathcal{F}: \P_1(A)=\P_2(A)\}$. 由假设, $\mathcal{P}\subseteq\mathcal{L}$. 验证 $\mathcal{L}$ 是 $\lambda$-系:
+(a) $\P_1(\Omega)=1=\P_2(\Omega)$;
+(b) 若 $A,B\in\mathcal{L}$, $A\subseteq B$, 则由命题~\ref{prop:prob-basic} (4), $\P_1(B\setminus A)=\P_1(B)-\P_1(A)=\P_2(B)-\P_2(A)=\P_2(B\setminus A)$;
+(c) 若 $A_n\in\mathcal{L}$, $A_n\uparrow A$, 则由概率的连续性 (定理~\ref{thm:continuity}), $\P_1(A)=\lim_n\P_1(A_n)=\lim_n\P_2(A_n)=\P_2(A)$.
+由 $\pi$-$\lambda$ 定理~\ref{thm:pi-lambda}, $\sigma(\mathcal{P})\subseteq\mathcal{L}$.
+\end{proof}
+
+特别地, 由于代数是 $\pi$-系, Carath\'eodory 扩张定理~\ref{thm:caratheodory} 中扩张的唯一性由此推出; 由命题~\ref{prop:borel-generator} 和例~\ref{ex:pi-lambda} (1), $(\R,\mathcal{B}(\R))$ 上的概率测度由它在全体 $(-\infty,x]$ 上的值唯一确定. 这正是 1.2 节 ``分布函数决定分布'' 的来源.
+
+\begin{example}[$\pi$-系条件不可去掉]
+取 $\Omega=\{1,2,3,4\}$, $\mathcal{F}=2^\Omega$, $\mathcal{C}=\{\{1,2\},\{1,3\}\}$. 令 $\P_1$ 为均匀分布, $\P_2$ 给 $1$ 和 $4$ 各分配概率 $\frac{1}{2}$. 则
+$\P_1(\{1,2\})=\P_2(\{1,2\})=\frac{1}{2}$, $\P_1(\{1,3\})=\P_2(\{1,3\})=\frac{1}{2}$, 但 $\{1\}=\{1,2\}\cap\{1,3\}\in\sigma(\mathcal{C})$, 而 $\P_1(\{1\})=\frac{1}{4}\ne\frac{1}{2}=\P_2(\{1\})$. 这是因为 $\mathcal{C}$ 不是 $\pi$-系, 两个测度在 $\mathcal{C}$ 中的集合上一致, 却在它们的交集上不一致.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{集合序列的极限与 Borel-Cantelli 第一引理}
+
+许多重要事件形如 ``某事无穷多次发生'', 例如 ``随机游动无穷多次回到原点'', ``布朗运动在任意小的时间内无穷多次穿过零点''. 描述这类事件需要集合序列的上、下极限.
+
+\begin{definition}[集合序列的上、下极限]\label{def:limsup-sets}
+设 $A_1,A_2,\dots\subseteq\Omega$. 定义
+\[
+\limsup_{n\to\infty}A_n=\bigcap_{m=1}^\infty\bigcup_{n=m}^\infty A_n,\qquad
+\liminf_{n\to\infty}A_n=\bigcup_{m=1}^\infty\bigcap_{n=m}^\infty A_n.
+\]
+若二者相等, 称 $\{A_n\}$ 的极限存在, 记为 $\lim_n A_n$.
+\end{definition}
+
+\begin{proposition}\label{prop:limsup-meaning}
+\begin{enumerate}
+\item $\omega\in\limsup_n A_n$ 当且仅当有无穷多个 $n$ 使 $\omega\in A_n$. 因此 $\limsup_n A_n$ 记作 $\{A_n\ \text{i.o.}\}$ (infinitely often), 读作 ``$A_n$ 无穷多次发生''.
+\item $\omega\in\liminf_n A_n$ 当且仅当存在 $m$, 使得对所有 $n\ge m$ 都有 $\omega\in A_n$. 读作 ``$A_n$ 终将一直发生''.
+\item $\liminf_n A_n\subseteq\limsup_n A_n$, 且 $\big(\limsup_n A_n\big)^c=\liminf_n A_n^c$.
+\item $\1_{\limsup_n A_n}=\limsup_n\1_{A_n}$, $\1_{\liminf_n A_n}=\liminf_n\1_{A_n}$, 其中 $\1_A$ 是示性函数: $\omega\in A$ 时 $\1_A(\omega)=1$, 否则为 $0$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) $\omega\in\bigcap_m\bigcup_{n\ge m}A_n$ 等价于: 对每个 $m$, 存在 $n\ge m$ 使 $\omega\in A_n$. 这又等价于使 $\omega\in A_n$ 的 $n$ 不能有上界, 即有无穷多个.
+
+(2) $\omega\in\bigcup_m\bigcap_{n\ge m}A_n$ 等价于: 存在 $m$, 对所有 $n\ge m$, $\omega\in A_n$.
+
+(3) 若 $\omega$ 从某项起一直属于 $A_n$, 它当然属于无穷多个 $A_n$, 故第一个包含关系成立. 由 De Morgan 公式,
+\[
+\Big(\bigcap_{m}\bigcup_{n\ge m}A_n\Big)^c=\bigcup_m\Big(\bigcup_{n\ge m}A_n\Big)^c=\bigcup_m\bigcap_{n\ge m}A_n^c.
+\]
+
+(4) 数列 $\1_{A_n}(\omega)$ 只取 $0,1$ 两个值. 它的上极限为 $1$ 当且仅当它无穷多次取 $1$, 由 (1) 即当且仅当 $\omega\in\limsup_n A_n$. 下极限为 $1$ 当且仅当它从某项起恒为 $1$, 由 (2) 即当且仅当 $\omega\in\liminf_n A_n$.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[xscale=0.6,yscale=0.8]
+  \foreach \n in {1,...,14} { \node[font=\small,SADark!70] at (\n,3.6) {\n}; }
+  \node[font=\small,SADark!70,anchor=east] at (0.3,3.6) {$n$};
+  \foreach \y/\lab in {2.6/{\omega_1},1.6/{\omega_2},0.6/{\omega_3}} {
+    \draw[SADark!25] (0.6,\y) -- (14.6,\y);
+    \node[anchor=east] at (0.3,\y) {$\lab$};
+  }
+  % omega_1: eventually always
+  \foreach \n in {2,4,5,7,8,9,10,11,12,13,14} { \fill[SABlue] (\n,2.6) circle (3.2pt); }
+  \foreach \n in {1,3,6} { \draw[SABlue] (\n,2.6) circle (3.2pt); }
+  % omega_2: infinitely often, infinitely often not
+  \foreach \n in {1,3,4,7,10,13} { \fill[SARed] (\n,1.6) circle (3.2pt); }
+  \foreach \n in {2,5,6,8,9,11,12,14} { \draw[SARed] (\n,1.6) circle (3.2pt); }
+  % omega_3: finitely many
+  \foreach \n in {1,2,5} { \fill[SAGreenText] (\n,0.6) circle (3.2pt); }
+  \foreach \n in {3,4,6,7,8,9,10,11,12,13,14} { \draw[SAGreenText] (\n,0.6) circle (3.2pt); }
+  \node[font=\small] at (15.6,2.6) {$\cdots$};
+  \node[font=\small] at (15.6,1.6) {$\cdots$};
+  \node[font=\small] at (15.6,0.6) {$\cdots$};
+  \node[anchor=west,font=\small] at (16.2,2.6) {$\in\liminf A_n$};
+  \node[anchor=west,font=\small] at (16.2,1.6) {$\in\limsup A_n$, $\notin\liminf A_n$};
+  \node[anchor=west,font=\small] at (16.2,0.6) {$\notin\limsup A_n$};
+\end{tikzpicture}
+\caption{三个样本点关于 $A_1,A_2,\dots$ 的归属 (实心: $\omega\in A_n$; 空心: $\omega\notin A_n$). $\omega_1$ 从某项起一直在 $A_n$ 中; $\omega_2$ 无穷多次进入、也无穷多次离开; $\omega_3$ 只进入有限次}
+\label{fig:limsup}
+\end{figure}
+
+\begin{proposition}[集合的 Fatou 不等式]\label{prop:fatou-sets}
+设 $A_n\in\mathcal{F}$. 则
+\[
+\P\Big(\liminf_{n\to\infty}A_n\Big)\le\liminf_{n\to\infty}\P(A_n)\le\limsup_{n\to\infty}\P(A_n)\le\P\Big(\limsup_{n\to\infty}A_n\Big).
+\]
+\end{proposition}
+
+\begin{proof}
+令 $B_m=\bigcap_{n\ge m}A_n$, 则 $B_m\uparrow\liminf_n A_n$, 且对每个 $n\ge m$ 有 $B_m\subseteq A_n$, 从而 $\P(B_m)\le\inf_{n\ge m}\P(A_n)$. 由概率的连续性 (定理~\ref{thm:continuity}),
+\[
+\P\Big(\liminf_{n\to\infty}A_n\Big)=\lim_{m\to\infty}\P(B_m)\le\lim_{m\to\infty}\inf_{n\ge m}\P(A_n)=\liminf_{n\to\infty}\P(A_n).
+\]
+中间的不等式是数列上下极限的基本性质. 对 $C_m=\bigcup_{n\ge m}A_n\downarrow\limsup_n A_n$ 同理, $\P(C_m)\ge\sup_{n\ge m}\P(A_n)$, 由上连续性得到最后一个不等式.
+\end{proof}
+
+\begin{theorem}[Borel-Cantelli 第一引理]\label{thm:bc1}
+设 $A_n\in\mathcal{F}$. 若 $\sum_{n=1}^\infty\P(A_n)<\infty$, 则 $\P(A_n\ \text{i.o.})=0$.
+\end{theorem}
+
+\begin{proof}
+对每个 $m$, $\limsup_n A_n\subseteq\bigcup_{n\ge m}A_n$. 由单调性与可列次可加性 (命题~\ref{prop:prob-basic} (4)(6)),
+\begin{align*}
+\P\Big(\limsup_{n\to\infty}A_n\Big)
+&\le\P\Big(\bigcup_{n=m}^\infty A_n\Big)\\
+&\le\sum_{n=m}^\infty\P(A_n).
+\end{align*}
+右端是收敛级数的余项, 当 $m\to\infty$ 时趋于 $0$. 而左端与 $m$ 无关, 故为 $0$.
+\end{proof}
+
+\begin{intuition}
+$\sum_n\P(A_n)$ 是 ``发生次数'' $\sum_n\1_{A_n}$ 的期望 (见 1.3 节). 期望有限, 发生次数自然几乎必然有限. 这里第一引理\emph{不需要任何独立性假设}.
+\end{intuition}
+
+\begin{example}\label{ex:bc1}
+设 $\P(A_n)=\frac{1}{n^2}$, 则不论 $A_n$ 之间如何相关, 几乎必然只有有限个 $A_n$ 发生. 又如在 $[0,1]$ 上的均匀分布下, 令 $A_n=[0,\frac{1}{n^2}]$, 则 $\limsup_n A_n=\{0\}$, 概率确实为 $0$.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{独立性与 Kolmogorov 0-1 律}
+
+\begin{definition}[事件的独立性]\label{def:indep-events}
+事件 $A,B$ 称为\textbf{独立}的, 如果 $\P(A\cap B)=\P(A)\P(B)$. 一族事件 $\{A_i\}_{i\in I}$ 称为 (相互) 独立的, 如果对任意有限个互不相同的指标 $i_1,\dots,i_k\in I$,
+\[
+\P(A_{i_1}\cap\cdots\cap A_{i_k})=\P(A_{i_1})\cdots\P(A_{i_k}).
+\]
+\end{definition}
+
+\begin{example}[两两独立不蕴含相互独立]\label{ex:pairwise}
+抛两次均匀硬币, 令 $A=$ ``第一次正面'', $B=$ ``第二次正面'', $C=$ ``两次结果相同''. 则 $\P(A)=\P(B)=\P(C)=\frac{1}{2}$, 且
+\[
+\P(A\cap B)=\P(A\cap C)=\P(B\cap C)=\P(\text{两次都是正面})=\frac{1}{4},
+\]
+所以三者两两独立. 但 $\P(A\cap B\cap C)=\frac{1}{4}\ne\frac{1}{8}$, 它们不相互独立. 原因是任意两个事件的结果决定了第三个.
+\end{example}
+
+在随机过程理论中, 我们更常讨论的是 ``信息'' 之间的独立性, 即 $\sigma$-代数之间的独立性.
+
+\begin{definition}[$\sigma$-代数的独立性]\label{def:indep-sigma}
+设 $\{\mathcal{F}_i\}_{i\in I}$ 是一族包含于 $\mathcal{F}$ 的 $\sigma$-代数. 称它们 (相互) \textbf{独立}, 如果对任意有限个互不相同的指标 $i_1,\dots,i_k$ 以及任意 $A_j\in\mathcal{F}_{i_j}$ ($j=1,\dots,k$),
+\[
+\P(A_1\cap\cdots\cap A_k)=\P(A_1)\cdots\P(A_k).
+\]
+\end{definition}
+
+直接验证 $\sigma$-代数的独立性需要检查其中的全部事件, 这通常做不到. 下面的判别准则把检查范围缩小到生成元.
+
+\begin{theorem}[独立性的 $\pi$-系判别准则]\label{thm:indep-pi}
+设 $\mathcal{P}_1,\dots,\mathcal{P}_n\subseteq\mathcal{F}$ 都是 $\pi$-系, 且 $\Omega\in\mathcal{P}_i$ ($i=1,\dots,n$). 若对任意 $A_i\in\mathcal{P}_i$ 都有
+\begin{equation}\label{eq:indep-product}
+\P(A_1\cap\cdots\cap A_n)=\P(A_1)\cdots\P(A_n),
+\end{equation}
+则 $\sigma(\mathcal{P}_1),\dots,\sigma(\mathcal{P}_n)$ 相互独立.
+\end{theorem}
+
+\begin{proof}
+\emph{第一步: 化归为 ``$n$ 个指标全部出现'' 的情形.} 定义~\ref{def:indep-sigma} 要求对任意子族成立乘积公式. 对子族 $\{i_1,\dots,i_k\}$, 把不在其中的指标 $i$ 对应的事件取为 $\Omega$, 由于 $\P(\Omega)=1$, 全指标的乘积公式就退化为子族的乘积公式. 所以只需对 $A_i\in\sigma(\mathcal{P}_i)$ ($i=1,\dots,n$) 证明 \eqref{eq:indep-product}.
+
+\emph{第二步: 把 $\mathcal{P}_1$ 换成 $\sigma(\mathcal{P}_1)$.} 固定 $A_2\in\mathcal{P}_2,\dots,A_n\in\mathcal{P}_n$, 记 $D=A_2\cap\cdots\cap A_n$, $c=\P(A_2)\cdots\P(A_n)$, 令
+\[
+\mathcal{L}=\{A\in\mathcal{F}:\ \P(A\cap D)=\P(A)\,c\}.
+\]
+由假设 \eqref{eq:indep-product}, $\mathcal{P}_1\subseteq\mathcal{L}$. 验证 $\mathcal{L}$ 是 $\lambda$-系:
+(a) $\Omega\in\mathcal{P}_1\subseteq\mathcal{L}$.
+(b) 若 $A,B\in\mathcal{L}$, $A\subseteq B$, 则 $(B\setminus A)\cap D=(B\cap D)\setminus(A\cap D)$, 于是
+\begin{align*}
+\P\big((B\setminus A)\cap D\big)&=\P(B\cap D)-\P(A\cap D)\\
+&=\big(\P(B)-\P(A)\big)c=\P(B\setminus A)\,c.
+\end{align*}
+(c) 若 $A_k\in\mathcal{L}$, $A_k\uparrow A$, 则 $A_k\cap D\uparrow A\cap D$, 由概率的连续性 (定理~\ref{thm:continuity}),
+$\P(A\cap D)=\lim_k\P(A_k\cap D)=\lim_k\P(A_k)\,c=\P(A)\,c$.
+由 $\pi$-$\lambda$ 定理~\ref{thm:pi-lambda}, $\sigma(\mathcal{P}_1)\subseteq\mathcal{L}$, 即 \eqref{eq:indep-product} 对 $A_1\in\sigma(\mathcal{P}_1)$, $A_i\in\mathcal{P}_i$ ($i\ge2$) 成立.
+
+\emph{第三步: 逐个替换.} 现在把 $\sigma(\mathcal{P}_1),\mathcal{P}_2,\dots,\mathcal{P}_n$ 看作新的一组 $\pi$-系 ($\sigma$-代数当然是 $\pi$-系, 且包含 $\Omega$), 它们满足 \eqref{eq:indep-product}. 对第二个指标重复第二步的论证, 可把 $\mathcal{P}_2$ 换成 $\sigma(\mathcal{P}_2)$. 依此类推 $n$ 次, 即得 \eqref{eq:indep-product} 对所有 $A_i\in\sigma(\mathcal{P}_i)$ 成立.
+\end{proof}
+
+\begin{corollary}\label{cor:indep-events-sigma}
+事件 $\{A_i\}_{i\in I}$ 相互独立, 当且仅当 $\sigma$-代数 $\{\sigma(\{A_i\})\}_{i\in I}=\{\{\varnothing,A_i,A_i^c,\Omega\}\}_{i\in I}$ 相互独立. 特别地, 把独立事件族中任意一部分事件换成它们的补事件, 所得事件族仍然独立.
+\end{corollary}
+
+\begin{proof}
+``当'' 的方向是显然的. 对 ``仅当'' 的方向, 由于独立性只涉及有限子族, 只需对有限个指标 $i_1,\dots,i_n$ 验证. 令 $\mathcal{P}_j=\{A_{i_j},\Omega\}$, 它是包含 $\Omega$ 的 $\pi$-系. 对 $B_j\in\mathcal{P}_j$, 乘积公式 \eqref{eq:indep-product} 中取 $B_j=\Omega$ 的那些因子等于 $1$, 剩下的恰好是事件 $\{A_{i_1},\dots,A_{i_n}\}$ 某个子族的乘积公式, 由事件的独立性成立. 由定理~\ref{thm:indep-pi}, $\sigma(\mathcal{P}_1),\dots,\sigma(\mathcal{P}_n)$ 独立.
+\end{proof}
+
+\begin{corollary}[分组原理]\label{cor:grouping}
+设 $\{\mathcal{F}_i\}_{i\in I}$ 相互独立, $I=\bigcup_{j\in J}I_j$ 是 $I$ 的一个分割 (各 $I_j$ 两两不交). 令 $\mathcal{G}_j=\sigma\big(\bigcup_{i\in I_j}\mathcal{F}_i\big)$, 则 $\{\mathcal{G}_j\}_{j\in J}$ 相互独立.
+\end{corollary}
+
+\begin{proof}
+对每个 $j$, 令 $\mathcal{P}_j$ 为所有形如 $B_1\cap\cdots\cap B_m$ 的集合全体, 其中 $m\ge1$, $B_l\in\mathcal{F}_{i_l}$, 而 $i_1,\dots,i_m$ 是 $I_j$ 中互不相同的指标. $\mathcal{P}_j$ 对交封闭 (两个这样的交集之交仍是这种形式: 对同一个 $\mathcal{F}_i$ 中的两个集合先求交, 结果仍在 $\mathcal{F}_i$ 中), 包含 $\Omega$, 且 $\bigcup_{i\in I_j}\mathcal{F}_i\subseteq\mathcal{P}_j\subseteq\mathcal{G}_j$, 故 $\sigma(\mathcal{P}_j)=\mathcal{G}_j$. 任取有限个不同的 $j_1,\dots,j_n$ 以及 $C_k\in\mathcal{P}_{j_k}$, 每个 $C_k$ 都是来自 $I_{j_k}$ 中不同指标的 $\mathcal{F}_i$ 的事件之交; 由于不同的 $I_{j_k}$ 不交, $C_1\cap\cdots\cap C_n$ 是来自互不相同指标的事件之交. 由 $\{\mathcal{F}_i\}$ 的独立性,
+$\P(C_1\cap\cdots\cap C_n)$ 等于所有这些事件概率之积, 按 $k$ 重新分组即为 $\P(C_1)\cdots\P(C_n)$. 由定理~\ref{thm:indep-pi}, $\mathcal{G}_{j_1},\dots,\mathcal{G}_{j_n}$ 独立.
+\end{proof}
+
+\begin{intuition}
+分组原理说: 把相互独立的信息源分成互不重叠的几组, 每组 ``打包'' 后得到的信息仍然相互独立. 例如在无穷次抛硬币中, 令 $\mathcal{F}_n=\sigma(\{\omega_n=1\})$, 则 ``由前 $n$ 次决定的事件'' 与 ``由第 $n$ 次以后决定的事件'' 相互独立. 这一事实在后文定义马尔可夫性和独立增量时反复出现.
+\end{intuition}
+
+有了独立性, Borel-Cantelli 第一引理就有了逆命题.
+
+\begin{theorem}[Borel-Cantelli 第二引理]\label{thm:bc2}
+设事件 $A_1,A_2,\dots$ 相互独立. 若 $\sum_{n=1}^\infty\P(A_n)=\infty$, 则 $\P(A_n\ \text{i.o.})=1$.
+\end{theorem}
+
+\begin{proof}
+由命题~\ref{prop:limsup-meaning} (3), 只需证明 $\P\big(\liminf_n A_n^c\big)=0$, 而由可列次可加性, 只需证明对每个 $m$, $\P\big(\bigcap_{n\ge m}A_n^c\big)=0$.
+
+由推论~\ref{cor:indep-events-sigma}, $A_1^c,A_2^c,\dots$ 也相互独立. 利用初等不等式 $1-x\le e^{-x}$ ($x\in\R$), 对 $N\ge m$,
+\begin{align*}
+\P\Big(\bigcap_{n=m}^N A_n^c\Big)&=\prod_{n=m}^N\big(1-\P(A_n)\big)\\
+&\le\prod_{n=m}^N e^{-\P(A_n)}=\exp\Big(-\sum_{n=m}^N\P(A_n)\Big).
+\end{align*}
+由假设, 当 $N\to\infty$ 时右端趋于 $0$. 又 $\bigcap_{n=m}^N A_n^c\downarrow\bigcap_{n\ge m}A_n^c$ ($N\to\infty$), 由上连续性 (定理~\ref{thm:continuity}), $\P\big(\bigcap_{n\ge m}A_n^c\big)=0$.
+\end{proof}
+
+\begin{intuition}
+两个 Borel-Cantelli 引理合起来给出一个 ``0-1 二分法'': 对独立事件, $\P(A_n\ \text{i.o.})$ 只能是 $0$ 或 $1$, 取决于 $\sum_n\P(A_n)$ 是否收敛. 级数是否收敛, 刻画的是 $\P(A_n)$ 趋于 $0$ 的速度够不够快.
+\end{intuition}
+
+\begin{example}\label{ex:bc2}
+\begin{enumerate}
+\item 设 $A_n$ 独立, $\P(A_n)=\frac{1}{n}$. 由于调和级数发散, 几乎必然有无穷多个 $A_n$ 发生. 若改为 $\P(A_n)=\frac{1}{n^2}$, 则由第一引理几乎必然只有有限个发生.
+\item \textbf{独立性不可去掉.} 取 $\P(A)=\frac{1}{2}$, 令所有 $A_n=A$. 则 $\sum_n\P(A_n)=\infty$, 但 $\P(A_n\ \text{i.o.})=\P(A)=\frac{1}{2}$.
+\item \textbf{无穷猴子定理.} 在无穷次抛硬币中, 令 $B_k$ 为 ``第 $3k-2,3k-1,3k$ 次的结果依次为正、正、反''. 由分组原理 (推论~\ref{cor:grouping}), $B_1,B_2,\dots$ 相互独立, 且 $\P(B_k)=\frac{1}{8}$. 由第二引理, 这个图案几乎必然出现无穷多次. 同样的论证适用于任何有限长的图案.
+\end{enumerate}
+\end{example}
+
+最后介绍一个深刻的结果: 由 ``无穷远处'' 的独立信息决定的事件, 其概率只能是 $0$ 或 $1$.
+
+\begin{definition}[尾 $\sigma$-代数]\label{def:tail}
+设 $\mathcal{F}_1,\mathcal{F}_2,\dots$ 是 $\sigma$-代数. 令 $\mathcal{T}_n=\sigma\big(\bigcup_{k>n}\mathcal{F}_k\big)$, 称
+\[
+\mathcal{T}=\bigcap_{n=1}^\infty\mathcal{T}_n
+\]
+为\textbf{尾 $\sigma$-代数}, 其中的事件称为\textbf{尾事件}.
+\end{definition}
+
+尾事件是这样的事件, 对每个 $n$, 只要知道第 $n$ 个以后的全部信息就能判断它是否发生, 改变有限个 $\mathcal{F}_k$ 中的信息不影响它是否发生.
+
+\begin{example}\label{ex:tail-events}
+\begin{enumerate}
+\item 若 $A_k\in\mathcal{F}_k$, 则 $\{A_k\ \text{i.o.}\}$ 是尾事件: 对每个 $n$, $\limsup_k A_k=\bigcap_{m>n}\bigcup_{k\ge m}A_k\in\mathcal{T}_n$ (因为 $\bigcup_{k\ge m}A_k$ 关于 $m$ 单调递减, 去掉前面有限个 $m$ 不改变交集).
+\item 无穷次抛硬币中, 取 $\mathcal{F}_k=\sigma(\{\omega_k=1\})$. 引言中的事件 $A$ (频率趋于 $\frac{1}{2}$) 是尾事件. 事实上, 对固定的 $n$, 前 $n$ 次抛掷对 $\frac{S_m}{m}$ 的贡献不超过 $\frac{n}{m}\to0$, 所以
+$A=\big\{\lim_m\frac{1}{m}\sum_{k=n+1}^m\omega_k=\frac{1}{2}\big\}$, 按 \eqref{eq:1-freq-event} 的方式展开, 可知 $A\in\mathcal{T}_n$.
+\end{enumerate}
+\end{example}
+
+\begin{theorem}[Kolmogorov 0-1 律]\label{thm:kolmogorov-01}
+设 $\mathcal{F}_1,\mathcal{F}_2,\dots$ 是相互独立的 $\sigma$-代数, $\mathcal{T}$ 是它们的尾 $\sigma$-代数. 则对任意 $A\in\mathcal{T}$, $\P(A)\in\{0,1\}$.
+\end{theorem}
+
+\begin{proof}
+\emph{第一步.} 对每个 $n$, 令 $\mathcal{H}_n=\sigma(\mathcal{F}_1\cup\cdots\cup\mathcal{F}_n)$. 把指标集分成 $\{1,\dots,n\}$ 与 $\{n+1,n+2,\dots\}$ 两组, 由分组原理 (推论~\ref{cor:grouping}), $\mathcal{H}_n$ 与 $\mathcal{T}_n$ 独立. 由于 $\mathcal{T}\subseteq\mathcal{T}_n$, $\mathcal{H}_n$ 与 $\mathcal{T}$ 独立.
+
+\emph{第二步.} 令 $\mathcal{P}=\bigcup_{n=1}^\infty\mathcal{H}_n$. 由于 $\mathcal{H}_1\subseteq\mathcal{H}_2\subseteq\cdots$, 任意 $B,C\in\mathcal{P}$ 都属于同一个 $\mathcal{H}_n$, 从而 $B\cap C\in\mathcal{H}_n\subseteq\mathcal{P}$. 所以 $\mathcal{P}$ 是包含 $\Omega$ 的 $\pi$-系. 由第一步, 对任意 $B\in\mathcal{P}$, $A\in\mathcal{T}$, 有 $\P(B\cap A)=\P(B)\P(A)$. 由独立性的 $\pi$-系判别准则 (定理~\ref{thm:indep-pi}, 取 $\mathcal{P}_1=\mathcal{P}$, $\mathcal{P}_2=\mathcal{T}$), $\sigma(\mathcal{P})$ 与 $\mathcal{T}$ 独立.
+
+\emph{第三步.} 每个 $\mathcal{F}_k$ 都包含于 $\mathcal{P}$, 所以对每个 $n$, $\mathcal{T}_n\subseteq\sigma(\mathcal{P})$, 进而 $\mathcal{T}\subseteq\sigma(\mathcal{P})$. 于是对 $A\in\mathcal{T}$, $A$ 既属于 $\mathcal{T}$ 又属于 $\sigma(\mathcal{P})$, 由第二步, $A$ 与自身独立:
+\[
+\P(A)=\P(A\cap A)=\P(A)^2.
+\]
+解得 $\P(A)\in\{0,1\}$.
+\end{proof}
+
+\begin{intuition}
+尾事件既 ``与任何有限多个 $\mathcal{F}_k$ 无关'', 又 ``完全由全体 $\mathcal{F}_k$ 决定''. 前者使它与全部信息独立, 后者使它属于全部信息, 于是它只能与自己独立, 概率非 $0$ 即 $1$. 注意 0-1 律只告诉我们概率是 $0$ 或 $1$, 并不告诉我们是哪一个; 确定具体是哪一个, 需要额外的工具 (如 Borel-Cantelli 引理或大数定律). 第~3~章将用鞅收敛定理重新证明这一定律.
+\end{intuition}
+
+% =====================================================================
+\section{随机变量与分布}
+\label{sec:1-2}
+
+在实际问题中, 我们通常直接观察由样本点 $\omega$ 决定的数值, 例如骰子的点数、一天后的股价或粒子的位置. 这些数值就是随机变量. 例如在无穷次抛硬币中, 前 $n$ 次正面的次数 $S_n(\omega)=\omega_1+\cdots+\omega_n$ 就是一个随机变量. 对随机变量 $X$, 最基本的问题是 ``$X\le x$ 的概率是多少'', 为此必须保证 $\{\omega: X(\omega)\le x\}$ 是事件. 这一要求引出了可测性.
+
+% ---------------------------------------------------------------------
+\subsection{可测映射与随机变量}
+
+\begin{definition}[可测映射与随机变量]\label{def:rv}
+设 $(\Omega,\mathcal{F})$ 与 $(E,\mathcal{E})$ 是可测空间. 映射 $X:\Omega\to E$ 称为 \textbf{$\mathcal{F}/\mathcal{E}$-可测}的, 如果对每个 $B\in\mathcal{E}$, 原像
+\[
+X^{-1}(B)=\{\omega\in\Omega: X(\omega)\in B\}\in\mathcal{F}.
+\]
+当 $(E,\mathcal{E})=(\R,\mathcal{B}(\R))$ 时, 称 $X$ 为 (实值) \textbf{随机变量}. 原像 $X^{-1}(B)$ 常简记为 $\{X\in B\}$, 例如 $\{X\le x\}=X^{-1}((-\infty,x])$.
+\end{definition}
+
+为了处理 $\sup_n X_n$ 这样可能取 $\pm\infty$ 的量, 我们也考虑\textbf{广义随机变量}, 即取值于 $\overline{\R}=[-\infty,+\infty]$ 的可测映射, 其中 $\mathcal{B}(\overline{\R})=\sigma(\{[-\infty,x]: x\in\R\})$.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  % Omega
+  \draw[SADark,thick,fill=SABlue!5] plot[smooth cycle,tension=0.8] coordinates {(0,0) (1.2,-0.9) (3.1,-0.6) (3.6,0.9) (2.4,2.1) (0.6,1.8)};
+  \node[SADark] at (0.25,2.05) {$\Omega$};
+  \fill[SABlue!35] plot[smooth cycle,tension=0.9] coordinates {(0.7,0.3) (1.3,-0.2) (1.8,0.4) (1.2,0.9)};
+  \fill[SABlue!35] plot[smooth cycle,tension=0.9] coordinates {(2.3,1.0) (2.9,0.7) (3.1,1.3) (2.6,1.6)};
+  \node[font=\small] at (1.25,0.35) {$X^{-1}(B)$};
+  % real line
+  \draw[->,SADark] (5.6,0.5) -- (10.4,0.5) node[right] {$\R$};
+  \draw[SARed,line width=2.4pt] (7.3,0.5) -- (8.6,0.5);
+  \node[SARed,below] at (7.95,0.45) {$B$};
+  % arrows
+  \draw[->,SADark!70,bend left=22] (1.5,0.55) to (7.5,0.62);
+  \draw[->,SADark!70,bend left=12] (2.75,1.25) to (8.3,0.62);
+  \fill (3.2,-0.2) circle (1.3pt) node[below left,font=\small] {$\omega$};
+  \draw[->,SADark!50,bend right=15] (3.2,-0.2) to (9.6,0.42);
+  \node[font=\small,below] at (9.6,0.4) {$X(\omega)$};
+  \node[SADark] at (5.0,1.6) {$X$};
+\end{tikzpicture}
+\caption{随机变量是从 $\Omega$ 到 $\R$ 的映射. 可测性要求: 对每个 Borel 集 $B$, ``$X$ 落在 $B$ 中'' 的那些样本点构成一个事件}
+\label{fig:rv-map}
+\end{figure}
+
+逐个检查全体 Borel 集是不可能的. 好在原像运算与集合运算可交换, 这使得只需检查生成元.
+
+\begin{lemma}\label{lem:measurable-generator}
+设 $X:\Omega\to E$, $\mathcal{C}\subseteq2^E$. 则
+\begin{enumerate}
+\item $\{X^{-1}(B): B\in\sigma(\mathcal{C})\}=\sigma\big(\{X^{-1}(C): C\in\mathcal{C}\}\big)$;
+\item 若 $\mathcal{E}=\sigma(\mathcal{C})$, 则 $X$ 是 $\mathcal{F}/\mathcal{E}$-可测的, 当且仅当对每个 $C\in\mathcal{C}$, $X^{-1}(C)\in\mathcal{F}$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+原像运算保持一切集合运算:
+\[
+X^{-1}(E\setminus B)=\Omega\setminus X^{-1}(B),\qquad X^{-1}\Big(\bigcup_n B_n\Big)=\bigcup_n X^{-1}(B_n).
+\]
+
+(1) 记左端为 $\mathcal{G}_1$, 右端为 $\mathcal{G}_2$. 由上式, $\mathcal{G}_1$ 是 $\Omega$ 上的 $\sigma$-代数, 且包含每个 $X^{-1}(C)$, 由最小性 $\mathcal{G}_2\subseteq\mathcal{G}_1$. 反过来, 令 $\mathcal{D}=\{B\subseteq E: X^{-1}(B)\in\mathcal{G}_2\}$. 仍由上式, $\mathcal{D}$ 是 $E$ 上的 $\sigma$-代数, 且 $\mathcal{C}\subseteq\mathcal{D}$, 故 $\sigma(\mathcal{C})\subseteq\mathcal{D}$, 即 $\mathcal{G}_1\subseteq\mathcal{G}_2$.
+
+(2) 必要性显然. 充分性: 由 (1), $\{X^{-1}(B): B\in\mathcal{E}\}=\sigma(\{X^{-1}(C):C\in\mathcal{C}\})$, 而右端的生成元都在 $\mathcal{F}$ 中, 故右端包含于 $\mathcal{F}$.
+\end{proof}
+
+\begin{corollary}\label{cor:rv-criterion}
+$X:\Omega\to\R$ 是随机变量, 当且仅当对每个 $x\in\R$, $\{X\le x\}\in\mathcal{F}$.
+\end{corollary}
+
+\begin{proof}
+由命题~\ref{prop:borel-generator}, $\mathcal{B}(\R)=\sigma(\{(-\infty,x]: x\in\R\})$, 再由引理~\ref{lem:measurable-generator} (2) 即得.
+\end{proof}
+
+由同样的理由, 判别条件中的 $\{X\le x\}$ 也可以换成 $\{X<x\}$; 对广义随机变量, 判别条件同样是对每个 $x\in\R$ 有 $\{X\le x\}\in\mathcal{F}$.
+
+\begin{proposition}[随机变量的运算]\label{prop:rv-operations}
+\begin{enumerate}
+\item 若 $X$ 是随机变量, $g:\R\to\R$ 是 Borel 可测函数 (即 $\mathcal{B}(\R)/\mathcal{B}(\R)$-可测), 则 $g(X)$ 是随机变量. 特别地, 连续函数是 Borel 可测的.
+\item 若 $X,Y$ 是随机变量, $a\in\R$, 则 $aX$, $X+Y$, $XY$, $X\vee Y$, $X\wedge Y$ 都是随机变量.
+\item 若 $X_1,X_2,\dots$ 是随机变量, 则 $\sup_n X_n$, $\inf_n X_n$, $\limsup_n X_n$, $\liminf_n X_n$ 都是广义随机变量, 且 $\{\omega: \lim_n X_n(\omega)\text{ 存在}\}\in\mathcal{F}$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 对 $B\in\mathcal{B}(\R)$, $g^{-1}(B)\in\mathcal{B}(\R)$, 于是 $\{g(X)\in B\}=X^{-1}(g^{-1}(B))\in\mathcal{F}$. 若 $g$ 连续, 则开集的原像是开集; 由引理~\ref{lem:measurable-generator} (2) (以开集族为生成元), $g$ 是 Borel 可测的.
+
+(2) 由 (1), $aX$ 是随机变量. 对 $X+Y$, 我们断言
+\[
+\{X+Y<x\}=\bigcup_{q\in\Q}\big(\{X<q\}\cap\{Y<x-q\}\big).
+\]
+若 $X(\omega)+Y(\omega)<x$, 则 $X(\omega)<x-Y(\omega)$, 取有理数 $q$ 满足 $X(\omega)<q<x-Y(\omega)$, 便有 $Y(\omega)<x-q$; 反之若 $X(\omega)<q$ 且 $Y(\omega)<x-q$, 相加即得 $X(\omega)+Y(\omega)<x$. 右端是可列个事件之并, 属于 $\mathcal{F}$. 由上面关于 $\{X<x\}$ 形式的判别法, $X+Y$ 是随机变量. 其次, 由恒等式 $XY=\frac{1}{4}\big((X+Y)^2-(X-Y)^2\big)$ 与 (1) ($x\mapsto x^2$ 连续), $XY$ 是随机变量. 最后 $\{X\vee Y\le x\}=\{X\le x\}\cap\{Y\le x\}$, $\{X\wedge Y\le x\}=\{X\le x\}\cup\{Y\le x\}$.
+
+(3) $\{\sup_n X_n\le x\}=\bigcap_n\{X_n\le x\}\in\mathcal{F}$. 由于 $\inf_n X_n=-\sup_n(-X_n)$, 它也是广义随机变量. 再由
+\[
+\limsup_{n\to\infty}X_n=\inf_{m\ge1}\sup_{n\ge m}X_n,\qquad \liminf_{n\to\infty}X_n=\sup_{m\ge1}\inf_{n\ge m}X_n
+\]
+得到上、下极限的可测性. 最后, 极限存在 (允许为 $\pm\infty$) 当且仅当 $Y=\liminf_n X_n$ 与 $Z=\limsup_n X_n$ 相等. 而
+\[
+\{Y<Z\}=\bigcup_{q\in\Q}\big(\{Y<q\}\cap\{q<Z\}\big)\in\mathcal{F},
+\]
+由于总有 $Y\le Z$, $\{\lim_n X_n\text{ 存在}\}=\{Y<Z\}^c\in\mathcal{F}$.
+\end{proof}
+
+最简单的随机变量只取有限个值.
+
+\begin{definition}[简单随机变量]\label{def:simple}
+形如 $X=\sum_{i=1}^k a_i\1_{A_i}$ 的随机变量称为\textbf{简单随机变量}, 其中 $a_i\in\R$, $A_i\in\mathcal{F}$.
+\end{definition}
+
+下面的引理是 1.3 节构造期望、本节证明 Doob-Dynkin 引理的共同基础: 每个非负随机变量都是简单随机变量的单调增极限.
+
+\begin{lemma}[简单函数逼近]\label{lem:simple-approx}
+设 $X$ 是非负广义随机变量. 对 $n\ge1$ 令
+\[
+X_n=\sum_{k=0}^{n2^n-1}\frac{k}{2^n}\,\1_{\{k2^{-n}\le X<(k+1)2^{-n}\}}+n\,\1_{\{X\ge n\}}.
+\]
+则每个 $X_n$ 是非负简单随机变量, $0\le X_1\le X_2\le\cdots$, 且对每个 $\omega$, $X_n(\omega)\uparrow X(\omega)$. 若 $X$ 有界, 则收敛是一致的.
+\end{lemma}
+
+\begin{proof}
+等价地, $X_n=\min\big\{n,\ 2^{-n}\lfloor 2^nX\rfloor\big\}$ (约定 $\lfloor+\infty\rfloor=+\infty$): 当 $X<n$ 时, $X_n$ 是把 $X$ 向下取整到 $2^{-n}$ 的整数倍; 当 $X\ge n$ 时 $X_n=n$. 各示性函数对应的集合属于 $\mathcal{F}$, 所以 $X_n$ 是简单随机变量, 且 $0\le X_n\le X$.
+
+\emph{单调性.} 若 $X(\omega)\ge n+1$, 则 $X_{n+1}(\omega)=n+1>n=X_n(\omega)$. 若 $n\le X(\omega)<n+1$, 则 $X_{n+1}(\omega)=2^{-(n+1)}\lfloor2^{n+1}X(\omega)\rfloor\ge 2^{-(n+1)}\cdot 2^{n+1}n=n=X_n(\omega)$. 若 $X(\omega)<n$, 则 $X_n(\omega)=\frac{k}{2^n}=\frac{2k}{2^{n+1}}$, 其中 $\frac{k}{2^n}\le X(\omega)$, 而 $X_{n+1}(\omega)$ 是不超过 $X(\omega)$ 的最大的 $2^{-(n+1)}$ 的整数倍, 故 $X_{n+1}(\omega)\ge\frac{2k}{2^{n+1}}=X_n(\omega)$.
+
+\emph{收敛性.} 若 $X(\omega)<\infty$, 则当 $n>X(\omega)$ 时, $0\le X(\omega)-X_n(\omega)<2^{-n}\to0$. 若 $X(\omega)=\infty$, 则 $X_n(\omega)=n\to\infty$. 若 $X\le M$, 则当 $n>M$ 时, 对所有 $\omega$ 同时有 $0\le X-X_n<2^{-n}$, 即一致收敛.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=10cm, height=7cm, xmin=0, xmax=1.05, ymin=0, ymax=2.05,
+  xtick={0,1}, ytick={0.5,1,1.5,2}, yticklabels={$\frac{1}{2}$,$1$,$\frac{3}{2}$,$2$},
+  xlabel={$\omega$}, legend style={draw=none,fill=none,font=\small,at={(0.98,0.98)},anchor=north east,legend columns=1}]
+  \foreach \k in {1,...,7} { \addplot[SADark!15,domain=0:1,forget plot] {\k/4}; }
+  \addplot[SABlue,very thick,domain=0:1,samples=200] {1.05+0.8*sin(deg(5*x))};
+  \addlegendentry{$X(\omega)$}
+  \addplot[SARed,thick,domain=0:1,samples=800,const plot] {min(2,floor(4*(1.05+0.8*sin(deg(5*x))))/4)};
+  \addlegendentry{$X_2(\omega)$}
+  \addplot[SAGreenText,thick,domain=0:1,samples=800,const plot,dashed] {min(1,floor(2*(1.05+0.8*sin(deg(5*x))))/2)};
+  \addlegendentry{$X_1(\omega)$}
+\end{axis}
+\end{tikzpicture}
+\caption{简单函数逼近 (取 $\Omega=[0,1]$): $X_n$ 把 $X$ 的\emph{值域}按 $2^{-n}$ 分层, 向下取整. 层越细, 阶梯越贴近 $X$}
+\label{fig:simple-approx}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{随机变量生成的 \texorpdfstring{$\sigma$}{sigma}-代数}
+
+\begin{definition}[随机变量生成的 $\sigma$-代数]\label{def:sigma-X}
+设 $X$ 是随机变量. 称
+\[
+\sigma(X)=\{X^{-1}(B): B\in\mathcal{B}(\R)\}
+\]
+为 $X$ \textbf{生成的 $\sigma$-代数}. 对一族随机变量 $\{X_i\}_{i\in I}$, 令 $\sigma(X_i: i\in I)=\sigma\big(\bigcup_{i\in I}\sigma(X_i)\big)$.
+\end{definition}
+
+由引理~\ref{lem:measurable-generator} 的证明, $\sigma(X)$ 是 $\sigma$-代数, 且 $\sigma(X)=\sigma(\{\{X\le x\}: x\in\R\})$. 它是使 $X$ 可测的最小 $\sigma$-代数: 若 $X$ 是 $\mathcal{G}/\mathcal{B}(\R)$-可测的, 则 $\sigma(X)\subseteq\mathcal{G}$.
+
+\begin{intuition}
+$\sigma(X)$ 是 ``观察到 $X$ 的值'' 所获得的信息: 知道 $X(\omega)$ 后, 能够判断是否发生的事件恰好是 $\{X\in B\}$ 这样的事件. 随机过程理论中的信息流 $\mathcal{F}_t=\sigma(X_s: s\le t)$ 正是 ``观察到时刻 $t$ 为止的全部历史'' 所得的信息.
+\end{intuition}
+
+\begin{example}\label{ex:sigma-X}
+\begin{enumerate}
+\item 若 $X\equiv c$ 是常数, 则 $X^{-1}(B)$ 只能是 $\varnothing$ 或 $\Omega$, 故 $\sigma(X)=\{\varnothing,\Omega\}$: 常数不提供任何信息.
+\item 若 $X=\1_A$, 则 $\sigma(X)=\{\varnothing,A,A^c,\Omega\}$.
+\item 若 $X$ 只取互不相同的值 $x_1,\dots,x_k$, 令 $D_i=\{X=x_i\}$, 则 $\{D_1,\dots,D_k\}$ 是 $\Omega$ 的分割, $\sigma(X)$ 就是例~\ref{ex:sigma-examples} (4) 中由该分割生成的 $\sigma$-代数. 例如掷一颗骰子, $X$ 为点数的奇偶性 ($1$ 表示奇数, $0$ 表示偶数), 则 $\sigma(X)=\{\varnothing,\{1,3,5\},\{2,4,6\},\Omega\}$.
+\item 设 $\Omega=[-1,1]$, $\P$ 为均匀分布, $X(\omega)=\omega$. 则 $\sigma(X^2)\subsetneq\sigma(X)$: $\sigma(X^2)$ 中的每个集合 $\{X^2\in B\}$ 都关于原点对称, 而 $\{X>0\}\in\sigma(X)$ 不对称. 直观地, 由 $X^2$ 无法得知 $X$ 的符号.
+\end{enumerate}
+\end{example}
+
+``$Y$ 由 $X$ 的信息决定'' 有两种表述方式: 一是 $Y$ 关于 $\sigma(X)$ 可测, 二是 $Y$ 是 $X$ 的函数. 下面的引理说明它们等价. 它在第~2~章用条件期望 $\E[X\,|\,Y]$ 定义条件期望函数时起关键作用.
+
+\begin{lemma}[Doob-Dynkin 引理]\label{lem:doob-dynkin}
+设 $X,Y$ 是随机变量. 则 $Y$ 是 $\sigma(X)$-可测的, 当且仅当存在 Borel 可测函数 $g:\R\to\R$, 使得 $Y=g(X)$.
+\end{lemma}
+
+\begin{proof}
+``当'': 对 $B\in\mathcal{B}(\R)$, $\{g(X)\in B\}=\{X\in g^{-1}(B)\}\in\sigma(X)$.
+
+``仅当'': 按 $Y$ 的复杂程度分四步.
+
+\emph{第一步: $Y=\1_A$, $A\in\sigma(X)$.} 由 $\sigma(X)$ 的定义, 存在 $B\in\mathcal{B}(\R)$ 使 $A=\{X\in B\}$. 取 $g=\1_B$, 则 $g(X)=\1_{\{X\in B\}}=\1_A=Y$.
+
+\emph{第二步: $Y=\sum_{i=1}^k a_i\1_{A_i}$, $A_i\in\sigma(X)$.} 由第一步, $\1_{A_i}=\1_{B_i}(X)$, 取 $g=\sum_i a_i\1_{B_i}$ 即可.
+
+\emph{第三步: $Y\ge0$.} 由简单函数逼近 (引理~\ref{lem:simple-approx}), 存在 $\sigma(X)$-可测的非负简单随机变量 $Y_n\uparrow Y$ (每个 $Y_n$ 中出现的集合都形如 $\{a\le Y<b\}$ 或 $\{Y\ge n\}$, 属于 $\sigma(X)$). 由第二步, $Y_n=g_n(X)$, $g_n$ 为 Borel 函数. 令
+\[
+g(x)=\begin{cases}\limsup_{n\to\infty}g_n(x), & \text{若此上极限有限},\\ 0, & \text{否则}.\end{cases}
+\]
+由命题~\ref{prop:rv-operations} (3) (取 $\Omega=\R$, $\mathcal{F}=\mathcal{B}(\R)$), $\limsup_n g_n$ 是 Borel 可测的, 进而 $g$ 是 Borel 可测的. 对每个 $\omega$, 取 $x=X(\omega)$, 则 $g_n(x)=Y_n(\omega)\uparrow Y(\omega)<\infty$, 所以 $\limsup_n g_n(x)=Y(\omega)$ 有限, $g(X(\omega))=Y(\omega)$.
+
+\emph{第四步: 一般情形.} 记 $Y^+=Y\vee0$, $Y^-=(-Y)\vee0$, 它们非负且 $\sigma(X)$-可测, $Y=Y^+-Y^-$. 由第三步, $Y^\pm=g_\pm(X)$, 取 $g=g_+-g_-$ 即可.
+\end{proof}
+
+\begin{remark}
+对多个随机变量, 结论同样成立: $Y$ 是 $\sigma(X_1,\dots,X_n)$-可测的, 当且仅当 $Y=g(X_1,\dots,X_n)$, 其中 $g:\R^n\to\R$ 是 Borel 可测函数 (见 1.5 节), 证明完全相同. 注意第三步中的技巧: 函数 $g_n$ 只在 $X$ 的值域上被确定, 在值域以外它们可能毫无规律, 因此要用上极限并截断来定义 $g$.
+\end{remark}
+
+利用 $\sigma(X)$, 随机变量的独立性可以直接借用 $\sigma$-代数的独立性来定义.
+
+\begin{definition}[随机变量的独立性]\label{def:indep-rv}
+称随机变量族 $\{X_i\}_{i\in I}$ 相互\textbf{独立}, 如果 $\{\sigma(X_i)\}_{i\in I}$ 相互独立. 称随机变量 $X$ 与 $\sigma$-代数 $\mathcal{G}$ 独立, 如果 $\sigma(X)$ 与 $\mathcal{G}$ 独立. 独立且具有相同分布 (见下一小节) 的随机变量序列称为\textbf{独立同分布} ($\iid$) 序列.
+\end{definition}
+
+\begin{theorem}[独立性的分布函数判别法]\label{thm:indep-cdf}
+随机变量 $X_1,\dots,X_n$ 相互独立, 当且仅当对任意 $x_1,\dots,x_n\in\R$,
+\begin{equation}\label{eq:indep-cdf}
+\P(X_1\le x_1,\dots,X_n\le x_n)=\P(X_1\le x_1)\cdots\P(X_n\le x_n).
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+必要性由定义直接得到. 充分性: 令 $\mathcal{P}_i=\{\{X_i\le x\}: x\in\R\}\cup\{\Omega\}$. 由于 $\{X_i\le x\}\cap\{X_i\le y\}=\{X_i\le x\wedge y\}$, $\mathcal{P}_i$ 是包含 $\Omega$ 的 $\pi$-系, 且由引理~\ref{lem:measurable-generator} (1) 与命题~\ref{prop:borel-generator}, $\sigma(\mathcal{P}_i)=\sigma(X_i)$. 要用独立性的 $\pi$-系判别准则 (定理~\ref{thm:indep-pi}), 还需验证当某些 $A_i$ 取为 $\Omega$ 时乘积公式也成立. 对这些指标 $i$, 令 $x_i=m\to\infty$: 此时 $\{X_i\le m\}\uparrow\Omega$, 由概率的连续性 (定理~\ref{thm:continuity}), \eqref{eq:indep-cdf} 两端分别收敛到对应指标取 $\Omega$ 的形式. 于是乘积公式对所有 $A_i\in\mathcal{P}_i$ 成立, 由定理~\ref{thm:indep-pi}, $\sigma(X_1),\dots,\sigma(X_n)$ 独立.
+\end{proof}
+
+\begin{proposition}\label{prop:indep-functions}
+若 $X_1,\dots,X_n$ 相互独立, $g_1,\dots,g_n$ 是 Borel 函数, 则 $g_1(X_1),\dots,g_n(X_n)$ 相互独立. 更一般地, 由不交的几组独立随机变量分别构造出的随机变量相互独立 (例如 $X_1+X_2$ 与 $X_3X_4$).
+\end{proposition}
+
+\begin{proof}
+由命题~\ref{prop:rv-operations} 的证明 (1), $\sigma(g_i(X_i))\subseteq\sigma(X_i)$. 独立 $\sigma$-代数的子 $\sigma$-代数仍然独立 (定义~\ref{def:indep-sigma} 中的条件只会变少). 第二个论断由分组原理 (推论~\ref{cor:grouping}) 与 Doob-Dynkin 引理之后的注 (多变量函数 $g(X_1,X_2)$ 关于 $\sigma(X_1,X_2)$ 可测, 见 1.5 节) 得到.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{分布与分布函数}
+
+随机变量把 $\Omega$ 上的概率 ``搬运'' 到了实直线上.
+
+\begin{definition}[分布]\label{def:distribution}
+设 $X$ 是随机变量. 称 $\R$ 上的集合函数
+\[
+\mu_X(B)=\P(X\in B)=\P\big(X^{-1}(B)\big),\qquad B\in\mathcal{B}(\R)
+\]
+为 $X$ 的\textbf{分布} (或概率律, 也称为 $\P$ 在 $X$ 下的\textbf{推前测度}, 记作 $\P\circ X^{-1}$). 若 $\mu_X=\mu_Y$, 称 $X$ 与 $Y$ \textbf{同分布}, 记作 $X\overset{d}{=}Y$; 若 $\mu_X=\mu$, 记作 $X\sim\mu$.
+\end{definition}
+
+\begin{proposition}
+$\mu_X$ 是 $(\R,\mathcal{B}(\R))$ 上的概率测度.
+\end{proposition}
+
+\begin{proof}
+$\mu_X(\R)=\P(\Omega)=1$. 若 $B_1,B_2,\dots$ 是两两不交的 Borel 集, 则原像 $X^{-1}(B_n)$ 两两不交 (一个 $\omega$ 不能同时使 $X(\omega)$ 落在两个不交的集合中), 且 $X^{-1}(\bigcup_n B_n)=\bigcup_n X^{-1}(B_n)$. 由 $\P$ 的可列可加性,
+$\mu_X\big(\bigcup_n B_n\big)=\sum_n\P(X^{-1}(B_n))=\sum_n\mu_X(B_n)$.
+\end{proof}
+
+\begin{intuition}
+分布只记录 ``$X$ 落在各处的可能性有多大'', 忘记了 $X$ 是定义在哪个概率空间上、如何依赖于 $\omega$ 的. 两个随机变量可以同分布却毫无关系 (比如两次独立抛硬币的结果). 计算单个随机变量的概率和期望时, 只需知道分布; 但涉及多个随机变量之间的关系时, 必须回到 $\Omega$ 上.
+\end{intuition}
+
+分布是定义在全体 Borel 集上的集合函数, 用起来不方便. 由 $\pi$-$\lambda$ 定理, 它其实由一个普通的实函数决定.
+
+\begin{definition}[分布函数]\label{def:cdf}
+随机变量 $X$ 的 (累积) \textbf{分布函数}定义为 $F_X(x)=\P(X\le x)=\mu_X((-\infty,x])$, $x\in\R$.
+\end{definition}
+
+\begin{theorem}[分布函数的性质]\label{thm:cdf-properties}
+设 $F=F_X$. 则
+\begin{enumerate}
+\item $F$ 单调不减;
+\item $F$ 右连续: $\lim_{y\downarrow x}F(y)=F(x)$;
+\item $\lim_{x\to-\infty}F(x)=0$, $\lim_{x\to+\infty}F(x)=1$;
+\item 左极限 $F(x-)=\lim_{y\uparrow x}F(y)=\P(X<x)$, 从而 $\P(X=x)=F(x)-F(x-)$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 若 $x\le y$, 则 $\{X\le x\}\subseteq\{X\le y\}$, 由单调性 $F(x)\le F(y)$.
+
+由于 $F$ 单调, 其单侧极限存在, 只需沿一个特定的单调数列计算.
+
+(2) 取 $y_n\downarrow x$, 则 $\{X\le y_n\}\downarrow\{X\le x\}$, 由上连续性 (定理~\ref{thm:continuity}) $F(y_n)\to F(x)$.
+
+(3) 当 $n\to\infty$ 时, $\{X\le -n\}\downarrow\varnothing$, $\{X\le n\}\uparrow\Omega$ (因为 $X$ 取有限实值). 由连续性, $F(-n)\to0$, $F(n)\to1$.
+
+(4) 取 $y_n\uparrow x$ 且 $y_n<x$, 则 $\{X\le y_n\}\uparrow\{X<x\}$, 由下连续性 $F(y_n)\to\P(X<x)$. 再由 $\{X=x\}=\{X\le x\}\setminus\{X<x\}$ 和命题~\ref{prop:prob-basic} (4) 得到最后的等式.
+\end{proof}
+
+\begin{theorem}[分布函数决定分布]\label{thm:cdf-determines}
+若 $F_X=F_Y$, 则 $\mu_X=\mu_Y$, 即 $X\overset{d}{=}Y$.
+\end{theorem}
+
+\begin{proof}
+$\mu_X$ 与 $\mu_Y$ 在 $\pi$-系 $\{(-\infty,x]: x\in\R\}$ 上相等 (例~\ref{ex:pi-lambda} (1)), 而该 $\pi$-系生成 $\mathcal{B}(\R)$ (命题~\ref{prop:borel-generator}). 由概率测度的唯一性 (推论~\ref{cor:uniqueness}), $\mu_X=\mu_Y$.
+\end{proof}
+
+反过来, 满足定理~\ref{thm:cdf-properties} (1)-(3) 的函数都是某个随机变量的分布函数. 下面给出一个构造性的证明, 它同时是计算机模拟中 ``逆变换抽样'' 的理论基础.
+
+\begin{theorem}[分位数变换]\label{thm:quantile}
+设 $F:\R\to[0,1]$ 满足定理~\ref{thm:cdf-properties} 中的 (1)(2)(3). 对 $u\in(0,1)$ 定义广义逆
+\[
+F^{-1}(u)=\inf\{x\in\R: F(x)\ge u\}.
+\]
+设 $U$ 服从 $(0,1)$ 上的均匀分布 (例~\ref{ex:basic-spaces} (1)), 则 $X=F^{-1}(U)$ 是随机变量, 且其分布函数为 $F$.
+\end{theorem}
+
+\begin{proof}
+固定 $u\in(0,1)$, 记 $S_u=\{x: F(x)\ge u\}$.
+\begin{itemize}
+\item $S_u$ 非空且有下界: 由 $F(x)\to1>u$ ($x\to+\infty$), 存在 $x$ 使 $F(x)\ge u$; 由 $F(x)\to0<u$ ($x\to-\infty$), 当 $x$ 充分小时 $x\notin S_u$, 而由单调性, 比这个 $x$ 更小的点也都不属于 $S_u$. 故 $F^{-1}(u)$ 是有限实数.
+\item $S_u=[F^{-1}(u),\infty)$: 由单调性, 若 $x\in S_u$ 且 $y>x$, 则 $y\in S_u$, 所以 $S_u$ 是以 $F^{-1}(u)$ 为左端点的区间. 取 $x_n\in S_u$, $x_n\downarrow F^{-1}(u)$, 由右连续性 $F(F^{-1}(u))=\lim_n F(x_n)\ge u$, 所以左端点属于 $S_u$.
+\end{itemize}
+由此得到关键的等价关系: 对 $u\in(0,1)$, $x\in\R$,
+\begin{equation}\label{eq:galois}
+F^{-1}(u)\le x\iff x\in S_u\iff u\le F(x).
+\end{equation}
+于是 $\{X\le x\}=\{U\le F(x)\}$ 是事件, $X$ 是随机变量, 且
+$\P(X\le x)=\P(U\le F(x))=F(x)$ (均匀分布满足 $\P(U\le t)=t$, $t\in[0,1]$).
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[xscale=1.6,yscale=3.2]
+  \draw[->,SADark!80] (-0.4,0) -- (3.6,0) node[right] {$x$};
+  \draw[->,SADark!80] (0,-0.05) -- (0,1.12) node[above] {$F(x)$};
+  \draw[SADark!30,dashed] (0,1) -- (3.5,1);
+  \node[left,font=\small] at (0,1) {$1$};
+  % F pieces
+  \draw[SABlue,very thick] (-0.4,0) -- (0,0) -- (1,0.3);
+  \draw[SABlue,very thick] (1,0.55) -- (2,0.55) -- (3,1) -- (3.5,1);
+  \draw[SABlue,fill=white] (1,0.3) circle (0.9pt);
+  \fill[SABlue] (1,0.55) circle (0.9pt);
+  % u1 in jump gap
+  \draw[SARed,dashed] (0,0.42) -- (1,0.42) -- (1,0);
+  \node[left,SARed,font=\small] at (0,0.42) {$u_1$};
+  % u2 flat level
+  \node[left,SARed,font=\small] at (0,0.56) {$u_2$};
+  \draw[SARed,dashed] (0,0.55) -- (1,0.55);
+  \node[below,SARed,font=\small,align=center] at (1,0) {$F^{-1}(u_1)$\\$=F^{-1}(u_2)$};
+  % u3
+  \draw[SAGreenText,dashed] (0,0.8) -- (2.556,0.8) -- (2.556,0);
+  \node[left,SAGreenText,font=\small] at (0,0.8) {$u_3$};
+  \node[below,SAGreenText,font=\small] at (2.556,0) {$F^{-1}(u_3)$};
+\end{tikzpicture}
+\caption{广义逆 $F^{-1}(u)=\inf\{x: F(x)\ge u\}$. 落在跳跃缺口中的 $u_1$ 和等于平台高度的 $u_2=0.55$ 都被送到跳跃点; $F$ 的平台区间 $(1,2)$ 不在 $F^{-1}$ 的值域中 (该区间概率为 $0$)}
+\label{fig:quantile}
+\end{figure}
+
+\begin{remark}
+结合定理~\ref{thm:cdf-determines} 与定理~\ref{thm:quantile}: $\R$ 上的概率测度与满足 (1)(2)(3) 的函数一一对应. 进一步, 在乘积概率空间上可以构造任意给定分布的独立随机变量序列 (见~\cite{durrett} 2.1 节). 今后我们常说 ``设 $X_1,X_2,\dots$ 是 $\iid$ 的 $N(0,1)$ 随机变量'', 其存在性即由此保证.
+\end{remark}
+
+最常见的分布有两类.
+
+\begin{definition}[离散型与绝对连续型]\label{def:discrete-continuous}
+\begin{enumerate}
+\item 若存在有限或可列集 $S\subseteq\R$ 使 $\P(X\in S)=1$, 称 $X$ 为\textbf{离散型}随机变量, $p(x)=\P(X=x)$ ($x\in S$) 称为其\textbf{概率质量函数}. 此时 $\mu_X(B)=\sum_{x\in B\cap S}p(x)$, $F_X$ 是阶梯函数.
+\item 若存在非负 Borel 函数 $f$ 使得对所有 $x\in\R$,
+\[
+F_X(x)=\int_{-\infty}^x f(t)\dd t,
+\]
+称 $X$ 为\textbf{绝对连续型}随机变量, $f=f_X$ 称为其\textbf{概率密度函数}. 此时 $\int_{\R}f(t)\dd t=1$.
+\end{enumerate}
+\end{definition}
+
+这里的积分是关于 Lebesgue 测度的积分 (1.3 节给出定义); $f$ 分段连续时, 该积分与 Riemann (反常) 积分一致. 绝对连续型随机变量具有两条基本性质.
+\begin{itemize}
+\item 对每个 Borel 集 $B$, $\P(X\in B)=\int_B f(t)\dd t$. 事实上, $\nu(B)=\int_B f(t)\dd t$ 是 $\mathcal{B}(\R)$ 上的概率测度 (可列可加性由 1.3 节的单调收敛定理~\ref{thm:mct} 得到), 它与 $\mu_X$ 在 $\{(-\infty,x]\}$ 上一致, 由推论~\ref{cor:uniqueness} 二者相等.
+\item $F_X$ 连续, 从而对每个 $x$, $\P(X=x)=0$; 在 $f$ 的连续点处 $F_X'(x)=f(x)$ (微积分基本定理).
+\end{itemize}
+
+\begin{remark}
+条件 ``$\mu_X$ 有密度'' 可以用测度的语言刻画: \textbf{Radon-Nikodym 定理} 断言, $\mu_X$ 存在密度当且仅当 $\mu_X$ 关于 Lebesgue 测度 $\lambda$ \emph{绝对连续}, 即 $\lambda(B)=0\Rightarrow\mu_X(B)=0$; 密度 $f$ 记作 $\frac{\dd\mu_X}{\dd\lambda}$ (证明见~\cite{folland} 3.2 节). 一般的分布既不是离散型也不是绝对连续型: 它可以是两者的混合 (见下例), 甚至可以是连续但没有密度的 (如 Cantor 分布). 第~2~章与第~5~章会再次用到 Radon-Nikodym 定理.
+\end{remark}
+
+\begin{example}\label{ex:cdf-types}
+\begin{enumerate}
+\item \textbf{离散型.} 抛三次均匀硬币, $X$ 为正面次数, 则 $X\sim\mathrm{B}(3,\frac{1}{2})$, $p(k)=\binom{3}{k}\frac{1}{8}$, $F_X$ 在 $0,1,2,3$ 处分别跳跃 $\frac{1}{8},\frac{3}{8},\frac{3}{8},\frac{1}{8}$.
+\item \textbf{绝对连续型.} 参数为 $1$ 的指数分布: $f(x)=e^{-x}\1_{\{x\ge0\}}$, $F(x)=(1-e^{-x})\1_{\{x\ge0\}}$.
+\item \textbf{混合型.} 设 $T$ 服从参数为 $1$ 的指数分布 (例如一个元件的寿命), 而我们只观察到时刻 $1$ 为止, 令 $X=T\wedge1$. 则对 $0\le x<1$, $F_X(x)=1-e^{-x}$; 对 $x\ge1$, $F_X(x)=1$. $F_X$ 在 $x=1$ 处有大小为 $e^{-1}$ 的跳跃, 在 $(0,1)$ 上连续增长. $X$ 既不是离散型也不是绝对连续型.
+\end{enumerate}
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{scope}
+  \draw[->,SADark!80] (-0.5,0) -- (3.9,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!80] (0,0) -- (0,2.4);
+  \draw[SADark!30,dashed] (0,2) -- (3.7,2); \node[left,font=\small] at (0,2) {$1$};
+  \foreach \a/\b/\h in {-0.5/0/0, 0/0.8/0.25, 0.8/1.6/1, 1.6/2.4/1.75, 2.4/3.7/2} { \draw[SABlue,very thick] (\a,\h) -- (\b,\h); }
+  \foreach \x/\h in {0/0, 0.8/0.25, 1.6/1, 2.4/1.75} { \draw[SABlue,fill=white] (\x,\h) circle (1.6pt); }
+  \foreach \x/\h in {0/0.25, 0.8/1, 1.6/1.75, 2.4/2} { \fill[SABlue] (\x,\h) circle (1.6pt); }
+  \foreach \x/\l in {0/0,0.8/1,1.6/2,2.4/3} { \node[below,font=\small] at (\x,0) {$\l$}; }
+  \node[font=\small] at (1.6,-0.75) {(a) 离散型};
+\end{scope}
+\begin{scope}[xshift=5cm]
+  \draw[->,SADark!80] (-0.5,0) -- (3.9,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!80] (0,0) -- (0,2.4);
+  \draw[SADark!30,dashed] (0,2) -- (3.7,2); \node[left,font=\small] at (0,2) {$1$};
+  \draw[SABlue,very thick] (-0.5,0) -- (0,0);
+  \draw[SABlue,very thick,domain=0:3.7,samples=60] plot (\x,{2*(1-exp(-1.1*\x))});
+  \node[below,font=\small] at (0,0) {$0$};
+  \node[font=\small] at (1.6,-0.75) {(b) 绝对连续型};
+\end{scope}
+\begin{scope}[xshift=10cm]
+  \draw[->,SADark!80] (-0.5,0) -- (3.9,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!80] (0,0) -- (0,2.4);
+  \draw[SADark!30,dashed] (0,2) -- (3.7,2); \node[left,font=\small] at (0,2) {$1$};
+  \draw[SABlue,very thick] (-0.5,0) -- (0,0);
+  \draw[SABlue,very thick,domain=0:1.6,samples=40] plot (\x,{2*(1-exp(-\x/1.6))});
+  \draw[SABlue,very thick] (1.6,2) -- (3.7,2);
+  \draw[SABlue,fill=white] (1.6,{2*(1-exp(-1))}) circle (1.6pt);
+  \fill[SABlue] (1.6,2) circle (1.6pt);
+  \draw[SARed,decorate,decoration={brace,amplitude=3pt,mirror}] (1.75,{2*(1-exp(-1))}) -- (1.75,2) node[midway,right,font=\small,xshift=2pt] {$e^{-1}$};
+  \node[below,font=\small] at (0,0) {$0$};
+  \node[below,font=\small] at (1.6,0) {$1$};
+  \node[font=\small] at (1.6,-0.75) {(c) 混合型};
+\end{scope}
+\end{tikzpicture}
+\caption{例~\ref{ex:cdf-types} 中三类分布函数. 实心点表示函数值, 空心点表示左极限; 跳跃的高度等于该点的概率}
+\label{fig:cdf-types}
+\end{figure}
+
+表~\ref{tab:distributions} 列出了本书常用的分布, 其期望与方差将在 1.3 节计算.
+
+\begin{table}[htbp]
+\centering
+\caption{常用分布}
+\label{tab:distributions}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{lll}
+\toprule
+分布 & 概率质量函数 / 密度 & 典型背景 \\
+\midrule
+Bernoulli $\mathrm{B}(1,p)$ & $\P(X=1)=p$, $\P(X=0)=1-p$ & 一次试验成功与否 \\
+二项 $\mathrm{B}(n,p)$ & $\binom{n}{k}p^k(1-p)^{n-k}$, $k=0,\dots,n$ & $n$ 次独立试验的成功次数 \\
+几何 $\mathrm{Geo}(p)$ & $(1-p)^{k-1}p$, $k=1,2,\dots$ & 首次成功所需的试验次数 \\
+Poisson $\mathrm{Poi}(\lambda)$ & $e^{-\lambda}\frac{\lambda^k}{k!}$, $k=0,1,\dots$ & 稀有事件的发生次数 \\
+\midrule
+均匀 $\mathrm{U}(a,b)$ & $\frac{1}{b-a}\1_{(a,b)}(x)$ & 随机取点 \\
+指数 $\mathrm{Exp}(\lambda)$ & $\lambda e^{-\lambda x}\1_{\{x\ge0\}}$ & 无记忆的等待时间 \\
+正态 $N(\mu,\sigma^2)$ & $\frac{1}{\sqrt{2\pi}\sigma}e^{-\frac{(x-\mu)^2}{2\sigma^2}}$ & 大量微小独立因素之和 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\subsection{正态分布}
+
+正态分布在随机分析中处于中心地位: 布朗运动的每个增量都服从正态分布. 本小节给出正态分布的基本性质和精确的尾概率估计; 正态分布的矩和特征函数将在 1.3 节计算, 多元正态分布在 1.5 节讨论.
+
+\begin{definition}[正态分布]\label{def:normal}
+密度为
+\[
+\varphi(x)=\frac{1}{\sqrt{2\pi}}e^{-x^2/2},\qquad x\in\R
+\]
+的分布称为\textbf{标准正态分布}, 记为 $N(0,1)$, 其分布函数记为 $\Phi(x)=\int_{-\infty}^x\varphi(t)\dd t$. 对 $\mu\in\R$, $\sigma>0$, 若 $X=\mu+\sigma Z$, 其中 $Z\sim N(0,1)$, 称 $X$ 服从\textbf{正态分布} $N(\mu,\sigma^2)$. 约定 $N(\mu,0)$ 表示集中在点 $\mu$ 的分布 (即 $X\equiv\mu$), 称为退化正态分布.
+\end{definition}
+
+首先验证 $\varphi$ 确实是概率密度. 记 $I=\int_{\R}e^{-x^2/2}\dd x$. 利用二重积分的极坐标变换 ($x=r\cos\theta$, $y=r\sin\theta$, $\dd x\dd y=r\dd r\dd\theta$; 被积函数非负, 累次积分的交换由 1.5 节的 Fubini 定理保证),
+\begin{align*}
+I^2&=\int_{\R}\int_{\R}e^{-(x^2+y^2)/2}\dd x\dd y=\int_0^{2\pi}\int_0^\infty e^{-r^2/2}\,r\dd r\dd\theta\\
+&=2\pi\Big[-e^{-r^2/2}\Big]_0^\infty=2\pi.
+\end{align*}
+所以 $I=\sqrt{2\pi}$, $\int_{\R}\varphi=1$.
+
+\begin{proposition}[正态分布的基本性质]\label{prop:normal-basic}
+\begin{enumerate}
+\item 对称性: $\varphi(-x)=\varphi(x)$, $\Phi(-x)=1-\Phi(x)$; 若 $Z\sim N(0,1)$, 则 $-Z\sim N(0,1)$.
+\item 若 $X\sim N(\mu,\sigma^2)$, $\sigma>0$, 则
+\[
+F_X(x)=\Phi\Big(\frac{x-\mu}{\sigma}\Big),\qquad f_X(x)=\frac{1}{\sqrt{2\pi}\sigma}\exp\Big(-\frac{(x-\mu)^2}{2\sigma^2}\Big).
+\]
+反之, 若 $X\sim N(\mu,\sigma^2)$, 则标准化变量 $\frac{X-\mu}{\sigma}\sim N(0,1)$.
+\item 线性变换: 若 $X\sim N(\mu,\sigma^2)$, $a,b\in\R$, 则 $aX+b\sim N(a\mu+b,a^2\sigma^2)$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 第一式显然. 作变量替换 $t=-s$,
+\[
+\Phi(-x)=\int_{-\infty}^{-x}\varphi(t)\dd t=\int_x^{\infty}\varphi(s)\dd s=1-\Phi(x).
+\]
+于是 $\P(-Z\le x)=\P(Z\ge-x)=1-\Phi(-x)=\Phi(x)$ (这里用到 $\P(Z=-x)=0$).
+
+(2) $F_X(x)=\P(\mu+\sigma Z\le x)=\P\big(Z\le\frac{x-\mu}{\sigma}\big)=\Phi\big(\frac{x-\mu}{\sigma}\big)$. 由于 $\Phi$ 可微, 由链式法则得到密度. 标准化变量 $\frac{X-\mu}{\sigma}$ 的分布函数为 $\P(X\le\mu+\sigma x)=\Phi(x)$, 由定理~\ref{thm:cdf-determines} 即得.
+
+(3) 写 $X=\mu+\sigma Z$. 若 $a\ge0$, 则 $aX+b=(a\mu+b)+(a\sigma)Z$, 由定义 (当 $a=0$ 时为退化情形) 即得. 若 $a<0$, 则 $aX+b=(a\mu+b)+\abs{a}\sigma(-Z)$, 由 (1), $-Z\sim N(0,1)$, 同样得证.
+\end{proof}
+
+参数 $\mu$ 与 $\sigma^2$ 分别是 $X$ 的期望与方差, 这一点将在 1.3 节验证. 正态分布的尾部衰减极快, 下面的估计在后文 (例如布朗运动的轨道性质、重对数律) 中反复使用.
+
+\begin{theorem}[正态尾概率估计]\label{thm:mills}
+对任意 $x>0$,
+\[
+\frac{x}{1+x^2}\,\varphi(x)\ \le\ 1-\Phi(x)\ \le\ \frac{\varphi(x)}{x}.
+\]
+特别地, 当 $x\to\infty$ 时, $1-\Phi(x)\sim\frac{\varphi(x)}{x}$, 即二者之比趋于 $1$.
+\end{theorem}
+
+\begin{proof}
+关键是 $\varphi'(t)=-t\varphi(t)$.
+
+\emph{上界.} 当 $t\ge x>0$ 时 $\frac{t}{x}\ge1$, 所以
+\[
+1-\Phi(x)=\int_x^\infty\varphi(t)\dd t\le\int_x^\infty\frac{t}{x}\varphi(t)\dd t=\frac{1}{x}\Big[-\varphi(t)\Big]_x^\infty=\frac{\varphi(x)}{x}.
+\]
+
+\emph{下界.} 直接求导可得
+$\frac{\dd}{\dd t}\Big(-\frac{\varphi(t)}{t}\Big)=\frac{t\varphi(t)\cdot t+\varphi(t)}{t^2}=\Big(1+\frac{1}{t^2}\Big)\varphi(t)$, 因此
+\[
+\frac{\varphi(x)}{x}=\int_x^\infty\Big(1+\frac{1}{t^2}\Big)\varphi(t)\dd t\le\Big(1+\frac{1}{x^2}\Big)\int_x^\infty\varphi(t)\dd t=\Big(1+\frac{1}{x^2}\Big)\big(1-\Phi(x)\big).
+\]
+两边乘以 $\frac{x^2}{1+x^2}$ 即得下界. 最后, 上下界之比为 $\frac{x^2}{1+x^2}\to1$, 由夹逼得到渐近等价.
+\end{proof}
+
+\begin{intuition}
+尾概率 $\P(Z>x)$ 大约是 ``密度在 $x$ 处的高度'' 除以 $x$, 量级为 $e^{-x^2/2}$. 表~\ref{tab:normal-tail} 显示, 当 $x\ge2$ 时上下界已经相当接近. 常用的 ``$3\sigma$ 原则'' 即 $\P(\abs{Z}>3)\approx0.27\%$.
+\end{intuition}
+
+\begin{table}[htbp]
+\centering
+\caption{标准正态尾概率与定理~\ref{thm:mills} 的上下界}
+\label{tab:normal-tail}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{ccccc}
+\toprule
+$x$ & 下界 $\frac{x\varphi(x)}{1+x^2}$ & $1-\Phi(x)$ & 上界 $\frac{\varphi(x)}{x}$ & $\P(\abs{Z}>x)$\\
+\midrule
+$1$ & $1.210\times10^{-1}$ & $1.587\times10^{-1}$ & $2.420\times10^{-1}$ & $0.3173$\\
+$2$ & $2.160\times10^{-2}$ & $2.275\times10^{-2}$ & $2.700\times10^{-2}$ & $0.0455$\\
+$3$ & $1.330\times10^{-3}$ & $1.350\times10^{-3}$ & $1.477\times10^{-3}$ & $0.0027$\\
+$4$ & $3.149\times10^{-5}$ & $3.167\times10^{-5}$ & $3.346\times10^{-5}$ & $6.3\times10^{-5}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11cm, height=5cm, xmin=-4.2, xmax=4.4, ymin=0, ymax=0.46,
+  xtick={-3,-2,-1,1,2,3}, xticklabels={$-3$,$-2$,$-1$,$1$,$2$,$3$}, ytick=\empty, xlabel={$x$}]
+  \addplot[fill=SABlue!12,draw=none,domain=-1:1,samples=50] {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+  \addplot[fill=SABlue!25,draw=none,domain=1:2,samples=30] {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+  \addplot[fill=SABlue!25,draw=none,domain=-2:-1,samples=30] {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+  \addplot[fill=SARed!45,draw=none,domain=2:4.2,samples=40] {exp(-x^2/2)/sqrt(2*pi)} \closedcycle;
+  \addplot[SADark,thick,domain=-4.2:4.2,samples=150] {exp(-x^2/2)/sqrt(2*pi)};
+  \node[font=\small] at (axis cs:0,0.12) {$68.3\%$};
+  \node[font=\small,SARed] at (axis cs:3.0,0.07) {$2.3\%$};
+  \draw[->,SARed] (axis cs:2.9,0.055) -- (axis cs:2.35,0.012);
+  \node[font=\small] at (axis cs:-1.47,0.085) {$13.6\%$};
+\end{axis}
+\end{tikzpicture}
+\caption{标准正态密度. $\P(\abs{Z}\le1)\approx68.3\%$, $\P(\abs{Z}\le2)\approx95.4\%$, 单侧尾部 $\P(Z>2)\approx2.3\%$}
+\label{fig:normal-density}
+\end{figure}
+
+下面的例子把尾概率估计与两个 Borel-Cantelli 引理结合起来, 精确地刻画了 $\iid$ 正态序列的 ``最大波动幅度''.
+
+\begin{example}[正态序列的增长速度]\label{ex:normal-max}
+设 $Z_1,Z_2,\dots$ 是 $\iid$ 的 $N(0,1)$ 随机变量. 则
+\[
+\limsup_{n\to\infty}\frac{Z_n}{\sqrt{2\log n}}=1\qquad\as
+\]
+
+\emph{证明.} 固定 $\varepsilon\in(0,1)$, 对 $n\ge3$ 记 $a_n=(1+\varepsilon)\sqrt{2\log n}$, $b_n=(1-\varepsilon)\sqrt{2\log n}$.
+
+\emph{上界.} 由定理~\ref{thm:mills} 的上界, 当 $a_n\ge1$ 时,
+\[
+\P(Z_n>a_n)\le\frac{\varphi(a_n)}{a_n}\le\varphi(a_n)=\frac{1}{\sqrt{2\pi}}e^{-(1+\varepsilon)^2\log n}=\frac{1}{\sqrt{2\pi}}\,n^{-(1+\varepsilon)^2}.
+\]
+由于 $(1+\varepsilon)^2>1$, $\sum_n\P(Z_n>a_n)<\infty$. 由 Borel-Cantelli 第一引理 (定理~\ref{thm:bc1}), 几乎必然地, 只有有限个 $n$ 使 $Z_n>a_n$, 从而 $\limsup_n\frac{Z_n}{\sqrt{2\log n}}\le1+\varepsilon$ $\as$
+
+\emph{下界.} 记 $s=(1-\varepsilon)^2<1$. 当 $b_n\ge1$ 时 $\frac{b_n}{1+b_n^2}\ge\frac{1}{2b_n}$, 由定理~\ref{thm:mills} 的下界,
+\[
+\P(Z_n>b_n)\ge\frac{\varphi(b_n)}{2b_n}=\frac{1}{2\sqrt{2\pi}}\cdot\frac{n^{-s}}{(1-\varepsilon)\sqrt{2\log n}}\ge\frac{1}{2\sqrt{2\pi}}\cdot\frac{n^{-s}}{\sqrt{2\log n}}.
+\]
+由于 $\log n$ 比 $n$ 的任何正幂次增长得慢, 当 $n$ 充分大时 $\sqrt{2\log n}\le n^{1-s}$, 于是右端不小于 $\frac{1}{2\sqrt{2\pi}}\cdot\frac{1}{n}$, 所以 $\sum_n\P(Z_n>b_n)=\infty$. 事件 $\{Z_n>b_n\}\in\sigma(Z_n)$ 相互独立, 由 Borel-Cantelli 第二引理 (定理~\ref{thm:bc2}), 几乎必然有无穷多个 $n$ 使 $Z_n>b_n$, 从而 $\limsup_n\frac{Z_n}{\sqrt{2\log n}}\ge1-\varepsilon$ $\as$
+
+\emph{合并.} 取 $\varepsilon=\frac{1}{k}$ ($k=2,3,\dots$), 上面得到可列个概率为 $1$ 的事件, 它们的交的概率仍为 $1$ (其补集是可列个零概率集之并). 在这个交集上, 对所有 $k$ 都有 $1-\frac{1}{k}\le\limsup_n\frac{Z_n}{\sqrt{2\log n}}\le1+\frac{1}{k}$, 令 $k\to\infty$ 即得结论.
+\end{example}
+
+\begin{intuition}
+$n$ 个独立标准正态变量中最大的那个大约是 $\sqrt{2\log n}$: 增长极其缓慢, 这反映了正态尾部 $e^{-x^2/2}$ 的快速衰减. 第~4~章中布朗运动的重对数律 $\limsup_{t\to\infty}\frac{B_t}{\sqrt{2t\log\log t}}=1$ 是同一现象在连续时间中的体现.
+\end{intuition}
+
+\begin{remark}[中心极限定理的背景]
+正态分布之所以无处不在, 是因为大量独立微小因素之和近似服从正态分布. 例如抛 $n$ 次硬币, 正面次数 $S_n$ 经标准化后, $\frac{S_n-n/2}{\sqrt{n}/2}$ 的分布当 $n\to\infty$ 时趋于 $N(0,1)$ (de Moivre-Laplace 定理). 这一现象的一般形式是中心极限定理, 将在 1.4 节叙述; 它在第~4~章发展为 Donsker 不变原理, 由此得到布朗运动.
+\end{remark}
+
+% =====================================================================
+\section{数学期望与积分收敛定理}
+\label{sec:1-3}
+
+对只取有限个值的随机变量, 期望就是加权平均: 若 $X$ 以概率 $p_i$ 取值 $x_i$, 则 $\E[X]=\sum_i x_ip_i$. 对一般的随机变量, 我们需要一种 ``积分''. Riemann 积分把\emph{定义域}切成小段, 但 $\Omega$ 只是一个抽象集合, 没有 ``小段'' 可言. Lebesgue 的想法是改为切分\emph{值域}: 把 $X$ 的取值分成若干层, 每层的 ``宽度'' 用该层原像的概率来度量 (图~\ref{fig:riemann-lebesgue}). 这正是 1.2 节简单函数逼近 (引理~\ref{lem:simple-approx}) 所做的事情.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.05]
+\begin{scope}
+  \draw[->,SADark!80] (0,0) -- (4.3,0) node[right,font=\small] {$\omega$};
+  \draw[->,SADark!80] (0,0) -- (0,2.7);
+  \foreach \i in {0,...,7} {
+    \pgfmathsetmacro{\x}{0.5*\i}
+    \pgfmathsetmacro{\h}{1.3+0.9*sin(deg(1.6*(\x+0.25)))}
+    \fill[SABlue!22] (\x,0) rectangle ({\x+0.5},\h);
+    \draw[SABlue!70] (\x,0) rectangle ({\x+0.5},\h);
+  }
+  \draw[SADark,thick,domain=0:4,samples=60] plot (\x,{1.3+0.9*sin(deg(1.6*\x))});
+  \node[font=\small] at (2,-0.5) {(a) Riemann: 切分定义域};
+\end{scope}
+\begin{scope}[xshift=6cm]
+  \draw[->,SADark!80] (0,0) -- (4.3,0) node[right,font=\small] {$\omega$};
+  \draw[->,SADark!80] (0,0) -- (0,2.7);
+  \foreach \y in {0.6,1.2,1.8} { \draw[SADark!25,dashed] (0,\y) -- (4.1,\y); }
+  % level set {X >= 1.8}: sin(1.6x) >= 0.5556 -> 1.6x in [0.5891, 2.5525] -> x in [0.368,1.595]
+  \fill[SARed!30] (0.368,1.2) rectangle (1.595,1.8);
+  \draw[SARed,line width=2pt] (0.368,0) -- (1.595,0);
+  \draw[SARed!70,dashed] (0.368,0) -- (0.368,1.8);
+  \draw[SARed!70,dashed] (1.595,0) -- (1.595,1.8);
+  \draw[SADark,thick,domain=0:4,samples=60] plot (\x,{1.3+0.9*sin(deg(1.6*\x))});
+  \node[left,font=\small] at (0,1.8) {$y_{k+1}$};
+  \node[left,font=\small] at (0,1.2) {$y_k$};
+  \node[SARed,font=\small,below] at (0.98,0) {$\{X\ge y_{k+1}\}$};
+  \node[font=\small] at (2,-0.85) {(b) Lebesgue: 切分值域};
+\end{scope}
+\end{tikzpicture}
+\caption{两种积分思想. Lebesgue 积分把值域分层, 用 ``层高 $\times$ 原像的概率'' 求和, 因而不依赖于 $\Omega$ 的任何几何结构}
+\label{fig:riemann-lebesgue}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{期望的构造}
+
+构造分四步: 示性函数 $\to$ 非负简单随机变量 $\to$ 非负随机变量 $\to$ 可积随机变量. 每一步都由前一步通过极限或线性组合得到.
+
+\paragraph{第一、二步: 简单随机变量.}
+设 $X\ge0$ 是简单随机变量, 其互不相同的取值为 $a_1,\dots,a_k$, 令 $A_i=\{X=a_i\}$, 则 $\{A_1,\dots,A_k\}$ 是 $\Omega$ 的分割且 $X=\sum_{i=1}^k a_i\1_{A_i}$. 定义
+\begin{equation}\label{eq:simple-expectation}
+\E[X]=\sum_{i=1}^k a_i\P(A_i).
+\end{equation}
+特别地, 对事件 $A$ 有 $\E[\1_A]=\P(A)$.
+
+\begin{lemma}\label{lem:simple-properties}
+\begin{enumerate}
+\item 若 $X=\sum_{j=1}^m b_j\1_{B_j}$, 其中 $\{B_1,\dots,B_m\}$ 是 $\Omega$ 的分割 ($b_j\ge0$ 不必互不相同), 则 $\E[X]=\sum_{j=1}^m b_j\P(B_j)$.
+\item 设 $X,Y$ 是非负简单随机变量, $a,b\ge0$, 则 $\E[aX+bY]=a\E[X]+b\E[Y]$.
+\item 若非负简单随机变量满足 $X\le Y$, 则 $\E[X]\le\E[Y]$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) 对每个取值 $a_i$, $A_i=\{X=a_i\}$ 恰是满足 $b_j=a_i$ 的那些 $B_j$ 之不交并. 由有限可加性,
+\[
+\sum_{j=1}^m b_j\P(B_j)=\sum_{i=1}^k\sum_{j:\,b_j=a_i}a_i\P(B_j)=\sum_{i=1}^k a_i\P(A_i)=\E[X].
+\]
+
+(2)(3) 设 $X=\sum_i a_i\1_{A_i}$, $Y=\sum_j b_j\1_{B_j}$ 是按取值的分割表示. 令 $C_{ij}=A_i\cap B_j$, 则 $\{C_{ij}\}$ 也是 $\Omega$ 的分割, 且在 $C_{ij}$ 上 $X=a_i$, $Y=b_j$, $aX+bY=aa_i+bb_j$. 由 (1) 和有限可加性,
+\begin{align*}
+\E[aX+bY]&=\sum_{i,j}(aa_i+bb_j)\P(C_{ij})=a\sum_i a_i\sum_j\P(C_{ij})+b\sum_j b_j\sum_i\P(C_{ij})\\
+&=a\sum_i a_i\P(A_i)+b\sum_j b_j\P(B_j)=a\E[X]+b\E[Y].
+\end{align*}
+若 $X\le Y$, 则对每个非空的 $C_{ij}$ 有 $a_i\le b_j$ (空集的概率为 $0$, 不影响求和), 所以 $\E[X]=\sum_{i,j}a_i\P(C_{ij})\le\sum_{i,j}b_j\P(C_{ij})=\E[Y]$.
+\end{proof}
+
+由 (2), 对任意 (不必不交的) 事件 $A_i$ 和 $a_i\ge0$, 都有 $\E\big[\sum_i a_i\1_{A_i}\big]=\sum_i a_i\P(A_i)$.
+
+\paragraph{第三步: 非负随机变量.}
+
+\begin{definition}[非负随机变量的期望]\label{def:expectation-nonneg}
+设 $X$ 是非负广义随机变量. 定义
+\[
+\E[X]=\sup\big\{\E[Y]:\ Y\text{ 是简单随机变量},\ 0\le Y\le X\big\}\in[0,+\infty].
+\]
+\end{definition}
+
+由引理~\ref{lem:simple-properties} (3), 当 $X$ 本身是简单随机变量时, 上确界在 $Y=X$ 处取到, 与 \eqref{eq:simple-expectation} 一致. 定义中的上确界不便计算. 下面的引理说明, 沿任何一列单调逼近 $X$ 的简单随机变量取极限即可, 它是本节一切收敛定理的基础.
+
+\begin{lemma}\label{lem:simple-increasing}
+设 $X\ge0$, $Y_n$ 是非负简单随机变量且 $Y_n\uparrow X$ (逐点). 则 $\E[Y_n]\uparrow\E[X]$.
+\end{lemma}
+
+\begin{proof}
+由引理~\ref{lem:simple-properties} (3), $\E[Y_n]$ 单调不减; 由定义, $\E[Y_n]\le\E[X]$. 所以 $\lim_n\E[Y_n]$ 存在且 $\le\E[X]$. 下证反向不等式, 只需证明: 对任意满足 $0\le Y\le X$ 的简单随机变量 $Y$, 有 $\lim_n\E[Y_n]\ge\E[Y]$.
+
+设 $Y=\sum_{i=1}^k a_i\1_{A_i}$ (按取值的分割表示), 固定 $c\in(0,1)$, 令 $B_n=\{Y_n\ge cY\}$. 我们断言 $B_n\uparrow\Omega$. 由于 $Y_n$ 单调增加, $B_n$ 单调增加. 任取 $\omega$: 若 $Y(\omega)=0$, 则对所有 $n$ 都有 $\omega\in B_n$; 若 $Y(\omega)>0$, 则 $cY(\omega)<Y(\omega)\le X(\omega)$, 而 $Y_n(\omega)\uparrow X(\omega)$, 故当 $n$ 充分大时 $Y_n(\omega)\ge cY(\omega)$, 即 $\omega\in B_n$.
+
+由于 $Y_n\ge Y_n\1_{B_n}\ge cY\1_{B_n}$, 而 $cY\1_{B_n}=\sum_i ca_i\1_{A_i\cap B_n}$ 是简单随机变量, 由引理~\ref{lem:simple-properties},
+\[
+\E[Y_n]\ge\E[cY\1_{B_n}]=c\sum_{i=1}^k a_i\P(A_i\cap B_n).
+\]
+令 $n\to\infty$, 由于 $A_i\cap B_n\uparrow A_i$, 由概率的连续性 (定理~\ref{thm:continuity}), 右端趋于 $c\sum_i a_i\P(A_i)=c\E[Y]$. 于是 $\lim_n\E[Y_n]\ge c\E[Y]$, 再令 $c\uparrow1$ 即得.
+\end{proof}
+
+\begin{corollary}\label{cor:nonneg-properties}
+设 $X,Y$ 是非负广义随机变量, $a,b\ge0$. 则
+\begin{enumerate}
+\item 线性: $\E[aX+bY]=a\E[X]+b\E[Y]$;
+\item 单调性: 若 $X\le Y$, 则 $\E[X]\le\E[Y]$;
+\item 若 $\E[X]=0$, 则 $X=0$ $\as$;
+\item 若 $\E[X]<\infty$, 则 $X<\infty$ $\as$;
+\item 若 $X=Y$ $\as$, 则 $\E[X]=\E[Y]$.
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}
+(1) 由引理~\ref{lem:simple-approx}, 取简单随机变量 $X_n\uparrow X$, $Y_n\uparrow Y$. 则 $aX_n+bY_n$ 是简单随机变量且 $\uparrow aX+bY$. 由引理~\ref{lem:simple-increasing} 和引理~\ref{lem:simple-properties} (2),
+\[
+\E[aX+bY]=\lim_n\E[aX_n+bY_n]=\lim_n\big(a\E[X_n]+b\E[Y_n]\big)=a\E[X]+b\E[Y].
+\]
+
+(2) 满足 $0\le Z\le X$ 的简单随机变量 $Z$ 也满足 $0\le Z\le Y$, 所以定义中前者的上确界不超过后者.
+
+(3) 对每个 $n$, $\frac{1}{n}\1_{\{X\ge1/n\}}\le X$, 由 (2), $\frac{1}{n}\P(X\ge\frac{1}{n})\le\E[X]=0$. 于是 $\P(X>0)=\P\big(\bigcup_n\{X\ge\frac{1}{n}\}\big)\le\sum_n\P(X\ge\frac{1}{n})=0$.
+
+(4) 对每个 $n$, $n\1_{\{X=\infty\}}\le X$, 故 $n\P(X=\infty)\le\E[X]$. 令 $n\to\infty$, 由 $\E[X]<\infty$ 得 $\P(X=\infty)=0$.
+
+(5) 设 $N=\{X\ne Y\}$, $\P(N)=0$. 对满足 $0\le Z\le X\1_N$ 的简单随机变量 $Z$, $Z$ 在 $N^c$ 上为 $0$, 故 $\E[Z]\le(\max Z)\P(N)=0$, 从而 $\E[X\1_N]=0$; 同理 $\E[Y\1_N]=0$. 由 (1),
+$\E[X]=\E[X\1_{N^c}]+\E[X\1_N]=\E[Y\1_{N^c}]=\E[Y]$.
+\end{proof}
+
+\paragraph{第四步: 一般随机变量.}
+对一般的 $X$, 令 $X^+=X\vee0$, $X^-=(-X)\vee0$, 则 $X^\pm\ge0$, $X=X^+-X^-$, $\abs{X}=X^++X^-$.
+
+\begin{definition}[期望]\label{def:expectation}
+若 $\E[\abs{X}]<\infty$, 称 $X$ \textbf{可积}, 并定义
+\[
+\E[X]=\E[X^+]-\E[X^-].
+\]
+可积随机变量全体记为 $L^1(\Omega,\mathcal{F},\P)$ 或简记为 $L^1$. 期望也写作积分 $\int_\Omega X\dd\P$. 对事件 $A$, 记 $\E[X;A]=\E[X\1_A]=\int_A X\dd\P$.
+\end{definition}
+
+\begin{remark}
+若 $\E[X^+]$ 与 $\E[X^-]$ 中只有一个为 $+\infty$, 仍可按上式定义 $\E[X]=\pm\infty$, 称 $X$ 的期望\emph{存在}. 若二者都为 $+\infty$, 期望无定义.
+\end{remark}
+
+\begin{theorem}[期望的基本性质]\label{thm:expectation-properties}
+设 $X,Y\in L^1$, $a,b\in\R$. 则
+\begin{enumerate}
+\item 线性: $aX+bY\in L^1$, 且 $\E[aX+bY]=a\E[X]+b\E[Y]$;
+\item 单调性: 若 $X\le Y$ $\as$, 则 $\E[X]\le\E[Y]$;
+\item $\abs{\E[X]}\le\E[\abs{X}]$;
+\item 若 $X=Y$ $\as$, 则 $\E[X]=\E[Y]$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 先证数乘. 若 $a\ge0$, 则 $(aX)^\pm=aX^\pm$; 若 $a<0$, 则 $(aX)^+=\abs{a}X^-$, $(aX)^-=\abs{a}X^+$. 两种情况下由推论~\ref{cor:nonneg-properties} (1) 都有 $\E[aX]=a\E[X]$.
+
+再证加法. 记 $Z=X+Y$. 由 $\abs{Z}\le\abs{X}+\abs{Y}$ 及推论~\ref{cor:nonneg-properties} (1)(2), $\E\abs{Z}\le\E\abs{X}+\E\abs{Y}<\infty$. 由
+$Z^+-Z^-=Z=X^+-X^-+Y^+-Y^-$, 移项得到非负随机变量之间的等式
+\[
+Z^++X^-+Y^-=Z^-+X^++Y^+.
+\]
+两边取期望, 由推论~\ref{cor:nonneg-properties} (1),
+$\E[Z^+]+\E[X^-]+\E[Y^-]=\E[Z^-]+\E[X^+]+\E[Y^+]$. 各项都有限, 移项即得 $\E[Z]=\E[X]+\E[Y]$.
+
+(2) 由 (1), $Y-X\in L^1$, 且 $(Y-X)^-=0$ $\as$, 由推论~\ref{cor:nonneg-properties} (5), $\E[(Y-X)^-]=0$. 于是 $\E[Y]-\E[X]=\E[Y-X]=\E[(Y-X)^+]\ge0$.
+
+(3) 由 $-\abs{X}\le X\le\abs{X}$ 及 (2), $-\E\abs{X}\le\E[X]\le\E\abs{X}$.
+
+(4) 由 (2), $\E[X]\le\E[Y]$ 且 $\E[Y]\le\E[X]$.
+\end{proof}
+
+\begin{intuition}
+性质 (4) 说明, 期望 ``看不见'' 零概率集. 因此在概率论中, 两个几乎必然相等的随机变量常被视为同一个. 后文中 ``$X_n\to X$''、``$X\ge0$'' 之类的条件, 若不特别说明, 都只需几乎必然成立.
+\end{intuition}
+
+\begin{remark}[一般测度下的积分]
+上述四步构造对任意测度空间 $(E,\mathcal{E},\mu)$ 都适用, 只需把 $\P$ 换成 $\mu$, 得到积分 $\int_E g\dd\mu$. 特别地, 对 $\R$ 上的 Lebesgue 测度 $\lambda$, 积分 $\int g\dd\lambda$ 记作 $\int g(x)\dd x$. 对 Riemann 可积函数 (以及绝对收敛的反常积分), Lebesgue 积分与 Riemann 积分相等 (见~\cite{folland} 2.5 节). 1.2 节中的密度积分 $\int_B f(t)\dd t$ 即按此理解.
+\end{remark}
+
+实际计算期望时, 我们通常把 $\Omega$ 上的积分转移到 $\R$ 上计算.
+
+\begin{theorem}[变量替换公式]\label{thm:change-of-variables}
+设 $X$ 是随机变量, $g:\R\to\R$ 是 Borel 函数, 且 $g\ge0$ 或 $g(X)\in L^1$. 则
+\[
+\E[g(X)]=\int_{\R}g(x)\,\mu_X(\dd x).
+\]
+特别地, 若 $X$ 有密度 $f$, 则 $\E[g(X)]=\int_{\R}g(x)f(x)\dd x$; 若 $X$ 是离散型, 则 $\E[g(X)]=\sum_{x\in S}g(x)p(x)$.
+\end{theorem}
+
+\begin{proof}
+按四步构造的顺序证明.
+
+\emph{示性函数.} 若 $g=\1_B$, $B\in\mathcal{B}(\R)$, 则 $\E[\1_B(X)]=\P(X\in B)=\mu_X(B)=\int\1_B\dd\mu_X$.
+
+\emph{非负简单函数.} 若 $g=\sum_i a_i\1_{B_i}$, $a_i\ge0$, 由两边的线性即得.
+
+\emph{非负函数.} 由引理~\ref{lem:simple-approx} (取 $\Omega=\R$), 存在非负简单 Borel 函数 $g_n\uparrow g$. 于是 $g_n(X)$ 是非负简单随机变量且 $g_n(X)\uparrow g(X)$. 在 $\Omega$ 上和在 $(\R,\mathcal{B}(\R),\mu_X)$ 上分别使用引理~\ref{lem:simple-increasing},
+\[
+\E[g(X)]=\lim_n\E[g_n(X)]=\lim_n\int g_n\dd\mu_X=\int g\dd\mu_X.
+\]
+
+\emph{一般情形.} 对 $g^+$ 和 $g^-$ 分别使用上一步 ($g(X)^\pm=g^\pm(X)$), 再相减.
+
+对有密度的情形, 只需对示性函数验证
+\[
+\int\1_B\dd\mu_X=\mu_X(B)=\int_B f(x)\dd x=\int\1_B(x)f(x)\dd x
+\]
+(见 1.2 节绝对连续型的讨论), 其余三步完全相同 (第三步中 $g_nf\uparrow gf$). 离散情形同理, 此时 $\mu_X(B)=\sum_{x\in B\cap S}p(x)$.
+\end{proof}
+
+\begin{intuition}
+期望只依赖于分布: 要计算 $\E[g(X)]$, 只需知道 $X$ 落在各处的概率, 而无需知道 $X$ 如何依赖于 $\omega$. 这在英文文献中被戏称为 ``无意识统计学家法则'' (law of the unconscious statistician): 人们常常不假思索地这样计算, 而上面的定理说明这样做是正确的.
+\end{intuition}
+
+\begin{example}[常用分布的期望]\label{ex:means}
+\begin{enumerate}
+\item \textbf{二项分布.} 设 $S_n$ 为 $n$ 次独立试验中的成功次数, 每次成功概率为 $p$, 则 $S_n=\sum_{k=1}^n\1_{A_k}$, 其中 $A_k$ 为第 $k$ 次成功. 由线性, $\E[S_n]=\sum_k\P(A_k)=np$. 用示性函数之和表示计数, 可以避开复杂的组合求和.
+\item \textbf{Poisson 分布.} $\E[X]=\sum_{k\ge1}k\,e^{-\lambda}\frac{\lambda^k}{k!}=\lambda\sum_{k\ge1}e^{-\lambda}\frac{\lambda^{k-1}}{(k-1)!}=\lambda$.
+\item \textbf{指数分布.} 分部积分,
+$\E[X]=\int_0^\infty x\lambda e^{-\lambda x}\dd x=\Big[-xe^{-\lambda x}\Big]_0^\infty+\int_0^\infty e^{-\lambda x}\dd x=\frac{1}{\lambda}$.
+\item \textbf{正态分布.} 设 $Z\sim N(0,1)$. 由 $\varphi'(x)=-x\varphi(x)$,
+$\E\abs{Z}=2\int_0^\infty x\varphi(x)\dd x=2\varphi(0)=\sqrt{2/\pi}<\infty$, 所以 $Z$ 可积. 又 $x\varphi(x)$ 是奇函数, 故 $\E[Z]=0$. 对 $X=\mu+\sigma Z\sim N(\mu,\sigma^2)$, 由线性 $\E[X]=\mu$.
+\end{enumerate}
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{积分收敛定理}
+
+随机分析中处处需要交换极限与期望, 例如计算随机积分的期望时要对黎曼和取极限. 但交换并不总是允许的.
+
+\begin{example}[质量逃逸]\label{ex:mass-escape}
+在 $([0,1],\mathcal{B}([0,1]),\lambda)$ 上, 令 $X_n=n\1_{(0,1/n)}$. 对每个 $\omega\in[0,1]$, 当 $n>1/\omega$ (或 $\omega=0$) 时 $X_n(\omega)=0$, 所以 $X_n\to0$ 处处成立; 但 $\E[X_n]=n\cdot\frac{1}{n}=1$ 对所有 $n$ 成立. 因此
+\[
+\lim_{n\to\infty}\E[X_n]=1\ne0=\E\Big[\lim_{n\to\infty}X_n\Big].
+\]
+如图~\ref{fig:mass-escape}, $X_n$ 的 ``质量'' 被挤压到越来越窄的区间上, 最终从积分中 ``逃逸''.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[xscale=5,yscale=0.42]
+  \draw[->,SADark!80] (0,0) -- (1.1,0) node[right,font=\small] {$\omega$};
+  \draw[->,SADark!80] (0,0) -- (0,8.8);
+  \foreach \n/\c in {2/SAGreenText,4/SABlue,8/SARed} {
+    \fill[\c!18] (0,0) rectangle ({1/\n},\n);
+    \draw[\c,thick] (0,0) -- (0,\n) -- ({1/\n},\n) -- ({1/\n},0);
+    \node[\c,font=\small,anchor=west] at ({1/\n+0.01},\n) {$X_{\n}$};
+  }
+  \node[below,font=\small] at (1,0) {$1$};
+  \foreach \n in {2,4,8} { \node[left,font=\small] at (0,\n) {$\n$}; }
+  \node[font=\small,align=left,anchor=west] at (0.55,5) {每个矩形面积都是 $1$,\\ 但 $X_n(\omega)\to0$ 对每个 $\omega$ 成立};
+\end{tikzpicture}
+\caption{例~\ref{ex:mass-escape}: $X_n=n\1_{(0,1/n)}$ 逐点趋于 $0$, 期望却恒为 $1$}
+\label{fig:mass-escape}
+\end{figure}
+
+下面三个定理给出允许交换的条件: 单调 (MCT)、非负时的单向不等式 (Fatou)、存在可积控制 (DCT).
+
+\begin{theorem}[单调收敛定理, MCT]\label{thm:mct}
+设 $0\le X_1\le X_2\le\cdots$ 且 $X_n\uparrow X$ $\as$ 则 $\E[X_n]\uparrow\E[X]$.
+\end{theorem}
+
+\begin{proof}
+由推论~\ref{cor:nonneg-properties} (5), 在零概率集上修改各随机变量不影响期望, 故不妨设单调性与收敛对每个 $\omega$ 成立.
+
+对每个 $n$, 由引理~\ref{lem:simple-approx}, 取非负简单随机变量 $Y_{n,k}\uparrow X_n$ ($k\to\infty$). 令
+\[
+Z_k=\max\{Y_{1,k},Y_{2,k},\dots,Y_{k,k}\}.
+\]
+$Z_k$ 是非负简单随机变量, 且有以下三条性质.
+\begin{itemize}
+\item $Z_k$ 单调不减: $Z_{k+1}\ge\max_{n\le k}Y_{n,k+1}\ge\max_{n\le k}Y_{n,k}=Z_k$.
+\item $Z_k\le X_k$: 对 $n\le k$, $Y_{n,k}\le X_n\le X_k$.
+\item $Z_k\uparrow X$: 由上一条, $\lim_k Z_k\le\lim_k X_k=X$. 反过来, 固定 $n$, 当 $k\ge n$ 时 $Z_k\ge Y_{n,k}$, 令 $k\to\infty$ 得 $\lim_k Z_k\ge X_n$, 再令 $n\to\infty$ 得 $\lim_k Z_k\ge X$.
+\end{itemize}
+由引理~\ref{lem:simple-increasing}, $\E[Z_k]\uparrow\E[X]$. 又由单调性 (推论~\ref{cor:nonneg-properties} (2)), $\E[Z_k]\le\E[X_k]\le\E[X]$. 令 $k\to\infty$, 夹逼得 $\E[X_k]\to\E[X]$.
+\end{proof}
+
+\begin{corollary}[逐项求期望]\label{cor:series}
+若 $X_n\ge0$, 则 $\E\big[\sum_{n=1}^\infty X_n\big]=\sum_{n=1}^\infty\E[X_n]$.
+\end{corollary}
+
+\begin{proof}
+对部分和 $\sum_{n\le N}X_n\uparrow\sum_{n}X_n$ 使用单调收敛定理~\ref{thm:mct} 与有限线性 (推论~\ref{cor:nonneg-properties} (1)).
+\end{proof}
+
+\begin{example}[Borel-Cantelli 第一引理的另一证明]
+令 $N=\sum_{n=1}^\infty\1_{A_n}$ 为事件 $A_n$ 的发生次数. 由推论~\ref{cor:series}, $\E[N]=\sum_n\P(A_n)$. 若此级数收敛, 则由推论~\ref{cor:nonneg-properties} (4), $N<\infty$ $\as$, 这正是定理~\ref{thm:bc1}. 同理, 1.2 节中 $\nu(B)=\int_B f(t)\dd t$ 的可列可加性也是推论~\ref{cor:series} 的直接结果: 对两两不交的 $B_n$, $f\1_{\bigcup_n B_n}=\sum_n f\1_{B_n}$.
+\end{example}
+
+\begin{theorem}[Fatou 引理]\label{thm:fatou}
+设 $X_n\ge0$. 则
+\[
+\E\Big[\liminf_{n\to\infty}X_n\Big]\le\liminf_{n\to\infty}\E[X_n].
+\]
+\end{theorem}
+
+\begin{proof}
+令 $Y_m=\inf_{n\ge m}X_n$. 则 $0\le Y_m\uparrow\liminf_n X_n$, 且对每个 $n\ge m$ 有 $Y_m\le X_n$, 从而 $\E[Y_m]\le\inf_{n\ge m}\E[X_n]$. 由单调收敛定理~\ref{thm:mct},
+\[
+\E\Big[\liminf_{n\to\infty}X_n\Big]=\lim_{m\to\infty}\E[Y_m]\le\lim_{m\to\infty}\inf_{n\ge m}\E[X_n]=\liminf_{n\to\infty}\E[X_n].\qedhere
+\]
+\end{proof}
+
+\begin{intuition}
+取极限时, 期望只可能 ``丢失'' 质量, 不会 ``凭空产生'' 质量. 例~\ref{ex:mass-escape} 说明不等号可以严格成立: 左边为 $0$, 右边为 $1$.
+\end{intuition}
+
+\begin{theorem}[控制收敛定理, DCT]\label{thm:dct}
+设 $X_n\to X$ $\as$, 且存在 $Y\in L^1$ 使对所有 $n$ 有 $\abs{X_n}\le Y$ $\as$ 则 $X\in L^1$, 且
+\[
+\lim_{n\to\infty}\E\abs{X_n-X}=0,\qquad \lim_{n\to\infty}\E[X_n]=\E[X].
+\]
+\end{theorem}
+
+\begin{proof}
+仍不妨设所有条件对每个 $\omega$ 成立. 取极限得 $\abs{X}\le Y$, 故 $X\in L^1$, 且 $\abs{X_n-X}\le2Y$. 对非负随机变量 $2Y-\abs{X_n-X}$ 使用 Fatou 引理~\ref{thm:fatou}. 由于 $\abs{X_n-X}\to0$, 左端的下极限为 $2Y$:
+\begin{align*}
+\E[2Y]&=\E\Big[\liminf_{n\to\infty}\big(2Y-\abs{X_n-X}\big)\Big]\le\liminf_{n\to\infty}\E\big[2Y-\abs{X_n-X}\big]\\
+&=\E[2Y]-\limsup_{n\to\infty}\E\abs{X_n-X}.
+\end{align*}
+由于 $\E[2Y]<\infty$, 两边消去得 $\limsup_n\E\abs{X_n-X}\le0$, 即 $\E\abs{X_n-X}\to0$. 最后由定理~\ref{thm:expectation-properties} (1)(3), $\abs{\E[X_n]-\E[X]}\le\E\abs{X_n-X}\to0$.
+\end{proof}
+
+\begin{intuition}
+质量逃逸的根源是 $X_n$ 在小概率集合上取极大的值. 可积控制 $\abs{X_n}\le Y$ 把所有 $X_n$ 关进同一个 ``笼子'', 使它们在小概率集上的贡献一致地小, 质量无处可逃. 例~\ref{ex:mass-escape} 中 $\sup_n X_n$ 在 $(\frac{1}{k+1},\frac{1}{k})$ 上等于 $k$, 其期望 $\sum_k k\cdot\frac{1}{k(k+1)}=\sum_k\frac{1}{k+1}=\infty$, 因而不存在可积控制. 1.4 节的一致可积性将给出交换极限与期望的 ``最佳'' 条件.
+\end{intuition}
+
+\begin{corollary}[有界收敛定理]\label{cor:bct}
+若 $X_n\to X$ $\as$, 且存在常数 $M$ 使 $\abs{X_n}\le M$, 则 $\E[X_n]\to\E[X]$.
+\end{corollary}
+
+\begin{proof}
+常数 $M$ 可积 ($\E[M]=M$), 由控制收敛定理~\ref{thm:dct} 即得.
+\end{proof}
+
+控制收敛定理最常用的推论之一是 ``积分号下求导'', 后面计算矩母函数和特征函数的导数时要用到它.
+
+\begin{theorem}[期望号下求导]\label{thm:diff-under-E}
+设 $I\subseteq\R$ 是开区间, 对每个 $t\in I$, $h(t,\cdot)$ 是可积随机变量, 且
+\begin{enumerate}
+\item 对每个 $\omega$, $t\mapsto h(t,\omega)$ 在 $I$ 上可微;
+\item 存在 $Y\in L^1$, 使得对所有 $t\in I$ 和 $\omega$, $\abs{\partial_t h(t,\omega)}\le Y(\omega)$.
+\end{enumerate}
+则 $t\mapsto\E[h(t,\cdot)]$ 在 $I$ 上可微, 且 $\frac{\dd}{\dd t}\E[h(t,\cdot)]=\E[\partial_t h(t,\cdot)]$.
+\end{theorem}
+
+\begin{proof}
+固定 $t\in I$, 任取数列 $\delta_n\to0$, $\delta_n\ne0$, $t+\delta_n\in I$. 令
+\[
+D_n(\omega)=\frac{h(t+\delta_n,\omega)-h(t,\omega)}{\delta_n}.
+\]
+由条件 (1), $D_n(\omega)\to\partial_t h(t,\omega)$. 由微分中值定理, 存在 $\theta=\theta(n,\omega)\in(0,1)$ 使 $D_n(\omega)=\partial_t h(t+\theta\delta_n,\omega)$, 再由条件 (2), $\abs{D_n}\le Y$. ($\partial_t h(t,\cdot)$ 作为可测函数 $D_n$ 的极限是随机变量.) 由控制收敛定理~\ref{thm:dct} 与期望的线性,
+\[
+\frac{\E[h(t+\delta_n,\cdot)]-\E[h(t,\cdot)]}{\delta_n}=\E[D_n]\to\E[\partial_t h(t,\cdot)].
+\]
+由于数列 $\delta_n$ 任意, 导数存在且等于 $\E[\partial_t h(t,\cdot)]$.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{方差、矩与常用不等式}
+
+\begin{definition}[矩与方差]\label{def:moments}
+设 $p>0$. 若 $\E\abs{X}^p<\infty$, 称 $X$ 的 $p$ 阶矩有限, 记 $X\in L^p$, 并记 $\norm{X}_p=(\E\abs{X}^p)^{1/p}$. 对正整数 $k$, $\E[X^k]$ 称为 $X$ 的 $k$ 阶\textbf{矩}. 对 $X\in L^2$, 定义\textbf{方差}与\textbf{标准差}
+\[
+\Var(X)=\E\big[(X-\E X)^2\big],\qquad \sigma_X=\sqrt{\Var(X)};
+\]
+对 $X,Y\in L^2$, 定义\textbf{协方差} $\Cov(X,Y)=\E\big[(X-\E X)(Y-\E Y)\big]$.
+\end{definition}
+
+定义中的期望都是有意义的. 首先, 若 $0<p<q$ 且 $X\in L^q$, 则 $X\in L^p$: 因为 $\abs{x}^p\le1+\abs{x}^q$ (分 $\abs{x}\le1$ 与 $\abs{x}>1$ 讨论), 所以 $\E\abs{X}^p\le1+\E\abs{X}^q<\infty$. 特别地, $L^2\subseteq L^1$. 其次, 由 $\abs{xy}\le\frac{1}{2}(x^2+y^2)$, $X,Y\in L^2$ 蕴含 $XY\in L^1$.
+
+\begin{proposition}[方差的性质]\label{prop:variance}
+设 $X,Y\in L^2$, $a,b\in\R$. 则
+\begin{enumerate}
+\item $\Var(X)=\E[X^2]-(\E X)^2$;
+\item 平移不变与伸缩: $\Var(aX+b)=a^2\Var(X)$;
+\item $\Var(X)=0$ 当且仅当 $X=\E X$ $\as$;
+\item $\Var(X+Y)=\Var(X)+\Var(Y)+2\Cov(X,Y)$, 且 $\Cov(X,Y)=\E[XY]-\E[X]\E[Y]$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+记 $m=\E X$. (1) 由线性, $\E[(X-m)^2]=\E[X^2]-2m\E[X]+m^2=\E[X^2]-m^2$.
+(2) $\E[aX+b]=am+b$, 故 $\Var(aX+b)=\E[(aX-am)^2]=a^2\Var(X)$.
+(3) 由推论~\ref{cor:nonneg-properties} (3), $\E[(X-m)^2]=0$ 当且仅当 $(X-m)^2=0$ $\as$
+(4) 记 $\tilde X=X-\E X$, $\tilde Y=Y-\E Y$, 展开 $\E[(\tilde X+\tilde Y)^2]=\E[\tilde X^2]+\E[\tilde Y^2]+2\E[\tilde X\tilde Y]$ 即得第一式; 第二式与 (1) 的证明相同.
+\end{proof}
+
+\begin{example}[常用分布的方差]\label{ex:variances}
+\begin{enumerate}
+\item \textbf{Poisson 分布.} 与例~\ref{ex:means} 类似, $\E[X(X-1)]=\sum_{k\ge2}k(k-1)e^{-\lambda}\frac{\lambda^k}{k!}=\lambda^2$, 故 $\Var(X)=\E[X(X-1)]+\E[X]-(\E X)^2=\lambda$.
+\item \textbf{指数分布.} 分部积分两次得 $\E[X^2]=\frac{2}{\lambda^2}$, 故 $\Var(X)=\frac{1}{\lambda^2}$.
+\item \textbf{正态分布.} 设 $Z\sim N(0,1)$. 由 $\varphi'(x)=-x\varphi(x)$ 分部积分,
+\[
+\E[Z^2]=\int_{\R}x\cdot x\varphi(x)\dd x=\Big[-x\varphi(x)\Big]_{-\infty}^{\infty}+\int_{\R}\varphi(x)\dd x=1.
+\]
+故 $\Var(Z)=1$, 由命题~\ref{prop:variance} (2), $X=\mu+\sigma Z$ 满足 $\Var(X)=\sigma^2$. 这验证了 $N(\mu,\sigma^2)$ 中两个参数的含义.
+\item \textbf{二项分布.} $\Var(S_n)=np(1-p)$. 这需要用到独立随机变量的协方差为零 (定理~\ref{thm:indep-product}), 将在 1.5 节说明.
+\end{enumerate}
+\end{example}
+
+下面是一组基本不等式, 它们分别用矩控制概率、用期望控制函数值、用范数控制乘积.
+
+\begin{theorem}[Markov 不等式]\label{thm:markov}
+设 $\phi:[0,\infty)\to[0,\infty)$ 单调不减, $a>0$ 且 $\phi(a)>0$. 则
+\[
+\P(\abs{X}\ge a)\le\frac{\E[\phi(\abs{X})]}{\phi(a)}.
+\]
+特别地, $\P(\abs{X}\ge a)\le\frac{\E\abs{X}}{a}$, 以及 $\P(\abs{X}\ge a)\le\frac{\E\abs{X}^p}{a^p}$ ($p>0$).
+\end{theorem}
+
+\begin{proof}
+在 $\{\abs{X}\ge a\}$ 上, 由单调性 $\phi(\abs{X})\ge\phi(a)$; 在其余位置 $\phi(\abs{X})\ge0$. 所以 $\phi(a)\1_{\{\abs{X}\ge a\}}\le\phi(\abs{X})$. 两边取期望即得.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.95]
+  \draw[->,SADark!80] (0,0) -- (5.4,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!80] (0,0) -- (0,3.3);
+  \draw[SABlue,very thick] (0,0) -- (3.2,3.2) node[above right,font=\small] {$y=x$};
+  \draw[SARed,very thick] (0,0) -- (2,0);
+  \draw[SARed,very thick] (2,2) -- (5.2,2) node[above,font=\small] {$y=a\1_{\{x\ge a\}}$};
+  \fill[SARed] (2,2) circle (1.6pt); \draw[SARed,fill=white] (2,0) circle (1.6pt);
+  \draw[SADark!40,dashed] (2,0) -- (2,2);
+  \node[below,font=\small] at (2,0) {$a$};
+  \node[left,font=\small] at (0,2) {$a$};
+\end{tikzpicture}
+\caption{Markov 不等式的证明只用了一个逐点不等式 $a\1_{\{x\ge a\}}\le x$ ($x\ge0$), 再取期望}
+\label{fig:markov}
+\end{figure}
+
+\begin{corollary}[Chebyshev 不等式]\label{cor:chebyshev}
+若 $X\in L^2$, $a>0$, 则 $\P(\abs{X-\E X}\ge a)\le\frac{\Var(X)}{a^2}$.
+\end{corollary}
+
+\begin{proof}
+对 $X-\E X$ 用 Markov 不等式~\ref{thm:markov}, 取 $\phi(x)=x^2$.
+\end{proof}
+
+\begin{example}[抛硬币的弱大数定律]\label{ex:wlln}
+回到 1.1 节引言的无穷次抛硬币, 令 $\xi_k=\omega_k-\frac{1}{2}$, 它以概率 $\frac{1}{2}$ 取 $\pm\frac{1}{2}$, 且由例~\ref{ex:basic-spaces} (2) 中柱集的概率, 对 $j\ne k$, $\xi_j\xi_k$ 以概率 $\frac{1}{2}$ 取 $\pm\frac{1}{4}$, 从而 $\E[\xi_j\xi_k]=0$, 而 $\E[\xi_k^2]=\frac{1}{4}$. 于是
+\[
+\E\Big[\Big(S_n-\frac{n}{2}\Big)^2\Big]=\E\Big[\Big(\sum_{k=1}^n\xi_k\Big)^2\Big]=\sum_{k=1}^n\E[\xi_k^2]+\sum_{j\ne k}\E[\xi_j\xi_k]=\frac{n}{4}.
+\]
+由 Chebyshev 不等式, 对任意 $\varepsilon>0$,
+\[
+\P\Big(\Big|\frac{S_n}{n}-\frac{1}{2}\Big|\ge\varepsilon\Big)\le\frac{1}{n^2\varepsilon^2}\cdot\frac{n}{4}=\frac{1}{4n\varepsilon^2}\to0.
+\]
+这就是说, 频率 $\frac{S_n}{n}$ ``依概率收敛'' 到 $\frac{1}{2}$ (见 1.4 节).
+\end{example}
+
+\begin{theorem}[Jensen 不等式]\label{thm:jensen}
+设 $I\subseteq\R$ 是区间, $\phi:I\to\R$ 是凸函数, $X\in L^1$ 且 $X\in I$ $\as$, $\phi(X)\in L^1$. 则
+\[
+\phi(\E X)\le\E[\phi(X)].
+\]
+\end{theorem}
+
+\begin{proof}
+记 $m=\E X$. 由 $X\in I$ $\as$ 与单调性, $m\in\overline{I}$; 若 $m$ 是 $I$ 的端点 (比如 $m=\inf I$), 则 $X-m\ge0$ $\as$ 且 $\E[X-m]=0$, 由推论~\ref{cor:nonneg-properties} (3), $X=m$ $\as$, 此时不等式取等号. 下设 $m$ 是 $I$ 的内点.
+
+凸函数在内点 $m$ 处有\textbf{支撑直线}: 存在 $c\in\R$, 使得
+\begin{equation}\label{eq:support-line}
+\phi(x)\ge\phi(m)+c(x-m),\qquad x\in I.
+\end{equation}
+事实上, 由凸性, 差商 $\frac{\phi(x)-\phi(m)}{x-m}$ 关于 $x$ 单调不减, 所以右导数 $c=\lim_{x\downarrow m}\frac{\phi(x)-\phi(m)}{x-m}$ 存在且有限, 并且当 $x>m$ 时差商 $\ge c$, 当 $x<m$ 时差商 $\le c$, 两种情况都给出 \eqref{eq:support-line}. 在 \eqref{eq:support-line} 中代入 $x=X$, 取期望, 由线性与单调性,
+\[
+\E[\phi(X)]\ge\phi(m)+c\,\E[X-m]=\phi(m).\qedhere
+\]
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \draw[->,SADark!80] (-0.3,0) -- (5.6,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!80] (0,-0.3) -- (0,2.6);
+  \draw[SABlue,very thick,domain=0.3:4.9,samples=80] plot (\x,{0.28*(\x-2.4)^2+0.4});
+  \node[SABlue,font=\small,anchor=west] at (4.9,{0.28*2.5^2+0.4}) {$\phi$};
+  \draw[SARed,thick,domain=0.3:5.2] plot (\x,{0.4112+0.112*(\x-2.6)});
+  \node[SARed,font=\small,anchor=north west] at (3.9,0.5) {支撑直线};
+  \foreach \x in {0.8,4.4} {
+    \fill[SABlue] (\x,{0.28*(\x-2.4)^2+0.4}) circle (1.6pt);
+    \draw[SADark!30,dashed] (\x,0) -- (\x,{0.28*(\x-2.4)^2+0.4});
+  }
+  \node[below,font=\small] at (0.8,0) {$x_1$};
+  \node[below,font=\small] at (4.4,0) {$x_2$};
+  \draw[SAGreenText,thick] (0.8,1.1168) -- (4.4,1.52);
+  \draw[SADark!40,dashed] (2.6,0) -- (2.6,1.3184);
+  \fill[SAGreenText] (2.6,1.3184) circle (1.6pt);
+  \node[SAGreenText,font=\small,anchor=south east] at (2.55,1.35) {$\E[\phi(X)]$};
+  \fill[SARed] (2.6,0.4112) circle (1.6pt);
+  \node[SARed,font=\small,anchor=north east] at (2.55,0.40) {$\phi(\E X)$};
+  \node[below,font=\small] at (2.6,0) {$m=\E X$};
+\end{tikzpicture}
+\caption{Jensen 不等式: $X$ 以等概率取两点时, $\E[\phi(X)]$ 是弦的中点高度, $\phi(\E X)$ 在曲线上, 位于弦的下方. 一般情形用支撑直线代替弦}
+\label{fig:jensen}
+\end{figure}
+
+\begin{example}\label{ex:jensen}
+取 $\phi(x)=x^2$ 得 $(\E X)^2\le\E[X^2]$ (即 $\Var(X)\ge0$); 取 $\phi(x)=e^x$ 得 $e^{\E X}\le\E[e^X]$; 取 $\phi(x)=\abs{x}$ 得 $\abs{\E X}\le\E\abs{X}$. 取 $I=(0,\infty)$, $\phi(x)=-\log x$, 对以概率 $\frac{1}{n}$ 取值 $x_1,\dots,x_n>0$ 的 $X$, 得到算术-几何平均不等式 $\sqrt[n]{x_1\cdots x_n}\le\frac{x_1+\cdots+x_n}{n}$.
+\end{example}
+
+\begin{lemma}[Young 不等式]\label{lem:young}
+设 $p,q>1$, $\frac{1}{p}+\frac{1}{q}=1$, $a,b\ge0$. 则 $ab\le\frac{a^p}{p}+\frac{b^q}{q}$.
+\end{lemma}
+
+\begin{proof}
+若 $a=0$ 或 $b=0$, 结论显然. 否则, 由 $\log$ 的凹性 (即 $-\log$ 的凸性),
+\[
+\log\Big(\frac{1}{p}a^p+\frac{1}{q}b^q\Big)\ge\frac{1}{p}\log a^p+\frac{1}{q}\log b^q=\log(ab).
+\]
+由 $\log$ 的单调性即得.
+\end{proof}
+
+\begin{theorem}[H\"older 不等式]\label{thm:holder}
+设 $p,q>1$, $\frac{1}{p}+\frac{1}{q}=1$. 则 $\E\abs{XY}\le\norm{X}_p\norm{Y}_q$. 特别地, 取 $p=q=2$ 得 \textbf{Cauchy-Schwarz 不等式}
+\[
+\E\abs{XY}\le\sqrt{\E[X^2]}\sqrt{\E[Y^2]}.
+\]
+\end{theorem}
+
+\begin{proof}
+若 $\norm{X}_p=0$, 则由推论~\ref{cor:nonneg-properties} (3), $X=0$ $\as$, 两边都是 $0$; $\norm{Y}_q=0$ 同理. 若 $\norm{X}_p$ 或 $\norm{Y}_q$ 为 $+\infty$, 结论显然. 下设二者都是正有限数. 令 $U=\frac{\abs{X}}{\norm{X}_p}$, $V=\frac{\abs{Y}}{\norm{Y}_q}$, 则 $\E[U^p]=\E[V^q]=1$. 由 Young 不等式~\ref{lem:young}, $UV\le\frac{U^p}{p}+\frac{V^q}{q}$, 取期望,
+\[
+\frac{\E\abs{XY}}{\norm{X}_p\norm{Y}_q}=\E[UV]\le\frac{1}{p}+\frac{1}{q}=1.\qedhere
+\]
+\end{proof}
+
+\begin{theorem}[Minkowski 不等式]\label{thm:minkowski}
+设 $p\ge1$, $X,Y\in L^p$. 则 $X+Y\in L^p$, 且 $\norm{X+Y}_p\le\norm{X}_p+\norm{Y}_p$.
+\end{theorem}
+
+\begin{proof}
+$p=1$ 时由 $\abs{X+Y}\le\abs{X}+\abs{Y}$ 直接得到. 设 $p>1$. 由 $x\mapsto\abs{x}^p$ 的凸性, $\big|\frac{x+y}{2}\big|^p\le\frac{\abs{x}^p+\abs{y}^p}{2}$, 即 $\abs{x+y}^p\le2^{p-1}(\abs{x}^p+\abs{y}^p)$, 所以 $X+Y\in L^p$. 令 $q=\frac{p}{p-1}$, 则 $\frac{1}{p}+\frac{1}{q}=1$ 且 $(p-1)q=p$. 由三角不等式与 H\"older 不等式~\ref{thm:holder},
+\begin{align*}
+\E\abs{X+Y}^p&\le\E\big[\abs{X}\abs{X+Y}^{p-1}\big]+\E\big[\abs{Y}\abs{X+Y}^{p-1}\big]\\
+&\le\big(\norm{X}_p+\norm{Y}_p\big)\big(\E\abs{X+Y}^{(p-1)q}\big)^{1/q}\\
+&=\big(\norm{X}_p+\norm{Y}_p\big)\big(\E\abs{X+Y}^p\big)^{1-1/p}.
+\end{align*}
+若 $\E\abs{X+Y}^p=0$, 结论显然; 否则两边除以 $(\E\abs{X+Y}^p)^{1-1/p}$ (有限正数) 即得.
+\end{proof}
+
+\begin{corollary}[Lyapunov 不等式]\label{cor:lyapunov}
+若 $0<p<q$, 则 $\norm{X}_p\le\norm{X}_q$.
+\end{corollary}
+
+\begin{proof}
+若 $\norm{X}_q=\infty$, 结论显然. 否则由前面的讨论 $X\in L^p$. 对非负随机变量 $\abs{X}^p$ 与凸函数 $\phi(x)=x^{q/p}$ ($x\ge0$) 使用 Jensen 不等式~\ref{thm:jensen},
+$(\E\abs{X}^p)^{q/p}\le\E\abs{X}^q$, 两边开 $q$ 次方即得.
+\end{proof}
+
+\begin{intuition}
+Minkowski 不等式说 $\norm{\cdot}_p$ ($p\ge1$) 满足三角不等式, 因而 $L^p$ 是赋范线性空间 (模去几乎必然相等, 见 1.6 节); Lyapunov 不等式说在概率空间上 $L^q\subseteq L^p$ ($p<q$), 高阶矩有限蕴含低阶矩有限. 注意后者依赖于 $\P(\Omega)=1$: 在 $(\R,\lambda)$ 上包含关系并不成立.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{矩母函数与特征函数}
+
+矩把分布压缩成一列数. 把它们 ``打包'' 成一个函数, 就得到矩母函数; 为了让这个函数总是存在, 把实指数换成虚指数, 就得到特征函数. 特征函数是研究独立随机变量之和 (1.5 节) 与分布收敛 (1.4 节) 的主要工具.
+
+\begin{definition}[矩母函数]\label{def:mgf}
+随机变量 $X$ 的\textbf{矩母函数}定义为 $M_X(t)=\E[e^{tX}]\in(0,+\infty]$, $t\in\R$.
+\end{definition}
+
+\begin{theorem}\label{thm:mgf-moments}
+若存在 $t_0>0$, 使得 $M_X(t)<\infty$ 对所有 $\abs{t}<t_0$ 成立, 则 $X$ 的各阶矩都有限, 且
+\[
+M_X(t)=\sum_{k=0}^\infty\frac{t^k}{k!}\E[X^k],\qquad \abs{t}<t_0.
+\]
+特别地, $\E[X^k]=M_X^{(k)}(0)$.
+\end{theorem}
+
+\begin{proof}
+固定 $t$ 满足 $0<\abs{t}<t_0$. 由于 $e^{\abs{tX}}\le e^{tX}+e^{-tX}$, 而 $\pm t$ 都在 $(-t_0,t_0)$ 中, 所以 $e^{\abs{tX}}\in L^1$. 对每个 $k$, $\frac{\abs{tX}^k}{k!}\le e^{\abs{tX}}$, 故 $\E\abs{X}^k\le k!\,\abs{t}^{-k}\E[e^{\abs{tX}}]<\infty$. 部分和满足
+\[
+\Big|\sum_{k=0}^n\frac{(tX)^k}{k!}\Big|\le\sum_{k=0}^n\frac{\abs{tX}^k}{k!}\le e^{\abs{tX}},
+\]
+且当 $n\to\infty$ 时逐点收敛到 $e^{tX}$. 由控制收敛定理~\ref{thm:dct} 与有限线性,
+\[
+M_X(t)=\lim_{n\to\infty}\E\Big[\sum_{k=0}^n\frac{(tX)^k}{k!}\Big]=\lim_{n\to\infty}\sum_{k=0}^n\frac{t^k}{k!}\E[X^k].
+\]
+因此幂级数 $\sum_k\frac{t^k}{k!}\E[X^k]$ 在 $(-t_0,t_0)$ 上收敛于 $M_X(t)$; 由幂级数可在收敛区间内逐项求导, $M_X^{(k)}(0)=\E[X^k]$.
+\end{proof}
+
+\begin{example}[正态分布的矩母函数与矩]\label{ex:normal-mgf}
+设 $Z\sim N(0,1)$. 配方 $tx-\frac{x^2}{2}=\frac{t^2}{2}-\frac{(x-t)^2}{2}$, 由变量替换公式~\ref{thm:change-of-variables},
+\[
+M_Z(t)=\int_{\R}e^{tx}\varphi(x)\dd x=e^{t^2/2}\int_{\R}\varphi(x-t)\dd x=e^{t^2/2},\qquad t\in\R.
+\]
+对 $X=\mu+\sigma Z$, $M_X(t)=e^{\mu t}M_Z(\sigma t)=\exp\big(\mu t+\frac{1}{2}\sigma^2t^2\big)$. 把 $e^{t^2/2}=\sum_{k\ge0}\frac{t^{2k}}{2^kk!}$ 与定理~\ref{thm:mgf-moments} 中的级数比较系数:
+\[
+\E[Z^{2k+1}]=0,\qquad \E[Z^{2k}]=\frac{(2k)!}{2^kk!}=(2k-1)!!=1\cdot3\cdot5\cdots(2k-1).
+\]
+例如 $\E[Z^2]=1$, $\E[Z^4]=3$, $\E[Z^6]=15$. 第~4~章计算布朗运动的二次变差时将用到 $\E[Z^4]=3$.
+\end{example}
+
+\begin{example}[Chernoff 界]\label{ex:chernoff}
+对任意 $t>0$, 与 Markov 不等式~\ref{thm:markov} 的证明相同, 由逐点不等式 $e^{ta}\1_{\{X\ge a\}}\le e^{tX}$ 取期望,
+$\P(X\ge a)\le e^{-ta}M_X(t)$. 对 $Z\sim N(0,1)$, 得 $\P(Z\ge a)\le\exp\big(-ta+\frac{t^2}{2}\big)$, 取 $t=a$ 使右端最小,
+\[
+\P(Z\ge a)\le e^{-a^2/2},\qquad a>0.
+\]
+这个界比定理~\ref{thm:mills} 粗糙 (少了因子 $\frac{1}{\sqrt{2\pi}a}$), 但它的推导只用到矩母函数, 因而适用于任何矩母函数满足 $M_X(t)\le e^{t^2/2}$ 的随机变量 (例如以概率 $\frac{1}{2}$ 取 $\pm1$ 的随机变量).
+\end{example}
+
+矩母函数的缺点是它可能不存在: 例如参数为 $\lambda$ 的指数分布, 当 $t\ge\lambda$ 时 $M_X(t)=\int_0^\infty e^{tx}\lambda e^{-\lambda x}\dd x=+\infty$. 改用虚指数可以完全避免这个问题. 为此先约定复值随机变量的期望: 若 $W=U+\mathrm{i}V$, $U,V\in L^1$, 定义 $\E[W]=\E[U]+\mathrm{i}\,\E[V]$. 期望的线性对复系数仍然成立; 控制收敛定理与期望号下求导对实部、虚部分别使用即可推广到复值情形.
+
+\begin{lemma}\label{lem:complex-abs}
+对复值可积随机变量 $W$, $\abs{\E W}\le\E\abs{W}$.
+\end{lemma}
+
+\begin{proof}
+若 $\E W=0$, 结论显然. 否则写 $\E W=re^{\mathrm{i}\theta}$, $r>0$. 则
+\[
+\abs{\E W}=r=e^{-\mathrm{i}\theta}\E W=\E\big[e^{-\mathrm{i}\theta}W\big]=\E\big[\mathrm{Re}(e^{-\mathrm{i}\theta}W)\big]\le\E\abs{W},
+\]
+其中第三个等号是因为左边为实数, 故右边的虚部期望为零; 最后一步用到 $\mathrm{Re}\,w\le\abs{w}$.
+\end{proof}
+
+\begin{definition}[特征函数]\label{def:cf}
+随机变量 $X$ 的\textbf{特征函数}定义为
+\[
+\varphi_X(t)=\E\big[e^{\mathrm{i}tX}\big]=\E[\cos tX]+\mathrm{i}\,\E[\sin tX],\qquad t\in\R.
+\]
+\end{definition}
+
+由于 $\abs{e^{\mathrm{i}tX}}=1$, 特征函数对任何随机变量和任何 $t$ 都有定义. 若 $X$ 有密度 $f$, 则 $\varphi_X(t)=\int e^{\mathrm{i}tx}f(x)\dd x$ 就是 $f$ 的 Fourier 变换.
+
+\begin{theorem}[特征函数的基本性质]\label{thm:cf-properties}
+\begin{enumerate}
+\item $\varphi_X(0)=1$, $\abs{\varphi_X(t)}\le1$, $\varphi_X(-t)=\overline{\varphi_X(t)}$;
+\item $\varphi_X$ 在 $\R$ 上一致连续;
+\item $\varphi_{aX+b}(t)=e^{\mathrm{i}bt}\varphi_X(at)$;
+\item 若 $\E\abs{X}^n<\infty$, 则 $\varphi_X$ 有 $n$ 阶连续导数, 且 $\varphi_X^{(k)}(t)=\E\big[(\mathrm{i}X)^ke^{\mathrm{i}tX}\big]$ ($k\le n$), 特别地 $\varphi_X^{(k)}(0)=\mathrm{i}^k\E[X^k]$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) $\varphi_X(0)=\E[1]=1$; 由引理~\ref{lem:complex-abs}, $\abs{\varphi_X(t)}\le\E\abs{e^{\mathrm{i}tX}}=1$; $\cos$ 为偶函数、$\sin$ 为奇函数给出第三式.
+
+(2) 对任意 $t,h$,
+\[
+\abs{\varphi_X(t+h)-\varphi_X(t)}=\big|\E\big[e^{\mathrm{i}tX}(e^{\mathrm{i}hX}-1)\big]\big|\le\E\abs{e^{\mathrm{i}hX}-1}.
+\]
+右端与 $t$ 无关. 当 $h\to0$ 时, $\abs{e^{\mathrm{i}hX}-1}\to0$ 逐点成立且被常数 $2$ 控制, 由有界收敛定理~\ref{cor:bct}, 右端趋于 $0$.
+
+(3) $\E[e^{\mathrm{i}t(aX+b)}]=e^{\mathrm{i}bt}\E[e^{\mathrm{i}(at)X}]$.
+
+(4) 对 $k$ 归纳. $k=0$ 时即定义. 设 $k<n$ 且 $\varphi_X^{(k)}(t)=\E[h(t,\cdot)]$, 其中 $h(t,\omega)=(\mathrm{i}X)^ke^{\mathrm{i}tX}$. 则 $\partial_t h=(\mathrm{i}X)^{k+1}e^{\mathrm{i}tX}$, $\abs{\partial_t h}\le\abs{X}^{k+1}$, 而由 Lyapunov 不等式~\ref{cor:lyapunov}, $\E\abs{X}^{k+1}<\infty$. 由期望号下求导定理~\ref{thm:diff-under-E} (对实部、虚部分别使用), $\varphi_X^{(k+1)}(t)=\E[(\mathrm{i}X)^{k+1}e^{\mathrm{i}tX}]$. 导数的连续性与 (2) 的证明相同 (用控制收敛定理, 控制函数为 $2\abs{X}^{k}$).
+\end{proof}
+
+\begin{example}[正态分布的特征函数]\label{ex:normal-cf}
+设 $Z\sim N(0,1)$, 我们证明 $\varphi_Z(t)=e^{-t^2/2}$.
+
+由于 $Z\overset{d}{=}-Z$ (命题~\ref{prop:normal-basic} (1)) 而 $\sin$ 是奇函数, $\E[\sin tZ]=\E[\sin(-tZ)]=-\E[\sin tZ]$, 故 $\E[\sin tZ]=0$, $\varphi_Z(t)=\E[\cos tZ]$. 由于 $\E\abs{Z}<\infty$, 由定理~\ref{thm:cf-properties} (4) 和分部积分 (利用 $\varphi'(x)=-x\varphi(x)$, 注意这里 $\varphi$ 是正态密度),
+\begin{align*}
+\varphi_Z'(t)&=-\E[Z\sin tZ]=-\int_{\R}\sin(tx)\,x\varphi(x)\dd x\\
+&=-\Big[-\sin(tx)\varphi(x)\Big]_{-\infty}^{\infty}-\int_{\R}t\cos(tx)\varphi(x)\dd x=-t\,\varphi_Z(t).
+\end{align*}
+于是 $\frac{\dd}{\dd t}\big(e^{t^2/2}\varphi_Z(t)\big)=e^{t^2/2}\big(t\varphi_Z(t)+\varphi_Z'(t)\big)=0$, 结合 $\varphi_Z(0)=1$ 得 $\varphi_Z(t)=e^{-t^2/2}$. 由定理~\ref{thm:cf-properties} (3), 对 $X\sim N(\mu,\sigma^2)$ ($\sigma\ge0$, 包括退化情形),
+\begin{equation}\label{eq:normal-cf}
+\varphi_X(t)=\exp\Big(\mathrm{i}\mu t-\frac{1}{2}\sigma^2t^2\Big).
+\end{equation}
+\end{example}
+
+\begin{table}[htbp]
+\centering
+\caption{常用分布的期望、方差与特征函数}
+\label{tab:cf}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{llll}
+\toprule
+分布 & 期望 & 方差 & 特征函数 $\varphi_X(t)$ \\
+\midrule
+$\mathrm{B}(1,p)$ & $p$ & $p(1-p)$ & $1-p+pe^{\mathrm{i}t}$ \\
+$\mathrm{B}(n,p)$ & $np$ & $np(1-p)$ & $(1-p+pe^{\mathrm{i}t})^n$ \\
+$\mathrm{Poi}(\lambda)$ & $\lambda$ & $\lambda$ & $\exp\big(\lambda(e^{\mathrm{i}t}-1)\big)$ \\
+$\mathrm{U}(-a,a)$ & $0$ & $\frac{a^2}{3}$ & $\frac{\sin at}{at}$ \\
+$\mathrm{Exp}(\lambda)$ & $\frac{1}{\lambda}$ & $\frac{1}{\lambda^2}$ & $\frac{\lambda}{\lambda-\mathrm{i}t}$ \\
+$N(\mu,\sigma^2)$ & $\mu$ & $\sigma^2$ & $\exp\big(\mathrm{i}\mu t-\frac{1}{2}\sigma^2t^2\big)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+特征函数的价值在于它完全刻画了分布. 下面两个定理的证明属于 Fourier 分析, 从略.
+
+\begin{theorem}[唯一性定理]\label{thm:cf-uniqueness}
+若 $\varphi_X(t)=\varphi_Y(t)$ 对所有 $t\in\R$ 成立, 则 $X\overset{d}{=}Y$. (证明见~\cite{durrett} 定理 3.3.4.)
+\end{theorem}
+
+\begin{theorem}[反演公式]\label{thm:inversion}
+若 $\int_{\R}\abs{\varphi_X(t)}\dd t<\infty$, 则 $X$ 有有界连续的密度
+\[
+f(x)=\frac{1}{2\pi}\int_{\R}e^{-\mathrm{i}tx}\varphi_X(t)\dd t.
+\]
+(证明见~\cite{durrett} 定理 3.3.5.)
+\end{theorem}
+
+\begin{intuition}
+特征函数把分布一对一地 ``编码'' 成连续函数. 独立随机变量之和的特征函数等于特征函数之积 (1.5 节), 从而把卷积化为乘法; 分布的收敛则等价于特征函数的逐点收敛 (1.4 节的 L\'evy 连续性定理). 例如由 \eqref{eq:normal-cf} 与唯一性定理, ``$X$ 服从正态分布'' 等价于 ``$\varphi_X$ 是二次多项式的指数'', 这将是 1.5 节研究多元正态分布的出发点.
+\end{intuition}
+
+% =====================================================================
+\section{随机变量序列的收敛}
+\label{sec:1-4}
+
+在例~\ref{ex:wlln} 中, 我们证明了抛硬币的频率 $\frac{S_n}{n}$ 偏离 $\frac{1}{2}$ 超过 $\varepsilon$ 的概率趋于零; 强大数定律则断言, 对几乎每个样本点 $\omega$, 数列 $\frac{S_n(\omega)}{n}$ 收敛于 $\frac{1}{2}$; 而中心极限定理说的是 $\frac{S_n-n/2}{\sqrt{n}/2}$ 的\emph{分布}趋于正态分布. 这是三种不同强度的 ``收敛''. 随机分析要同时用到它们: Itô 积分在 $L^2$ 意义下定义 (第~5~章), 布朗运动的轨道性质是几乎必然的 (第~4~章), 二次变差的收敛常在依概率意义下讨论, 而由随机游动得到布朗运动则依赖分布收敛. 本节理清它们之间的关系.
+
+% ---------------------------------------------------------------------
+\subsection{四种收敛模式}
+
+\begin{definition}[收敛模式]\label{def:convergence-modes}
+设 $X,X_1,X_2,\dots$ 是定义在同一概率空间上的随机变量.
+\begin{enumerate}
+\item 若 $\P\big(\lim_{n\to\infty}X_n=X\big)=1$, 称 $X_n$ \textbf{几乎必然收敛}到 $X$, 记为 $X_n\xrightarrow{\as}X$.
+\item 若对任意 $\varepsilon>0$, $\lim_{n\to\infty}\P(\abs{X_n-X}>\varepsilon)=0$, 称 $X_n$ \textbf{依概率收敛}到 $X$, 记为 $X_n\xrightarrow{\P}X$.
+\item 设 $p>0$, $X_n,X\in L^p$. 若 $\lim_{n\to\infty}\E\abs{X_n-X}^p=0$, 称 $X_n$ \textbf{$L^p$ 收敛}到 $X$, 记为 $X_n\xrightarrow{L^p}X$. $p=2$ 时也称\textbf{均方收敛}.
+\item 若对 $F_X$ 的每个连续点 $x$, $\lim_{n\to\infty}F_{X_n}(x)=F_X(x)$, 称 $X_n$ \textbf{依分布收敛}到 $X$, 记为 $X_n\xrightarrow{d}X$. 这一定义只涉及分布, 因此 $X_n$ 与 $X$ 可以定义在不同的概率空间上.
+\end{enumerate}
+\end{definition}
+
+由命题~\ref{prop:rv-operations} (3), $\{\lim_n X_n=X\}=\{\lim_n(X_n-X)\text{ 存在且等于 }0\}$ 是事件, 所以 (1) 有意义.
+
+\begin{remark}
+依分布收敛的定义中排除 $F_X$ 的不连续点是必要的. 设 $X_n\equiv\frac{1}{n}$, $X\equiv0$. 无论按哪种意义, 都应该有 $X_n\to X$. 但 $F_{X_n}(0)=\P(\frac{1}{n}\le0)=0$, 而 $F_X(0)=1$: 在 $F_X$ 的跳跃点 $0$ 处, 收敛不成立. 在其余每一点 $x\ne0$ 处, $F_{X_n}(x)\to F_X(x)$ 都成立.
+\end{remark}
+
+几乎必然极限与依概率极限在几乎必然相等的意义下是唯一的. 几乎必然收敛的情形由数列极限的唯一性直接得到. 对依概率收敛, 若 $X_n\xrightarrow{\P}X$ 且 $X_n\xrightarrow{\P}Y$, 则对任意 $\varepsilon>0$, 由 $\abs{X-Y}\le\abs{X-X_n}+\abs{X_n-Y}$,
+\[
+\P(\abs{X-Y}>2\varepsilon)\le\P(\abs{X_n-X}>\varepsilon)+\P(\abs{X_n-Y}>\varepsilon)\to0,
+\]
+所以 $\P(\abs{X-Y}>2\varepsilon)=0$; 令 $\varepsilon=\frac{1}{m}$, $m\to\infty$, 由概率的连续性得 $\P(X\ne Y)=0$.
+
+下面的引理把几乎必然收敛转化为关于概率的条件, 这是比较几种收敛模式的出发点.
+
+\begin{lemma}[几乎必然收敛的刻画]\label{lem:as-criterion}
+以下三条等价:
+\begin{enumerate}
+\item $X_n\xrightarrow{\as}X$;
+\item 对任意 $\varepsilon>0$, $\P(\abs{X_n-X}>\varepsilon\ \text{i.o.})=0$;
+\item 对任意 $\varepsilon>0$, $\lim_{n\to\infty}\P\big(\sup_{k\ge n}\abs{X_k-X}>\varepsilon\big)=0$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+记 $A_n(\varepsilon)=\{\abs{X_n-X}>\varepsilon\}$.
+
+(1)$\Leftrightarrow$(2): 数列 $X_n(\omega)$ 不收敛到 $X(\omega)$, 当且仅当存在 $m$, 使得 $\abs{X_n(\omega)-X(\omega)}>\frac{1}{m}$ 对无穷多个 $n$ 成立. 因此
+\[
+\{X_n\not\to X\}=\bigcup_{m=1}^\infty\big\{A_n(\tfrac{1}{m})\ \text{i.o.}\big\}.
+\]
+若 (2) 成立, 右端是可列个零概率集之并, 概率为 $0$, 即 (1) 成立. 反之, 若 (1) 成立, 则对每个 $m$, $\P(A_n(\frac{1}{m})\ \text{i.o.})\le\P(X_n\not\to X)=0$; 对任意 $\varepsilon>0$, 取 $\frac{1}{m}<\varepsilon$, 由 $A_n(\varepsilon)\subseteq A_n(\frac{1}{m})$ 得 (2).
+
+(2)$\Leftrightarrow$(3): $\{\sup_{k\ge n}\abs{X_k-X}>\varepsilon\}=\bigcup_{k\ge n}A_k(\varepsilon)$, 当 $n\to\infty$ 时它单调下降到 $\limsup_k A_k(\varepsilon)=\{A_k(\varepsilon)\ \text{i.o.}\}$. 由上连续性 (定理~\ref{thm:continuity}), (3) 中的极限等于 $\P(A_k(\varepsilon)\ \text{i.o.})$.
+\end{proof}
+
+\begin{corollary}[快速收敛判别法]\label{cor:fast-convergence}
+若对任意 $\varepsilon>0$, $\sum_{n=1}^\infty\P(\abs{X_n-X}>\varepsilon)<\infty$, 则 $X_n\xrightarrow{\as}X$.
+\end{corollary}
+
+\begin{proof}
+由 Borel-Cantelli 第一引理 (定理~\ref{thm:bc1}), 引理~\ref{lem:as-criterion} 的条件 (2) 成立.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{蕴含关系与反例}
+
+\begin{theorem}[收敛模式的蕴含关系]\label{thm:convergence-implications}
+\begin{enumerate}
+\item $X_n\xrightarrow{\as}X\ \Longrightarrow\ X_n\xrightarrow{\P}X$;
+\item 对 $p>0$, $X_n\xrightarrow{L^p}X\ \Longrightarrow\ X_n\xrightarrow{\P}X$;
+\item 对 $0<p<q$, $X_n\xrightarrow{L^q}X\ \Longrightarrow\ X_n\xrightarrow{L^p}X$;
+\item $X_n\xrightarrow{\P}X\ \Longrightarrow\ X_n\xrightarrow{d}X$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) $\P(\abs{X_n-X}>\varepsilon)\le\P(\sup_{k\ge n}\abs{X_k-X}>\varepsilon)$, 由引理~\ref{lem:as-criterion} (3), 右端趋于 $0$.
+
+(2) 由 Markov 不等式~\ref{thm:markov}, $\P(\abs{X_n-X}>\varepsilon)\le\frac{\E\abs{X_n-X}^p}{\varepsilon^p}\to0$.
+
+(3) 由 Lyapunov 不等式~\ref{cor:lyapunov}, $\norm{X_n-X}_p\le\norm{X_n-X}_q\to0$.
+
+(4) 记 $F_n=F_{X_n}$, $F=F_X$, 设 $x$ 是 $F$ 的连续点, $\varepsilon>0$. 若 $X_n\le x$, 则或者 $X\le x+\varepsilon$, 或者 $\abs{X_n-X}>\varepsilon$; 若 $X\le x-\varepsilon$, 则或者 $X_n\le x$, 或者 $\abs{X_n-X}>\varepsilon$. 即
+\[
+\{X_n\le x\}\subseteq\{X\le x+\varepsilon\}\cup\{\abs{X_n-X}>\varepsilon\},\qquad
+\{X\le x-\varepsilon\}\subseteq\{X_n\le x\}\cup\{\abs{X_n-X}>\varepsilon\}.
+\]
+由单调性与次可加性,
+\[
+F(x-\varepsilon)-\P(\abs{X_n-X}>\varepsilon)\le F_n(x)\le F(x+\varepsilon)+\P(\abs{X_n-X}>\varepsilon).
+\]
+令 $n\to\infty$ 得 $F(x-\varepsilon)\le\liminf_n F_n(x)\le\limsup_n F_n(x)\le F(x+\varepsilon)$. 再令 $\varepsilon\downarrow0$, 由 $F$ 在 $x$ 处连续得 $F_n(x)\to F(x)$.
+\end{proof}
+
+反方向的蕴含一般都不成立.
+
+\begin{example}[反例]\label{ex:convergence-counterexamples}
+以下 (1)(2)(3) 都取 $\Omega=[0,1]$, $\P$ 为均匀分布 (Lebesgue 测度).
+\begin{enumerate}
+\item \textbf{依概率收敛 (甚至 $L^p$ 收敛) 不蕴含几乎必然收敛: ``打字机序列''.} 每个正整数 $n$ 可唯一地写成 $n=2^k+j$, $k\ge0$, $0\le j<2^k$. 令
+\[
+X_n=\1_{[j2^{-k},\,(j+1)2^{-k}]}.
+\]
+当 $n$ 从 $2^k$ 增加到 $2^{k+1}-1$ 时, 长为 $2^{-k}$ 的区间从左到右 ``扫过'' 整个 $[0,1]$ (图~\ref{fig:typewriter}). 由于 $n\to\infty$ 时 $k\to\infty$, 对任意 $\varepsilon\in(0,1)$ 和 $p>0$,
+\[
+\P(\abs{X_n}>\varepsilon)=\E\abs{X_n}^p=2^{-k}\to0,
+\]
+所以 $X_n\xrightarrow{\P}0$ 且 $X_n\xrightarrow{L^p}0$. 但对每个 $\omega\in[0,1]$, 每一层 $k$ 中都至少有一个区间包含 $\omega$, 所以 $X_n(\omega)=1$ 对无穷多个 $n$ 成立; 而当 $k\ge1$ 时每层又至少有一个区间不含 $\omega$, 所以 $X_n(\omega)=0$ 也对无穷多个 $n$ 成立. 于是 $X_n(\omega)$ 对\emph{每个} $\omega$ 都不收敛.
+\item \textbf{几乎必然收敛不蕴含 $L^1$ 收敛.} 例~\ref{ex:mass-escape} 中的 $X_n=n\1_{(0,1/n)}$ 处处收敛到 $0$, 但 $\E\abs{X_n-0}=1$.
+\item \textbf{$L^p$ 收敛不蕴含 $L^q$ 收敛 ($p<q$).} 令 $X_n=n^{1/q}\1_{(0,1/n)}$, 则 $\E\abs{X_n}^p=n^{p/q-1}\to0$, 但 $\E\abs{X_n}^q=1$.
+\item \textbf{依分布收敛不蕴含依概率收敛.} 设 $X\sim N(0,1)$, 令 $X_n=-X$. 由对称性, $X_n\overset{d}{=}X$, 所以 $X_n\xrightarrow{d}X$. 但 $\P(\abs{X_n-X}>\varepsilon)=\P(\abs{X}>\frac{\varepsilon}{2})$ 是与 $n$ 无关的正数. 依分布收敛只比较分布, 完全不关心 $X_n$ 与 $X$ 在同一个 $\omega$ 上的取值是否接近.
+\end{enumerate}
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[xscale=7,yscale=0.42]
+  \draw[->,SADark!80] (0,0) -- (1.08,0) node[right,font=\small] {$\omega$};
+  \node[below,font=\small] at (0,0) {$0$};
+  \node[below,font=\small] at (1,0) {$1$};
+  \foreach \n/\a/\b/\c in {1/0/1/SADark, 2/0/0.5/SABlue, 3/0.5/1/SABlue, 4/0/0.25/SARed, 5/0.25/0.5/SARed, 6/0.5/0.75/SARed, 7/0.75/1/SARed, 8/0/0.125/SAGreenText, 9/0.125/0.25/SAGreenText, 10/0.25/0.375/SAGreenText, 11/0.375/0.5/SAGreenText, 12/0.5/0.625/SAGreenText, 13/0.625/0.75/SAGreenText, 14/0.75/0.875/SAGreenText, 15/0.875/1/SAGreenText} {
+    \pgfmathsetmacro{\y}{16-\n}
+    \draw[SADark!12] (0,\y) -- (1,\y);
+    \draw[\c,line width=2.6pt] (\a,\y) -- (\b,\y);
+    \node[left,font=\scriptsize] at (-0.01,\y) {$X_{\n}$};
+  }
+  \draw[SAYellow!90!black,thick,dashed] (0.3,0) -- (0.3,15.6);
+  \node[above,font=\small] at (0.3,15.6) {$\omega=0.3$};
+  \node[font=\small,align=left,anchor=west] at (1.05,10) {$k=0$: \ $X_1$\\ $k=1$: \ $X_2,X_3$\\ $k=2$: \ $X_4,\dots,X_7$\\ $k=3$: \ $X_8,\dots,X_{15}$};
+\end{tikzpicture}
+\caption{打字机序列: 粗线段标出 $X_n=1$ 的区间. 区间越来越短, 所以 $X_n\xrightarrow{\P}0$; 但每一层都会扫过任意给定的 $\omega$ (虚线), 所以 $X_n(\omega)$ 无穷多次等于 $1$}
+\label{fig:typewriter}
+\end{figure}
+
+尽管反向蕴含不成立, 但在附加条件下可以部分地恢复. 下面的定理中, (1) 是处理依概率收敛最常用的技巧.
+
+\begin{theorem}[部分逆命题]\label{thm:partial-converses}
+\begin{enumerate}
+\item 若 $X_n\xrightarrow{\P}X$, 则存在子列 $\{X_{n_k}\}$ 使 $X_{n_k}\xrightarrow{\as}X$.
+\item $X_n\xrightarrow{\P}X$, 当且仅当 $\{X_n\}$ 的每个子列都有进一步的子列几乎必然收敛到 $X$.
+\item 若 $X_n\xrightarrow{d}c$, 其中 $c$ 是常数, 则 $X_n\xrightarrow{\P}c$.
+\item 若 $X_n\xrightarrow{\P}X$, 且存在 $Y\in L^1$ 使 $\abs{X_n}\le Y$, 则 $X_n\xrightarrow{L^1}X$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 由依概率收敛, 对每个 $k$ 可以取 $n_k$ (并使 $n_1<n_2<\cdots$) 满足 $\P(\abs{X_{n_k}-X}>2^{-k})\le2^{-k}$. 由于 $\sum_k2^{-k}<\infty$, 由 Borel-Cantelli 第一引理 (定理~\ref{thm:bc1}), 几乎必然地, 只有有限个 $k$ 使 $\abs{X_{n_k}-X}>2^{-k}$, 即当 $k$ 充分大时 $\abs{X_{n_k}-X}\le2^{-k}\to0$.
+
+(2) ``仅当'': 子列仍依概率收敛到 $X$, 对它用 (1). ``当'': 反设 $X_n$ 不依概率收敛到 $X$, 则存在 $\varepsilon>0$、$\delta>0$ 及子列 $\{n_k\}$ 使 $\P(\abs{X_{n_k}-X}>\varepsilon)\ge\delta$ 对所有 $k$ 成立. 由假设, 它有进一步的子列几乎必然收敛到 $X$, 由定理~\ref{thm:convergence-implications} (1), 该子列也依概率收敛到 $X$, 与 ``概率始终 $\ge\delta$'' 矛盾.
+
+(3) 常数 $c$ 的分布函数 $F=\1_{[c,\infty)}$ 只在 $c$ 处不连续. 对 $\varepsilon>0$, $c-\varepsilon$ 与 $c+\varepsilon$ 都是连续点, 故
+\[
+\P(\abs{X_n-c}>\varepsilon)\le F_{X_n}(c-\varepsilon)+1-F_{X_n}(c+\varepsilon)\to F(c-\varepsilon)+1-F(c+\varepsilon)=0+1-1=0.
+\]
+
+(4) 先证 $\abs{X}\le Y$ $\as$: 由 (1), 取子列 $X_{n_k}\xrightarrow{\as}X$, 在 $\abs{X_{n_k}}\le Y$ 中取极限即得. 于是 $X\in L^1$. 反设 $\E\abs{X_n-X}\not\to0$, 则存在 $\delta>0$ 及子列使 $\E\abs{X_{n_k}-X}\ge\delta$. 由 (2), 它有进一步的子列几乎必然收敛到 $X$; 对这个子列用控制收敛定理~\ref{thm:dct} (控制函数为 $Y$), 其 $\E\abs{\cdot-X}\to0$, 矛盾.
+\end{proof}
+
+\begin{intuition}
+(2) 体现了一个一般原则: 实数列 $a_n\to a$ 当且仅当每个子列都有进一步的子列收敛到 $a$. 借助它, 关于几乎必然收敛的定理 (如控制收敛定理) 常常可以 ``免费'' 推广到依概率收敛. 例如: 若 $X_n\xrightarrow{\P}X$, $g$ 是连续函数, 则 $g(X_n)\xrightarrow{\P}g(X)$ (对几乎必然收敛的子列, 由 $g$ 的连续性 $g(X_{n_k})\to g(X)$ $\as$, 再由 (2)); 若 $X_n\xrightarrow{\P}X$, $Y_n\xrightarrow{\P}Y$, 则 $X_n+Y_n\xrightarrow{\P}X+Y$, $X_nY_n\xrightarrow{\P}XY$ (同理, 先取公共的几乎必然收敛子列).
+\end{intuition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=SADark,rounded corners=3pt,fill=SABlue!8,minimum width=1.9cm,minimum height=0.8cm,font=\small},
+  imp/.style={->,thick,SADark},
+  cond/.style={->,thick,dashed,SARed},
+  lab/.style={font=\scriptsize,SARed,inner sep=2pt}]
+  \node[box] (as) at (0,0) {$\xrightarrow{\as}$};
+  \node[box] (P) at (4,0) {$\xrightarrow{\P}$};
+  \node[box] (d) at (8,0) {$\xrightarrow{d}$};
+  \node[box] (Lp) at (4,-2.4) {$\xrightarrow{L^p}$};
+  \node[box] (Lq) at (0,-2.4) {$\xrightarrow{L^q}$};
+  \draw[imp] (as) -- (P);
+  \draw[imp] (P) -- (d);
+  \draw[imp] (Lq) -- node[below,font=\scriptsize,SADark] {$p<q$} (Lp);
+  \draw[imp] ([xshift=-4mm]Lp.north) -- ([xshift=-4mm]P.south);
+  \draw[cond] ([xshift=4mm]P.south) -- node[lab,right] {一致可积 ($p=1$)} ([xshift=4mm]Lp.north);
+  \draw[cond] (P.north) to[bend right=40] node[lab,above] {子列} (as.north);
+  \draw[cond] (d.north) to[bend right=40] node[lab,above] {极限为常数} (P.north east);
+\end{tikzpicture}
+\caption{收敛模式之间的关系. 实线: 总成立; 虚线: 在所标条件下成立}
+\label{fig:convergence-diagram}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{一致可积性与 Vitali 收敛定理}
+
+例~\ref{ex:mass-escape} 说明, 依概率收敛 (甚至处处收敛) 加上 $L^1$ 有界性仍不足以推出期望收敛, 因为质量可以逃逸到小概率集合上. 控制收敛定理用可积控制排除了逃逸, 但这个条件过强: 许多重要的序列 (例如第~3~章的鞅) 并没有可积控制. 一致可积性恰好刻画了 ``没有质量逃逸''.
+
+\begin{definition}[一致可积]\label{def:ui}
+随机变量族 $\{X_i\}_{i\in I}$ 称为\textbf{一致可积} (uniformly integrable, UI) 的, 如果
+\[
+\lim_{K\to\infty}\sup_{i\in I}\E\big[\abs{X_i};\abs{X_i}>K\big]=0.
+\]
+\end{definition}
+
+\begin{lemma}\label{lem:single-integrable}
+设 $X\in L^1$. 则
+\begin{enumerate}
+\item $\lim_{K\to\infty}\E[\abs{X};\abs{X}>K]=0$;
+\item 对任意 $\varepsilon>0$, 存在 $\delta>0$, 使得只要 $\P(A)<\delta$, 就有 $\E[\abs{X};A]<\varepsilon$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) 由推论~\ref{cor:nonneg-properties} (4), $\abs{X}<\infty$ $\as$, 所以当 $K\to\infty$ 时 $\abs{X}\1_{\{\abs{X}>K\}}\to0$ $\as$, 且被 $\abs{X}$ 控制. 由控制收敛定理~\ref{thm:dct} 即得.
+
+(2) 对任意 $K>0$ 和事件 $A$, 把 $A$ 分成 $A\cap\{\abs{X}\le K\}$ 与 $A\cap\{\abs{X}>K\}$,
+\[
+\E[\abs{X};A]\le K\P(A)+\E[\abs{X};\abs{X}>K].
+\]
+由 (1), 取 $K$ 使第二项小于 $\frac{\varepsilon}{2}$, 再取 $\delta=\frac{\varepsilon}{2K}$ 即可.
+\end{proof}
+
+于是, 单个可积随机变量 (以及有限个可积随机变量组成的族) 总是一致可积的. 一致可积性的要点在于 ``$\sup_i$'': 尾部积分要对整个族\emph{一致地}小.
+
+\begin{proposition}[一致可积的等价刻画]\label{prop:ui-equivalent}
+$\{X_i\}_{i\in I}$ 一致可积, 当且仅当以下两条同时成立:
+\begin{enumerate}
+\item $L^1$ 有界: $\sup_i\E\abs{X_i}<\infty$;
+\item 一致绝对连续: 对任意 $\varepsilon>0$, 存在 $\delta>0$, 使得只要 $\P(A)<\delta$, 就有 $\sup_i\E[\abs{X_i};A]<\varepsilon$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+``仅当'': 取 $K$ 使 $\sup_i\E[\abs{X_i};\abs{X_i}>K]\le1$, 则 $\E\abs{X_i}\le K+1$ 对所有 $i$ 成立, 得 (1). 与引理~\ref{lem:single-integrable} (2) 的证明相同, $\E[\abs{X_i};A]\le K\P(A)+\sup_j\E[\abs{X_j};\abs{X_j}>K]$, 先取 $K$ 再取 $\delta$ 得 (2).
+
+``当'': 记 $C=\sup_i\E\abs{X_i}$. 对给定的 $\varepsilon$, 取 (2) 中的 $\delta$. 由 Markov 不等式~\ref{thm:markov}, 当 $K>\frac{C}{\delta}$ 时, 对所有 $i$, $\P(\abs{X_i}>K)\le\frac{C}{K}<\delta$, 从而 $\E[\abs{X_i};\abs{X_i}>K]<\varepsilon$.
+\end{proof}
+
+\begin{proposition}[一致可积的充分条件]\label{prop:ui-sufficient}
+以下任一条件都蕴含 $\{X_i\}_{i\in I}$ 一致可积:
+\begin{enumerate}
+\item 存在 $Y\in L^1$, 使 $\abs{X_i}\le Y$ 对所有 $i$ 成立;
+\item 存在 $p>1$, 使 $\sup_i\E\abs{X_i}^p<\infty$;
+\item (de la Vall\'ee-Poussin 判别法) 存在非负函数 $G$ 满足 $\lim_{x\to\infty}\frac{G(x)}{x}=+\infty$, 且 $\sup_i\E[G(\abs{X_i})]<\infty$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) $\{\abs{X_i}>K\}\subseteq\{Y>K\}$, 所以 $\E[\abs{X_i};\abs{X_i}>K]\le\E[Y;Y>K]$, 由引理~\ref{lem:single-integrable} (1), 右端趋于 $0$ 且与 $i$ 无关.
+
+(2) 是 (3) 取 $G(x)=x^p$ 的特例.
+
+(3) 记 $C=\sup_i\E[G(\abs{X_i})]$, $\eta(K)=\sup_{x>K}\frac{x}{G(x)}$, 由假设 $\eta(K)\to0$ ($K\to\infty$). 在 $\{\abs{X_i}>K\}$ 上, $\abs{X_i}\le\eta(K)G(\abs{X_i})$, 所以
+$\E[\abs{X_i};\abs{X_i}>K]\le\eta(K)\,\E[G(\abs{X_i})]\le C\eta(K)\to0$.
+\end{proof}
+
+\begin{example}
+例~\ref{ex:mass-escape} 中 $X_n=n\1_{(0,1/n)}$ 满足 $\E\abs{X_n}=1$, 是 $L^1$ 有界的, 但对任意 $K$, 当 $n>K$ 时 $\E[X_n;X_n>K]=1$, 所以 $\sup_n\E[X_n;X_n>K]=1$, 不是一致可积的. 这说明 $L^1$ 有界性不能代替一致可积性; 而由命题~\ref{prop:ui-sufficient} (2), 只要稍稍加强为 $L^p$ 有界 ($p>1$) 就足够了.
+\end{example}
+
+\begin{theorem}[Vitali 收敛定理]\label{thm:vitali}
+设 $X_n\xrightarrow{\P}X$. 则以下两条等价:
+\begin{enumerate}
+\item $\{X_n\}$ 一致可积;
+\item $X\in L^1$ 且 $X_n\xrightarrow{L^1}X$.
+\end{enumerate}
+此时 $\E[X_n]\to\E[X]$.
+\end{theorem}
+
+\begin{proof}
+(1)$\Rightarrow$(2). 由命题~\ref{prop:ui-equivalent}, $C=\sup_n\E\abs{X_n}<\infty$. 由定理~\ref{thm:partial-converses} (1), 取子列 $X_{n_k}\xrightarrow{\as}X$, 由 Fatou 引理~\ref{thm:fatou},
+\[
+\E\abs{X}=\E\Big[\liminf_{k\to\infty}\abs{X_{n_k}}\Big]\le\liminf_{k\to\infty}\E\abs{X_{n_k}}\le C<\infty.
+\]
+固定 $\varepsilon>0$, 令 $A_n=\{\abs{X_n-X}>\varepsilon\}$, 则 $\P(A_n)\to0$. 由三角不等式,
+\begin{align*}
+\E\abs{X_n-X}&=\E\big[\abs{X_n-X};A_n^c\big]+\E\big[\abs{X_n-X};A_n\big]\\
+&\le\varepsilon+\E[\abs{X_n};A_n]+\E[\abs{X};A_n].
+\end{align*}
+由命题~\ref{prop:ui-equivalent} (2) (对 $\{X_n\}$) 与引理~\ref{lem:single-integrable} (2) (对 $X$), 存在 $\delta>0$, 使得 $\P(A)<\delta$ 时 $\sup_n\E[\abs{X_n};A]<\varepsilon$ 且 $\E[\abs{X};A]<\varepsilon$. 当 $n$ 充分大时 $\P(A_n)<\delta$, 从而 $\E\abs{X_n-X}<3\varepsilon$. 由 $\varepsilon$ 的任意性, $X_n\xrightarrow{L^1}X$.
+
+(2)$\Rightarrow$(1). 我们验证命题~\ref{prop:ui-equivalent} 中的两个条件. (1) 由 $\E\abs{X_n}\le\E\abs{X_n-X}+\E\abs{X}$, 且收敛数列有界, 得 $\sup_n\E\abs{X_n}<\infty$. (2) 给定 $\varepsilon>0$, 取 $N$ 使 $n>N$ 时 $\E\abs{X_n-X}<\frac{\varepsilon}{2}$. 对有限个可积随机变量 $X,X_1,\dots,X_N$ 分别使用引理~\ref{lem:single-integrable} (2), 取其中最小的 $\delta$, 使得 $\P(A)<\delta$ 时 $\E[\abs{X};A]<\frac{\varepsilon}{2}$ 且 $\E[\abs{X_n};A]<\varepsilon$ ($n\le N$). 于是当 $\P(A)<\delta$ 时, 对 $n>N$,
+\[
+\E[\abs{X_n};A]\le\E\abs{X_n-X}+\E[\abs{X};A]<\varepsilon,
+\]
+对 $n\le N$ 也有 $\E[\abs{X_n};A]<\varepsilon$.
+
+最后, $\abs{\E X_n-\E X}\le\E\abs{X_n-X}\to0$.
+\end{proof}
+
+\begin{intuition}
+Vitali 定理把 ``何时可以交换极限与期望'' 的问题彻底解决了: 在依概率收敛的前提下, 一致可积是 $L^1$ 收敛的\emph{充分必要}条件. 控制收敛定理只是它的特例 (命题~\ref{prop:ui-sufficient} (1)). 在第~3~章中, 一致可积鞅的收敛定理与可选停时定理都建立在这一结果之上.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection{依分布收敛与中心极限定理}
+
+依分布收敛的定义使用分布函数, 只适用于实值随机变量, 也不便于推广. 下面给出一个更好用的等价刻画. 为此先证明一个有独立意义的表示定理: 依分布收敛的序列, 可以在某个概率空间上 ``实现'' 为几乎必然收敛的序列.
+
+\begin{theorem}[Skorokhod 表示定理]\label{thm:skorokhod}
+设 $X_n\xrightarrow{d}X$. 则在概率空间 $((0,1),\mathcal{B}((0,1)),\lambda)$ 上存在随机变量 $Y_n,Y$, 使得 $Y_n\overset{d}{=}X_n$, $Y\overset{d}{=}X$, 且 $Y_n\xrightarrow{\as}Y$.
+\end{theorem}
+
+\begin{proof}
+记 $F_n=F_{X_n}$, $F=F_X$. 在 $\Omega=(0,1)$ 上令 $Y_n(u)=F_n^{-1}(u)$, $Y(u)=F^{-1}(u)$, 其中 $F^{-1}$ 是定理~\ref{thm:quantile} 中的广义逆. 由该定理, $Y_n\overset{d}{=}X_n$, $Y\overset{d}{=}X$. 下面利用单调函数与广义逆函数的性质证明 $Y_n\to Y$ 几乎必然成立:
+\begin{itemize}
+\item 单调函数至多有可列个不连续点 (每个跳跃区间 $(G(u-),G(u+))$ 中可以选出一个有理数, 不同跳跃点对应的区间不交). 因此 $F$ 的连续点在 $\R$ 中稠密, 而单调不减函数 $G=F^{-1}$ 在 $(0,1)$ 中的不连续点构成 Lebesgue 零测集.
+\item 由 \eqref{eq:galois}: $F^{-1}(u)\le y\iff u\le F(y)$, 等价地 $y<F^{-1}(u)\iff F(y)<u$; 对 $F_n$ 同理.
+\end{itemize}
+设 $u\in(0,1)$ 是 $G$ 的连续点.
+
+\emph{下极限.} 任取 $F$ 的连续点 $y<G(u)$. 则 $F(y)<u$, 而 $F_n(y)\to F(y)$, 所以当 $n$ 充分大时 $F_n(y)<u$, 即 $y<F_n^{-1}(u)$. 故 $\liminf_n F_n^{-1}(u)\ge y$. 由于这样的 $y$ 可以任意接近 $G(u)$, $\liminf_n F_n^{-1}(u)\ge G(u)$.
+
+\emph{上极限.} 任取 $u'\in(u,1)$ 及 $F$ 的连续点 $y>G(u')$. 则 $G(u')\le y$, 即 $F(y)\ge u'>u$. 由 $F_n(y)\to F(y)$, 当 $n$ 充分大时 $F_n(y)\ge u$, 即 $F_n^{-1}(u)\le y$. 故 $\limsup_n F_n^{-1}(u)\le y$. 令 $y\downarrow G(u')$ 得 $\limsup_n F_n^{-1}(u)\le G(u')$, 再令 $u'\downarrow u$, 由 $G$ 在 $u$ 处连续得 $\limsup_n F_n^{-1}(u)\le G(u)$.
+
+所以 $Y_n(u)\to Y(u)$ 在 $G$ 的每个连续点 $u$ 处成立, 不连续点构成零测集.
+\end{proof}
+
+\begin{theorem}[依分布收敛的等价刻画]\label{thm:portmanteau}
+$X_n\xrightarrow{d}X$, 当且仅当对每个有界连续函数 $g:\R\to\R$, $\E[g(X_n)]\to\E[g(X)]$.
+\end{theorem}
+
+\begin{proof}
+``仅当'': 取 Skorokhod 表示定理~\ref{thm:skorokhod} 中的 $Y_n,Y$. 由 $g$ 的连续性, $g(Y_n)\to g(Y)$ $\as$; 由有界收敛定理~\ref{cor:bct}, $\E[g(Y_n)]\to\E[g(Y)]$. 由于期望只依赖于分布 (定理~\ref{thm:change-of-variables}), $\E[g(X_n)]=\E[g(Y_n)]$, $\E[g(X)]=\E[g(Y)]$.
+
+``当'': 设 $x$ 是 $F_X$ 的连续点, $\varepsilon>0$. 令连续函数 $g_\varepsilon$ 在 $(-\infty,x]$ 上取 $1$, 在 $[x+\varepsilon,\infty)$ 上取 $0$, 在 $[x,x+\varepsilon]$ 上线性. 则 $\1_{(-\infty,x]}\le g_\varepsilon\le\1_{(-\infty,x+\varepsilon]}$, 于是
+\[
+\limsup_{n\to\infty}F_{X_n}(x)\le\lim_{n\to\infty}\E[g_\varepsilon(X_n)]=\E[g_\varepsilon(X)]\le F_X(x+\varepsilon).
+\]
+同理, 用在 $(-\infty,x-\varepsilon]$ 上取 $1$、在 $[x,\infty)$ 上取 $0$ 的连续函数, 得 $\liminf_n F_{X_n}(x)\ge F_X(x-\varepsilon)$. 令 $\varepsilon\downarrow0$, 由 $F_X$ 在 $x$ 处连续即得.
+\end{proof}
+
+\begin{remark}
+定理~\ref{thm:portmanteau} 给出的刻画不涉及分布函数, 因而可以直接推广到随机向量, 乃至取值于函数空间的随机元 (例如布朗运动的整条轨道), 第~4~章的 Donsker 不变原理就是在这种意义下理解的.
+\end{remark}
+
+由于 $\cos(tx)$ 与 $\sin(tx)$ 都是有界连续函数, 定理~\ref{thm:portmanteau} 立即给出: 若 $X_n\xrightarrow{d}X$, 则对每个 $t$, $\varphi_{X_n}(t)\to\varphi_X(t)$. 其逆命题也成立, 这是证明依分布收敛最有力的工具.
+
+\begin{theorem}[L\'evy 连续性定理]\label{thm:levy-continuity}
+$X_n\xrightarrow{d}X$, 当且仅当对每个 $t\in\R$, $\varphi_{X_n}(t)\to\varphi_X(t)$. 更进一步, 若 $\varphi_{X_n}(t)$ 对每个 $t$ 收敛到某个函数 $\varphi(t)$, 且 $\varphi$ 在 $0$ 处连续, 则 $\varphi$ 是某个随机变量 $X$ 的特征函数, 且 $X_n\xrightarrow{d}X$. (``当'' 的方向的证明见~\cite{durrett} 定理 3.3.17.)
+\end{theorem}
+
+\begin{example}\label{ex:conv-dist}
+\begin{enumerate}
+\item \textbf{极值的极限分布.} 设 $U_1,U_2,\dots$ 是 $\iid$ 的 $\mathrm{U}(0,1)$ 随机变量, $M_n=\max_{k\le n}U_k$. 对 $x\in[0,n]$, 由独立性 (定理~\ref{thm:indep-cdf}),
+\[
+\P\big(n(1-M_n)>x\big)=\P\Big(M_n<1-\frac{x}{n}\Big)=\Big(1-\frac{x}{n}\Big)^n\to e^{-x}.
+\]
+所以 $n(1-M_n)\xrightarrow{d}\mathrm{Exp}(1)$: 最大值与 $1$ 的距离是 $\frac{1}{n}$ 量级的, 经过放大后服从指数分布.
+\item \textbf{正态分布的极限.} 设 $X_n\sim N(\mu_n,\sigma_n^2)$, $\mu_n\to\mu$, $\sigma_n^2\to\sigma^2$. 由 \eqref{eq:normal-cf}, $\varphi_{X_n}(t)\to\exp(\mathrm{i}\mu t-\frac{1}{2}\sigma^2t^2)$, 由 L\'evy 连续性定理, $X_n\xrightarrow{d}N(\mu,\sigma^2)$. 1.6 节将证明一个相关的结论: 正态随机变量的 $L^2$ 极限仍是正态的.
+\end{enumerate}
+\end{example}
+
+最后叙述概率论中最重要的极限定理. 它解释了为什么正态分布在自然界中无处不在.
+
+\begin{theorem}[中心极限定理, Lindeberg-L\'evy]\label{thm:clt}
+设 $X_1,X_2,\dots$ 是 $\iid$ 随机变量, $\E[X_1]=\mu$, $\Var(X_1)=\sigma^2\in(0,\infty)$, $S_n=X_1+\cdots+X_n$. 则
+\[
+\frac{S_n-n\mu}{\sigma\sqrt{n}}\xrightarrow{d}N(0,1).
+\]
+(证明见~\cite{durrett} 定理 3.4.1.)
+\end{theorem}
+
+\begin{intuition}
+标准化 $\frac{S_n-n\mu}{\sigma\sqrt{n}}$ 的期望为 $0$、方差为 $1$ (方差的计算见 1.5 节), 定理断言其分布的极限与 $X_1$ 的具体分布无关. 记 $\psi$ 为 $\frac{X_1-\mu}{\sigma}$ 的特征函数, 由定理~\ref{thm:cf-properties} (4), $\psi(s)=1-\frac{s^2}{2}+o(s^2)$; 而独立和的特征函数是乘积 (1.5 节), 所以标准化和的特征函数为
+\[
+\psi\Big(\frac{t}{\sqrt{n}}\Big)^n=\Big(1-\frac{t^2}{2n}+o\Big(\frac{1}{n}\Big)\Big)^n\to e^{-t^2/2}.
+\]
+$X_1$ 的分布只通过前两阶矩进入极限, 更高阶的信息都在 $o(\frac{1}{n})$ 中消失了. 图~\ref{fig:clt} 显示, 即使对 $n=16$ 次抛硬币, 标准化后的分布函数已经与 $\Phi$ 相当接近.
+\end{intuition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11cm, height=6cm, xmin=-4.2, xmax=4.4, ymin=0, ymax=1.1,
+  xtick={-3,-2,-1,0,1,2,3}, ytick={0.5,1}, xlabel={$x$},
+  legend style={draw=none,fill=white,font=\small,at={(0.97,0.35)},anchor=east}]
+  \addplot[SARed,thick,const plot] coordinates {(-4.2,0) (-4.000,0.0000) (-3.500,0.0003) (-3.000,0.0021) (-2.500,0.0106) (-2.000,0.0384) (-1.500,0.1051) (-1.000,0.2272) (-0.500,0.4018) (0.000,0.5982) (0.500,0.7728) (1.000,0.8949) (1.500,0.9616) (2.000,0.9894) (2.500,0.9979) (3.000,0.9997) (3.500,1.0000) (4.000,1.0000) (4.3,1.0)};
+  \addlegendentry{$\P\big(\frac{S_{16}-8}{2}\le x\big)$}
+  \addplot[SABlue,very thick,smooth] coordinates {(-4.2,0.0000) (-3.50,0.0002) (-3.30,0.0005) (-3.10,0.0010) (-2.90,0.0019) (-2.70,0.0035) (-2.50,0.0062) (-2.30,0.0107) (-2.10,0.0179) (-1.90,0.0287) (-1.70,0.0446) (-1.50,0.0668) (-1.30,0.0968) (-1.10,0.1357) (-0.90,0.1841) (-0.70,0.2420) (-0.50,0.3085) (-0.30,0.3821) (-0.10,0.4602) (0.10,0.5398) (0.30,0.6179) (0.50,0.6915) (0.70,0.7580) (0.90,0.8159) (1.10,0.8643) (1.30,0.9032) (1.50,0.9332) (1.70,0.9554) (1.90,0.9713) (2.10,0.9821) (2.30,0.9893) (2.50,0.9938) (2.70,0.9965) (2.90,0.9981) (3.10,0.9990) (3.30,0.9995) (3.50,0.9998) (4.3,1.0000)};
+  \addlegendentry{$\Phi(x)$}
+\end{axis}
+\end{tikzpicture}
+\caption{中心极限定理: 抛 $16$ 次均匀硬币, 正面次数标准化后的分布函数 (阶梯) 与标准正态分布函数 $\Phi$ (光滑曲线)}
+\label{fig:clt}
+\end{figure}
+
+% =====================================================================
+\section{随机向量}
+\label{sec:1-5}
+
+研究随机过程 $\{X_t\}$ 时, 我们总要同时考察它在若干时刻的取值 $(X_{t_1},\dots,X_{t_n})$: 它们之间是否独立? 相关程度如何? 联合起来服从什么分布? 例如, 布朗运动的定义要求 $(B_{t_1},\dots,B_{t_n})$ 服从多元正态分布. 本节把 1.2、1.3 节的概念推广到多个随机变量, 重点是独立性的刻画与多元正态分布.
+
+% ---------------------------------------------------------------------
+\subsection{联合分布}
+
+$\R^n$ 上由全体开集生成的 $\sigma$-代数称为 Borel $\sigma$-代数, 记为 $\mathcal{B}(\R^n)$. 与命题~\ref{prop:borel-generator} 类似, 它可以由 ``左下象限'' 生成.
+
+\begin{proposition}\label{prop:borel-rn}
+记 $(-\infty,\rvec{x}]=(-\infty,x_1]\times\cdots\times(-\infty,x_n]$, 其中 $\rvec{x}=(x_1,\dots,x_n)^\T$. 则
+$\mathcal{B}(\R^n)=\sigma\big(\{(-\infty,\rvec{x}]: \rvec{x}\in\R^n\}\big)$, 并且全体象限构成 $\pi$-系.
+\end{proposition}
+
+\begin{proof}
+记右端为 $\mathcal{S}$. 每个象限是闭集, 故 $\mathcal{S}\subseteq\mathcal{B}(\R^n)$. 反过来, 令 $\pi_i(\rvec{x})=x_i$ 为第 $i$ 个坐标. 对 $c\in\R$,
+\[
+\{\rvec{x}: x_i\le c\}=\bigcup_{m=1}^\infty(-\infty,m]\times\cdots\times\underbrace{(-\infty,c]}_{\text{第 }i\text{ 个}}\times\cdots\times(-\infty,m]\in\mathcal{S},
+\]
+即 $\pi_i^{-1}((-\infty,c])\in\mathcal{S}$. 由引理~\ref{lem:measurable-generator} (2) 和命题~\ref{prop:borel-generator}, 对每个 Borel 集 $B\subseteq\R$, $\pi_i^{-1}(B)\in\mathcal{S}$. 于是开长方体 $(a_1,b_1)\times\cdots\times(a_n,b_n)=\bigcap_i\pi_i^{-1}((a_i,b_i))\in\mathcal{S}$. 与命题~\ref{prop:borel-generator} 的证明相同, $\R^n$ 中每个开集是可列个有理端点开长方体之并, 所以属于 $\mathcal{S}$, 进而 $\mathcal{B}(\R^n)\subseteq\mathcal{S}$. 最后, 两个象限之交是以分量取最小值为顶点的象限, 故象限全体是 $\pi$-系.
+\end{proof}
+
+\begin{definition}[随机向量]\label{def:random-vector}
+$\mathcal{F}/\mathcal{B}(\R^n)$-可测映射 $\rvec{X}=(X_1,\dots,X_n)^\T:\Omega\to\R^n$ 称为 $n$ 维\textbf{随机向量}. 称
+\[
+\mu_{\rvec{X}}(B)=\P(\rvec{X}\in B)\quad(B\in\mathcal{B}(\R^n)),\qquad F_{\rvec{X}}(\rvec{x})=\P(X_1\le x_1,\dots,X_n\le x_n)
+\]
+分别为 $\rvec{X}$ 的\textbf{联合分布}与\textbf{联合分布函数}. 各分量 $X_i$ 的分布称为\textbf{边缘分布}.
+\end{definition}
+
+\begin{proposition}\label{prop:random-vector}
+\begin{enumerate}
+\item $\rvec{X}$ 是随机向量, 当且仅当每个分量 $X_i$ 都是随机变量.
+\item 联合分布函数决定联合分布.
+\item 边缘分布由联合分布决定: $\mu_{X_i}(B)=\mu_{\rvec{X}}(\pi_i^{-1}(B))$, $F_{X_i}(x_i)=\lim F_{\rvec{X}}(\rvec{x})$, 其中极限是令 $x_j\to+\infty$ ($j\ne i$).
+\item 若 $g:\R^n\to\R^k$ 是 Borel 可测的 (特别地, 连续的), 则 $g(\rvec{X})$ 是随机向量.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 若 $\rvec{X}$ 可测, 由于 $\pi_i$ 连续 (从而 Borel 可测), $X_i=\pi_i\circ\rvec{X}$ 可测. 反之, 若每个 $X_i$ 可测, 则 $\{\rvec{X}\in(-\infty,\rvec{x}]\}=\bigcap_i\{X_i\le x_i\}\in\mathcal{F}$, 由命题~\ref{prop:borel-rn} 和引理~\ref{lem:measurable-generator} (2), $\rvec{X}$ 可测.
+(2) 由命题~\ref{prop:borel-rn} 与推论~\ref{cor:uniqueness}.
+(3) 第一式即 $\{X_i\in B\}=\{\rvec{X}\in\pi_i^{-1}(B)\}$. 第二式: 令 $x_j=m\to\infty$ ($j\ne i$), 事件 $\bigcap_j\{X_j\le x_j\}$ 单调上升到 $\{X_i\le x_i\}$, 由概率的连续性即得.
+(4) 与命题~\ref{prop:rv-operations} (1) 的证明相同.
+\end{proof}
+
+若存在非负 Borel 函数 $f$, 使对一切 $B\in\mathcal{B}(\R^n)$ 都有 $\P(\rvec{X}\in B)=\int_B f(\rvec{x})\dd\rvec{x}$ (积分关于 $\R^n$ 上的 Lebesgue 测度), 称 $f$ 为 $\rvec{X}$ 的\textbf{联合密度}. 计算这类积分时, 我们需要把 $n$ 重积分化为累次积分. 这由下面的测度论定理保证, 它也是第~5~章交换 $\E$ 与 $\int\dd t$ 的依据.
+
+\begin{theorem}[乘积测度与 Fubini-Tonelli 定理]\label{thm:fubini}
+设 $(E_1,\mathcal{E}_1,\mu_1)$ 与 $(E_2,\mathcal{E}_2,\mu_2)$ 是 $\sigma$-有限测度空间 (如概率空间、带 Lebesgue 测度的 $\R^n$). 则在 $\mathcal{E}_1\otimes\mathcal{E}_2=\sigma(\{B_1\times B_2: B_i\in\mathcal{E}_i\})$ 上存在唯一的测度 $\mu_1\otimes\mu_2$, 使得 $(\mu_1\otimes\mu_2)(B_1\times B_2)=\mu_1(B_1)\mu_2(B_2)$. 设 $h:E_1\times E_2\to\R$ 是 $\mathcal{E}_1\otimes\mathcal{E}_2$-可测的.
+\begin{enumerate}
+\item (Tonelli) 若 $h\ge0$, 则
+\begin{align*}
+\int_{E_1\times E_2}h\dd(\mu_1\otimes\mu_2)&=\int_{E_1}\Big(\int_{E_2}h(x,y)\,\mu_2(\dd y)\Big)\mu_1(\dd x)\\
+&=\int_{E_2}\Big(\int_{E_1}h(x,y)\,\mu_1(\dd x)\Big)\mu_2(\dd y),
+\end{align*}
+其中内层积分作为外层变量的函数是可测的.
+\item (Fubini) 若 $\int\abs{h}\dd(\mu_1\otimes\mu_2)<\infty$, 则上式对 $h$ 同样成立 (内层积分对几乎每个外层变量有定义).
+\end{enumerate}
+(证明见~\cite{folland} 2.5 节.) $\R^n$ 上的 Lebesgue 测度就是 $n$ 个一维 Lebesgue 测度的乘积.
+\end{theorem}
+
+\begin{example}[期望的尾积分公式]\label{ex:tail-formula}
+设 $X\ge0$. 则 $\E[X]=\int_0^\infty\P(X>t)\dd t$.
+
+\emph{证明.} 对每个 $\omega$, $X(\omega)=\int_0^\infty\1_{\{t<X(\omega)\}}\dd t$. 函数 $h(\omega,t)=\1_{\{t<X(\omega)\}}$ 在 $\Omega\times[0,\infty)$ 上关于 $\mathcal{F}\otimes\mathcal{B}([0,\infty))$ 可测, 因为
+\[
+\{(\omega,t): t<X(\omega)\}=\bigcup_{q\in\Q_{\ge0}}\{X>q\}\times[0,q)
+\]
+(若 $t<X(\omega)$, 取有理数 $q\in(t,X(\omega))$ 即可). 对 $\P\otimes\lambda$ 用 Tonelli 定理交换积分次序,
+\[
+\E[X]=\int_\Omega\int_0^\infty h(\omega,t)\dd t\,\P(\dd\omega)=\int_0^\infty\int_\Omega h(\omega,t)\,\P(\dd\omega)\dd t=\int_0^\infty\P(X>t)\dd t.
+\]
+例如, 对 $X\sim\mathrm{Exp}(\lambda)$, $\E[X]=\int_0^\infty e^{-\lambda t}\dd t=\frac{1}{\lambda}$, 与例~\ref{ex:means} 一致.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{独立性的刻画}
+
+独立性可以完全用联合分布刻画: 独立当且仅当联合分布是边缘分布的乘积. 以下把随机变量的独立性 (定义~\ref{def:indep-rv}) 推广到随机向量: 随机向量 $\rvec{X}_1,\dots,\rvec{X}_n$ (分别取值于 $\R^{d_1},\dots,\R^{d_n}$) 称为独立的, 如果 $\sigma(\rvec{X}_1),\dots,\sigma(\rvec{X}_n)$ 独立, 其中 $\sigma(\rvec{X}_i)=\{\rvec{X}_i^{-1}(B): B\in\mathcal{B}(\R^{d_i})\}$.
+
+\begin{theorem}[独立性与乘积测度]\label{thm:indep-product-measure}
+随机向量 $\rvec{X}_1,\dots,\rvec{X}_n$ 独立, 当且仅当 $\rvec{X}=(\rvec{X}_1,\dots,\rvec{X}_n)$ 的联合分布等于乘积测度:
+\[
+\mu_{\rvec{X}}=\mu_{\rvec{X}_1}\otimes\cdots\otimes\mu_{\rvec{X}_n}.
+\]
+若各 $\rvec{X}_i$ 有密度 $f_i$, 则这又等价于 $\rvec{X}$ 有联合密度 $f(\rvec{x}_1,\dots,\rvec{x}_n)=f_1(\rvec{x}_1)\cdots f_n(\rvec{x}_n)$.
+\end{theorem}
+
+\begin{proof}
+对 Borel 集 $B_i\subseteq\R^{d_i}$, 有 $\{\rvec{X}\in B_1\times\cdots\times B_n\}=\bigcap_i\{\rvec{X}_i\in B_i\}$. 因此独立性等价于对一切这样的 $B_i$ 都有
+\[
+\mu_{\rvec{X}}(B_1\times\cdots\times B_n)=\mu_{\rvec{X}_1}(B_1)\cdots\mu_{\rvec{X}_n}(B_n).
+\]
+这恰好说明 $\mu_{\rvec{X}}$ 与乘积测度在 ``可测矩形'' 上一致. 可测矩形构成 $\pi$-系 (两个矩形之交仍是矩形), 并生成乘积 $\sigma$-代数 (它包含全体象限, 由命题~\ref{prop:borel-rn}, 生成的就是 Borel $\sigma$-代数). 由推论~\ref{cor:uniqueness}, ``在矩形上一致'' 等价于 ``测度相等''.
+
+对密度的论断: 由 Tonelli 定理, 以 $\prod_i f_i(\rvec{x}_i)$ 为密度的测度在矩形上的值为 $\prod_i\int_{B_i}f_i=\prod_i\mu_{\rvec{X}_i}(B_i)$, 所以它就是乘积测度. 因此 $\rvec{X}$ 独立当且仅当 $\mu_{\rvec{X}}$ 等于这个测度, 即 $\prod_i f_i$ 是 $\rvec{X}$ 的联合密度.
+\end{proof}
+
+独立性最重要的计算后果是期望对乘积可以分解.
+
+\begin{theorem}[独立随机变量乘积的期望]\label{thm:indep-product}
+设 $X,Y$ 独立且可积. 则 $XY$ 可积, 且 $\E[XY]=\E[X]\E[Y]$.
+\end{theorem}
+
+\begin{proof}
+按期望构造的四步证明.
+
+\emph{示性函数.} 若 $A\in\sigma(X)$, $B\in\sigma(Y)$, 则由独立性 $\E[\1_A\1_B]=\P(A\cap B)=\P(A)\P(B)=\E[\1_A]\E[\1_B]$.
+
+\emph{简单随机变量.} 若 $U=\sum_i a_i\1_{A_i}$, $V=\sum_j b_j\1_{B_j}$, $A_i\in\sigma(X)$, $B_j\in\sigma(Y)$, 由线性与上一步,
+$\E[UV]=\sum_{i,j}a_ib_j\E[\1_{A_i}\1_{B_j}]=\sum_{i,j}a_ib_j\P(A_i)\P(B_j)=\E[U]\E[V]$.
+
+\emph{非负随机变量.} 设 $X,Y\ge0$. 由引理~\ref{lem:simple-approx}, 取简单随机变量 $U_n\uparrow X$, $V_n\uparrow Y$; 由于 $U_n$ 中出现的集合形如 $\{a\le X<b\}$, $U_n$ 是 $\sigma(X)$-可测的, 同理 $V_n$ 是 $\sigma(Y)$-可测的. 于是 $U_nV_n\uparrow XY$, 由单调收敛定理~\ref{thm:mct} 与上一步,
+\[
+\E[XY]=\lim_n\E[U_nV_n]=\lim_n\E[U_n]\E[V_n]=\E[X]\E[Y].
+\]
+
+\emph{一般情形.} 对 $\abs{X},\abs{Y}$ (它们分别是 $\sigma(X)$、$\sigma(Y)$-可测的) 用上一步, $\E\abs{XY}=\E\abs{X}\E\abs{Y}<\infty$, 故 $XY$ 可积. 再把 $XY=(X^+-X^-)(Y^+-Y^-)$ 展开成四项, 每一项都是 $\sigma(X)$-可测与 $\sigma(Y)$-可测的非负随机变量之积, 由上一步与线性,
+\[
+\E[XY]=\E[X^+]\E[Y^+]-\E[X^+]\E[Y^-]-\E[X^-]\E[Y^+]+\E[X^-]\E[Y^-]=\E[X]\E[Y].\qedhere
+\]
+\end{proof}
+
+\begin{corollary}\label{cor:indep-consequences}
+\begin{enumerate}
+\item 若 $X,Y$ 独立, $g,h$ 是 Borel 函数且 $g(X),h(Y)$ 可积, 则 $\E[g(X)h(Y)]=\E[g(X)]\E[h(Y)]$.
+\item 若 $X,Y\in L^2$ 独立, 则 $\Cov(X,Y)=0$. 若 $X_1,\dots,X_n\in L^2$ 两两不相关 (例如相互独立), 则 $\Var\big(\sum_iX_i\big)=\sum_i\Var(X_i)$.
+\item 若 $X,Y$ 独立, 则 $\varphi_{X+Y}(t)=\varphi_X(t)\varphi_Y(t)$.
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}
+(1) 由命题~\ref{prop:indep-functions}, $g(X)$ 与 $h(Y)$ 独立, 再用定理~\ref{thm:indep-product}.
+(2) $\Cov(X,Y)=\E[XY]-\E X\E Y=0$. 对和式展开 $\Var(\sum_iX_i)=\sum_i\Var(X_i)+\sum_{i\ne j}\Cov(X_i,X_j)$ (命题~\ref{prop:variance} (4) 的推广).
+(3) $e^{\mathrm{i}t(X+Y)}=e^{\mathrm{i}tX}e^{\mathrm{i}tY}$. 把两个因子写成实部加虚部并展开, 得到四项, 每项都是 $X$ 的有界函数与 $Y$ 的有界函数之积, 由 (1) 分别分解后再合并即得.
+\end{proof}
+
+\begin{example}\label{ex:indep-sums}
+\begin{enumerate}
+\item \textbf{二项分布的方差.} $S_n=\sum_{k=1}^n\1_{A_k}$, 其中 $A_k$ 独立且 $\P(A_k)=p$. 由推论~\ref{cor:indep-consequences} (2), $\Var(S_n)=\sum_k\Var(\1_{A_k})=np(1-p)$.
+\item \textbf{独立正态之和.} 若 $X\sim N(\mu_1,\sigma_1^2)$ 与 $Y\sim N(\mu_2,\sigma_2^2)$ 独立, 则由 \eqref{eq:normal-cf},
+\[
+\varphi_{X+Y}(t)=e^{\mathrm{i}\mu_1t-\frac{1}{2}\sigma_1^2t^2}e^{\mathrm{i}\mu_2t-\frac{1}{2}\sigma_2^2t^2}=\exp\Big(\mathrm{i}(\mu_1+\mu_2)t-\frac{1}{2}(\sigma_1^2+\sigma_2^2)t^2\Big),
+\]
+由唯一性定理~\ref{thm:cf-uniqueness}, $X+Y\sim N(\mu_1+\mu_2,\sigma_1^2+\sigma_2^2)$. 这是布朗运动增量 ``可加'' 的基础: $B_t-B_0=(B_t-B_s)+(B_s-B_0)$.
+\item \textbf{独立 Poisson 之和.} 同理, 若 $X\sim\mathrm{Poi}(\lambda_1)$ 与 $Y\sim\mathrm{Poi}(\lambda_2)$ 独立, 则 $X+Y\sim\mathrm{Poi}(\lambda_1+\lambda_2)$.
+\end{enumerate}
+\end{example}
+
+\begin{proposition}[卷积公式]\label{prop:convolution}
+若 $X,Y$ 独立, 分别有密度 $f,g$, 则 $X+Y$ 有密度 $(f*g)(z)=\int_{\R}f(z-y)g(y)\dd y$.
+\end{proposition}
+
+\begin{proof}
+由定理~\ref{thm:indep-product-measure}, $(X,Y)$ 有联合密度 $f(x)g(y)$. 对 $z\in\R$, 由 Tonelli 定理与内层积分的平移 $x=u-y$,
+\begin{align*}
+\P(X+Y\le z)&=\int_{\R}\Big(\int_{-\infty}^{z-y}f(x)\dd x\Big)g(y)\dd y=\int_{\R}\Big(\int_{-\infty}^{z}f(u-y)\dd u\Big)g(y)\dd y\\
+&=\int_{-\infty}^z\Big(\int_{\R}f(u-y)g(y)\dd y\Big)\dd u.
+\end{align*}
+由定义~\ref{def:discrete-continuous} (2), $f*g$ 是 $X+Y$ 的密度.
+\end{proof}
+
+对随机向量 $\rvec{X}\in\R^n$, 其特征函数定义为 $\varphi_{\rvec{X}}(\rvec{t})=\E\big[e^{\mathrm{i}\rvec{t}^\T\rvec{X}}\big]$, $\rvec{t}\in\R^n$. 定理~\ref{thm:cf-uniqueness} 对随机向量同样成立: 特征函数相同的随机向量同分布 (见~\cite{durrett} 3.10 节). 由此得到一个非常方便的独立性判别法.
+
+\begin{theorem}[独立性的特征函数判别法]\label{thm:indep-cf}
+设 $\rvec{X}\in\R^k$, $\rvec{Y}\in\R^m$ 是随机向量. 则 $\rvec{X}$ 与 $\rvec{Y}$ 独立, 当且仅当对一切 $\rvec{s}\in\R^k$, $\rvec{t}\in\R^m$,
+\[
+\varphi_{(\rvec{X},\rvec{Y})}(\rvec{s},\rvec{t})=\varphi_{\rvec{X}}(\rvec{s})\,\varphi_{\rvec{Y}}(\rvec{t}).
+\]
+\end{theorem}
+
+\begin{proof}
+``仅当'': $e^{\mathrm{i}(\rvec{s}^\T\rvec{X}+\rvec{t}^\T\rvec{Y})}=e^{\mathrm{i}\rvec{s}^\T\rvec{X}}e^{\mathrm{i}\rvec{t}^\T\rvec{Y}}$, 与推论~\ref{cor:indep-consequences} (3) 的证明相同.
+
+``当'': 在乘积概率空间上构造独立的随机向量 $\rvec{X}'\overset{d}{=}\rvec{X}$ 与 $\rvec{Y}'\overset{d}{=}\rvec{Y}$ (取 $(\R^k\times\R^m,\mathcal{B}(\R^{k+m}),\mu_{\rvec{X}}\otimes\mu_{\rvec{Y}})$ 上的坐标映射即可). 由 ``仅当'' 部分与假设,
+\[
+\varphi_{(\rvec{X}',\rvec{Y}')}(\rvec{s},\rvec{t})=\varphi_{\rvec{X}}(\rvec{s})\varphi_{\rvec{Y}}(\rvec{t})=\varphi_{(\rvec{X},\rvec{Y})}(\rvec{s},\rvec{t}).
+\]
+由唯一性定理, $\mu_{(\rvec{X},\rvec{Y})}=\mu_{(\rvec{X}',\rvec{Y}')}=\mu_{\rvec{X}}\otimes\mu_{\rvec{Y}}$, 由定理~\ref{thm:indep-product-measure}, $\rvec{X}$ 与 $\rvec{Y}$ 独立.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{密度变换公式}
+
+\begin{theorem}[密度变换公式]\label{thm:jacobian}
+设随机向量 $\rvec{X}$ 有密度 $f_{\rvec{X}}$, 且 $\P(\rvec{X}\in U)=1$, 其中 $U\subseteq\R^n$ 是开集. 设 $g:U\to V$ 是开集之间的双射, $g$ 与其逆 $h=g^{-1}$ 都连续可微. 则 $\rvec{Y}=g(\rvec{X})$ 有密度
+\[
+f_{\rvec{Y}}(\rvec{y})=f_{\rvec{X}}(h(\rvec{y}))\,\abs{\det J_h(\rvec{y})}\,\1_V(\rvec{y}),
+\]
+其中 $J_h$ 是 $h$ 的 Jacobi 矩阵.
+\end{theorem}
+
+\begin{proof}
+对 Borel 集 $B\subseteq V$, $\{\rvec{Y}\in B\}=\{\rvec{X}\in h(B)\}$. 由多元积分的变量替换公式 ($\rvec{x}=h(\rvec{y})$, 见~\cite{folland} 定理 2.47),
+\[
+\P(\rvec{Y}\in B)=\int_{h(B)}f_{\rvec{X}}(\rvec{x})\dd\rvec{x}=\int_B f_{\rvec{X}}(h(\rvec{y}))\abs{\det J_h(\rvec{y})}\dd\rvec{y}.
+\]
+又 $\P(\rvec{Y}\notin V)=0$, 故对一般的 Borel 集 $B$, $\P(\rvec{Y}\in B)=\P(\rvec{Y}\in B\cap V)$, 即得所述密度.
+\end{proof}
+
+\begin{example}[正态向量的极坐标与 Box-Muller 方法]\label{ex:box-muller}
+设 $Z_1,Z_2$ 是独立的 $N(0,1)$ 随机变量. 由定理~\ref{thm:indep-product-measure}, $(Z_1,Z_2)$ 有联合密度 $\frac{1}{2\pi}e^{-(z_1^2+z_2^2)/2}$. 去掉零概率集 $\{(z_1,0): z_1\ge0\}$ 后, 极坐标 $h(r,\theta)=(r\cos\theta,r\sin\theta)$ 是从 $(0,\infty)\times(0,2\pi)$ 到其余部分的连续可微双射, $\abs{\det J_h}=r$. 由定理~\ref{thm:jacobian}, $(R,\Theta)=h^{-1}(Z_1,Z_2)$ 的密度为
+\[
+f_{R,\Theta}(r,\theta)=\frac{1}{2\pi}e^{-r^2/2}\cdot r=\Big(re^{-r^2/2}\Big)\cdot\Big(\frac{1}{2\pi}\Big),\qquad r>0,\ 0<\theta<2\pi.
+\]
+密度分解为 $r$ 的函数与 $\theta$ 的函数之积, 由定理~\ref{thm:indep-product-measure}, $R$ 与 $\Theta$ 独立, $\Theta\sim\mathrm{U}(0,2\pi)$, 且 $\P(R>r)=e^{-r^2/2}$, 即 $R^2\sim\mathrm{Exp}(\frac{1}{2})$. 反过来, 若 $U_1,U_2$ 是独立的 $\mathrm{U}(0,1)$ 随机变量, 令 $R=\sqrt{-2\log U_1}$, $\Theta=2\pi U_2$, 则 $(R\cos\Theta,R\sin\Theta)$ 是一对独立的标准正态随机变量. 这就是计算机中生成正态随机数的 Box-Muller 方法.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{期望向量与协方差矩阵}
+
+\begin{definition}[期望向量与协方差矩阵]\label{def:covariance-matrix}
+设 $\rvec{X}=(X_1,\dots,X_n)^\T$ 的各分量属于 $L^2$. 称 $\E\rvec{X}=(\E X_1,\dots,\E X_n)^\T$ 为\textbf{期望向量}, 称 $n\times n$ 矩阵
+\[
+\mat{\Sigma}=\Cov(\rvec{X})=\E\big[(\rvec{X}-\E\rvec{X})(\rvec{X}-\E\rvec{X})^\T\big]=\big(\Cov(X_i,X_j)\big)_{i,j=1}^n
+\]
+为\textbf{协方差矩阵} (随机矩阵的期望按元素逐个定义).
+\end{definition}
+
+\begin{proposition}[协方差矩阵的性质]\label{prop:covariance-matrix}
+设 $\rvec{X}$ 的期望向量为 $\rvec{\mu}$, 协方差矩阵为 $\mat{\Sigma}$.
+\begin{enumerate}
+\item $\mat{\Sigma}$ 对称半正定: 对任意 $\rvec{a}\in\R^n$, $\rvec{a}^\T\mat{\Sigma}\rvec{a}=\Var(\rvec{a}^\T\rvec{X})\ge0$.
+\item 线性变换: 对 $k\times n$ 矩阵 $\mat{A}$ 与 $\rvec{b}\in\R^k$, $\E[\mat{A}\rvec{X}+\rvec{b}]=\mat{A}\rvec{\mu}+\rvec{b}$, $\Cov(\mat{A}\rvec{X}+\rvec{b})=\mat{A}\mat{\Sigma}\mat{A}^\T$.
+\item $\mat{\Sigma}$ 奇异, 当且仅当存在 $\rvec{a}\ne\rvec{0}$, 使得 $\rvec{a}^\T\rvec{X}=\rvec{a}^\T\rvec{\mu}$ $\as$, 即 $\rvec{X}$ 几乎必然落在某个超平面上.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 对称性来自 $\Cov(X_i,X_j)=\Cov(X_j,X_i)$. 由期望的线性,
+\[
+\rvec{a}^\T\mat{\Sigma}\rvec{a}=\E\big[\rvec{a}^\T(\rvec{X}-\rvec{\mu})(\rvec{X}-\rvec{\mu})^\T\rvec{a}\big]=\E\big[(\rvec{a}^\T\rvec{X}-\rvec{a}^\T\rvec{\mu})^2\big]=\Var(\rvec{a}^\T\rvec{X})\ge0.
+\]
+(2) 由线性, $\E[\mat{A}\rvec{X}+\rvec{b}]=\mat{A}\rvec{\mu}+\rvec{b}$, 且
+$\Cov(\mat{A}\rvec{X}+\rvec{b})=\E\big[\mat{A}(\rvec{X}-\rvec{\mu})(\rvec{X}-\rvec{\mu})^\T\mat{A}^\T\big]=\mat{A}\mat{\Sigma}\mat{A}^\T$.
+
+(3) 若 $\mat{\Sigma}\rvec{a}=\rvec{0}$, $\rvec{a}\ne\rvec{0}$, 则由 (1), $\Var(\rvec{a}^\T\rvec{X})=\rvec{a}^\T\mat{\Sigma}\rvec{a}=0$, 由命题~\ref{prop:variance} (3), $\rvec{a}^\T\rvec{X}=\rvec{a}^\T\rvec{\mu}$ $\as$ 反之, 若这样的 $\rvec{a}$ 存在, 则 $\rvec{a}^\T\mat{\Sigma}\rvec{a}=0$. 由于 $\mat{\Sigma}$ 对称半正定, 可写 $\mat{\Sigma}=\mat{\Sigma}^{1/2}\mat{\Sigma}^{1/2}$ ($\mat{\Sigma}^{1/2}$ 对称), 于是 $\norm{\mat{\Sigma}^{1/2}\rvec{a}}^2=0$, 从而 $\mat{\Sigma}\rvec{a}=\mat{\Sigma}^{1/2}(\mat{\Sigma}^{1/2}\rvec{a})=\rvec{0}$, $\mat{\Sigma}$ 奇异.
+\end{proof}
+
+由推论~\ref{cor:indep-consequences} (2), 独立蕴含不相关. 反之不然.
+
+\begin{example}[不相关但不独立]\label{ex:uncorrelated-dependent}
+设 $X\sim N(0,1)$, $Y=X^2$. 由例~\ref{ex:normal-mgf}, $\Cov(X,Y)=\E[X^3]-\E[X]\E[X^2]=0$. 但 $X$ 与 $Y$ 显然不独立: 令 $p=\P(\abs{X}\le1)\in(0,1)$, 则
+\[
+\P(\abs{X}\le1,\,Y\le1)=\P(\abs{X}\le1)=p\ne p^2=\P(\abs{X}\le1)\P(Y\le1).
+\]
+协方差只度量\emph{线性}相关性; $Y$ 由 $X$ 完全决定, 但这种依赖是非线性的, 协方差察觉不到.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{多元正态分布}
+
+一维正态分布由均值和方差决定. 多元正态分布是随机分析中最重要的分布, 布朗运动、Wiener 积分以及 Ornstein-Uhlenbeck 过程的有限维分布都是多元正态的. 它有几种形式不同但彼此等价的定义.
+
+\begin{definition}[正态随机向量]\label{def:gaussian-vector}
+随机向量 $\rvec{X}\in\R^n$ 称为\textbf{正态随机向量} (或称 $X_1,\dots,X_n$ \textbf{联合正态}), 如果对每个 $\rvec{a}\in\R^n$, 线性组合 $\rvec{a}^\T\rvec{X}=a_1X_1+\cdots+a_nX_n$ 都服从 (可能退化的) 一维正态分布.
+\end{definition}
+
+取 $\rvec{a}$ 为第 $i$ 个坐标向量可知, 正态随机向量的每个分量都是正态的, 因而属于 $L^2$, 期望向量与协方差矩阵都有定义.
+
+\begin{theorem}[多元正态分布的等价刻画]\label{thm:gaussian-equivalent}
+设 $\rvec{\mu}\in\R^n$, $\mat{\Sigma}$ 是 $n\times n$ 对称半正定矩阵. 对随机向量 $\rvec{X}\in\R^n$, 以下三条等价:
+\begin{enumerate}[(A)]
+\item $\rvec{X}$ 是正态随机向量, 且 $\E\rvec{X}=\rvec{\mu}$, $\Cov(\rvec{X})=\mat{\Sigma}$;
+\item $\rvec{X}$ 的特征函数为 $\varphi_{\rvec{X}}(\rvec{t})=\exp\big(\mathrm{i}\,\rvec{t}^\T\rvec{\mu}-\frac{1}{2}\rvec{t}^\T\mat{\Sigma}\rvec{t}\big)$;
+\item $\rvec{X}\overset{d}{=}\rvec{\mu}+\mat{A}\rvec{Z}$, 其中 $\mat{A}$ 是满足 $\mat{A}\mat{A}^\T=\mat{\Sigma}$ 的 $n\times m$ 矩阵, $\rvec{Z}=(Z_1,\dots,Z_m)^\T$ 的分量是独立的 $N(0,1)$ 随机变量.
+\end{enumerate}
+若进一步 $\mat{\Sigma}$ 正定, 则它们还等价于
+\begin{enumerate}[(A),start=4]
+\item $\rvec{X}$ 有密度
+$\displaystyle f(\rvec{x})=\frac{1}{(2\pi)^{n/2}(\det\mat{\Sigma})^{1/2}}\exp\Big(-\frac{1}{2}(\rvec{x}-\rvec{\mu})^\T\mat{\Sigma}^{-1}(\rvec{x}-\rvec{\mu})\Big)$.
+\end{enumerate}
+满足上述条件的分布记为 $N(\rvec{\mu},\mat{\Sigma})$. 特别地, (C) 说明对任意 $\rvec{\mu}$ 与对称半正定的 $\mat{\Sigma}$, $N(\rvec{\mu},\mat{\Sigma})$ 存在.
+\end{theorem}
+
+\begin{proof}
+(A)$\Rightarrow$(B). 对 $\rvec{t}\in\R^n$, 由 (A), $\rvec{t}^\T\rvec{X}$ 是正态随机变量, 由命题~\ref{prop:covariance-matrix}, 其均值为 $\rvec{t}^\T\rvec{\mu}$, 方差为 $\rvec{t}^\T\mat{\Sigma}\rvec{t}$. 由 \eqref{eq:normal-cf} (取 $t=1$),
+\[
+\varphi_{\rvec{X}}(\rvec{t})=\E\big[e^{\mathrm{i}\cdot1\cdot(\rvec{t}^\T\rvec{X})}\big]=\varphi_{\rvec{t}^\T\rvec{X}}(1)=\exp\Big(\mathrm{i}\,\rvec{t}^\T\rvec{\mu}-\frac{1}{2}\rvec{t}^\T\mat{\Sigma}\rvec{t}\Big).
+\]
+
+(B)$\Rightarrow$(A). 对 $\rvec{a}\in\R^n$ 与 $s\in\R$, 由 (B),
+\[
+\varphi_{\rvec{a}^\T\rvec{X}}(s)=\E\big[e^{\mathrm{i}(s\rvec{a})^\T\rvec{X}}\big]=\varphi_{\rvec{X}}(s\rvec{a})=\exp\Big(\mathrm{i}s\,\rvec{a}^\T\rvec{\mu}-\frac{1}{2}s^2\,\rvec{a}^\T\mat{\Sigma}\rvec{a}\Big).
+\]
+这是 $N(\rvec{a}^\T\rvec{\mu},\rvec{a}^\T\mat{\Sigma}\rvec{a})$ 的特征函数, 由唯一性定理~\ref{thm:cf-uniqueness}, $\rvec{a}^\T\rvec{X}\sim N(\rvec{a}^\T\rvec{\mu},\rvec{a}^\T\mat{\Sigma}\rvec{a})$, 故 $\rvec{X}$ 是正态随机向量. 取 $\rvec{a}=\rvec{e}_i$ 得 $\E X_i=\mu_i$, $\Var(X_i)=\Sigma_{ii}$; 取 $\rvec{a}=\rvec{e}_i+\rvec{e}_j$ 得 $\Var(X_i+X_j)=\Sigma_{ii}+\Sigma_{jj}+2\Sigma_{ij}$, 与命题~\ref{prop:variance} (4) 比较得 $\Cov(X_i,X_j)=\Sigma_{ij}$.
+
+(C)$\Rightarrow$(B). 记 $\rvec{Y}=\rvec{\mu}+\mat{A}\rvec{Z}$. 由于 $Z_1,\dots,Z_m$ 独立, 由推论~\ref{cor:indep-consequences} (1) (对 $m$ 个因子归纳), 对 $\rvec{u}\in\R^m$,
+$\varphi_{\rvec{Z}}(\rvec{u})=\prod_{k=1}^m\E[e^{\mathrm{i}u_kZ_k}]=\prod_k e^{-u_k^2/2}=e^{-\frac{1}{2}\rvec{u}^\T\rvec{u}}$. 于是
+\[
+\varphi_{\rvec{Y}}(\rvec{t})=e^{\mathrm{i}\rvec{t}^\T\rvec{\mu}}\,\E\big[e^{\mathrm{i}(\mat{A}^\T\rvec{t})^\T\rvec{Z}}\big]=e^{\mathrm{i}\rvec{t}^\T\rvec{\mu}}\varphi_{\rvec{Z}}(\mat{A}^\T\rvec{t})=\exp\Big(\mathrm{i}\,\rvec{t}^\T\rvec{\mu}-\frac{1}{2}\rvec{t}^\T\mat{A}\mat{A}^\T\rvec{t}\Big).
+\]
+由 $\mat{A}\mat{A}^\T=\mat{\Sigma}$ 及 $\rvec{X}\overset{d}{=}\rvec{Y}$ (特征函数只依赖于分布) 得 (B).
+
+(B)$\Rightarrow$(C). 由谱分解, $\mat{\Sigma}=\mat{Q}\mat{\Lambda}\mat{Q}^\T$, 其中 $\mat{Q}$ 正交, $\mat{\Lambda}=\mathrm{diag}(\lambda_1,\dots,\lambda_n)$, $\lambda_i\ge0$. 令 $\mat{A}=\mat{Q}\mat{\Lambda}^{1/2}$, 则 $\mat{A}\mat{A}^\T=\mat{\Sigma}$. 由上一步, $\rvec{\mu}+\mat{A}\rvec{Z}$ 的特征函数与 $\rvec{X}$ 的相同, 由唯一性定理, $\rvec{X}\overset{d}{=}\rvec{\mu}+\mat{A}\rvec{Z}$.
+
+(C)$\Rightarrow$(D), 设 $\mat{\Sigma}$ 正定. 取 $\mat{A}=\mat{\Sigma}^{1/2}=\mat{Q}\mat{\Lambda}^{1/2}\mat{Q}^\T$, 它对称可逆, 且 (由 (B)$\Rightarrow$(C)) $\rvec{X}\overset{d}{=}\rvec{Y}=\rvec{\mu}+\mat{A}\rvec{Z}$, $m=n$. 由定理~\ref{thm:indep-product-measure}, $\rvec{Z}$ 有密度 $\prod_k\varphi(z_k)=(2\pi)^{-n/2}e^{-\rvec{z}^\T\rvec{z}/2}$. 映射 $\rvec{z}\mapsto\rvec{\mu}+\mat{A}\rvec{z}$ 是 $\R^n$ 上的双射, 逆映射 $h(\rvec{y})=\mat{A}^{-1}(\rvec{y}-\rvec{\mu})$ 的 Jacobi 行列式为 $\det\mat{A}^{-1}=(\det\mat{\Sigma})^{-1/2}$. 由密度变换公式~\ref{thm:jacobian}, 并利用 $(\mat{A}^{-1})^\T\mat{A}^{-1}=(\mat{A}\mat{A}^\T)^{-1}=\mat{\Sigma}^{-1}$,
+\[
+f_{\rvec{Y}}(\rvec{y})=\frac{1}{(2\pi)^{n/2}}\exp\Big(-\frac{1}{2}(\rvec{y}-\rvec{\mu})^\T(\mat{A}^{-1})^\T\mat{A}^{-1}(\rvec{y}-\rvec{\mu})\Big)(\det\mat{\Sigma})^{-1/2},
+\]
+正是 (D) 中的 $f$. 由于 $\rvec{X}\overset{d}{=}\rvec{Y}$, $\rvec{X}$ 也以 $f$ 为密度.
+
+(D)$\Rightarrow$(C). 若 $\rvec{X}$ 以 $f$ 为密度, 由上一步, $\rvec{Y}=\rvec{\mu}+\mat{\Sigma}^{1/2}\rvec{Z}$ 也以 $f$ 为密度, 所以 $\rvec{X}\overset{d}{=}\rvec{Y}$.
+\end{proof}
+
+\begin{intuition}
+三种刻画各有用处. (A) 最便于验证 (例如证明布朗运动是高斯过程); (B) 最便于计算 (证明独立性、求极限); (C) 给出构造方法: 正态随机向量就是独立标准正态变量经过线性变换再平移. 当 $\mat{\Sigma}$ 退化时 (例如 $\rvec{X}=(Z,Z)^\T$, $\mat{\Sigma}=\begin{psmallmatrix}1&1\\1&1\end{psmallmatrix}$), $\rvec{X}$ 落在一个低维子空间上, 没有密度, 但 (A)(B)(C) 依然有效. 这正是我们把退化正态分布也纳入定义的原因.
+\end{intuition}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \begin{scope}
+    \clip (-3.2,-2.5) rectangle (3.2,2.5);
+    \foreach \c/\o in {1.45/10, 1/22, 0.55/40} {
+      \fill[SABlue!\o,rotate=37.98] (0,0) ellipse ({1.6676*\c} and {0.8481*\c});
+    }
+    \foreach \c in {0.55,1,1.45} {
+      \draw[SABlue!80!black,rotate=37.98] (0,0) ellipse ({1.6676*\c} and {0.8481*\c});
+    }
+  \end{scope}
+  \draw[->,SADark!70] (-3.3,0) -- (3.4,0) node[right,font=\small] {$x_1$};
+  \draw[->,SADark!70] (0,-2.6) -- (0,2.7) node[above,font=\small] {$x_2$};
+  \draw[->,SARed,very thick] (0,0) -- ({1.6676*cos(37.98)},{1.6676*sin(37.98)});
+  \node[SARed,font=\small,anchor=north west] at ({1.6676*cos(37.98)},{1.6676*sin(37.98)}) {$\sqrt{\lambda_1}\rvec{q}_1$};
+  \draw[->,SARed,very thick] (0,0) -- ({-0.8481*sin(37.98)},{0.8481*cos(37.98)});
+  \node[SARed,font=\small,anchor=south east] at ({-0.8481*sin(37.98)},{0.8481*cos(37.98)}) {$\sqrt{\lambda_2}\rvec{q}_2$};
+  \node[font=\small,align=left,anchor=west] at (3.6,1.2) {$\mat{\Sigma}=\begin{pmatrix}2&1\\1&1.5\end{pmatrix}$};
+  \node[font=\small,align=left,anchor=west] at (3.6,-0.2) {$\lambda_1\approx2.78$, $\lambda_2\approx0.72$};
+  \node[font=\small,align=left,anchor=west] at (3.6,-1.2) {$\rho=\frac{1}{\sqrt{3}}\approx0.58$};
+\end{tikzpicture}
+\caption{二维正态分布 $N(\rvec{0},\mat{\Sigma})$ 密度的等高线是椭圆 $\rvec{x}^\T\mat{\Sigma}^{-1}\rvec{x}=c$. 椭圆主轴沿 $\mat{\Sigma}$ 的特征向量 $\rvec{q}_1,\rvec{q}_2$ 方向, 半轴长正比于 $\sqrt{\lambda_1},\sqrt{\lambda_2}$. 正相关使椭圆向第一、三象限倾斜}
+\label{fig:gaussian-contours}
+\end{figure}
+
+\begin{proposition}[正态随机向量的运算]\label{prop:gaussian-operations}
+设 $\rvec{X}\sim N(\rvec{\mu},\mat{\Sigma})$.
+\begin{enumerate}
+\item 对 $k\times n$ 矩阵 $\mat{B}$ 与 $\rvec{c}\in\R^k$, $\mat{B}\rvec{X}+\rvec{c}\sim N(\mat{B}\rvec{\mu}+\rvec{c},\mat{B}\mat{\Sigma}\mat{B}^\T)$. 特别地, $\rvec{X}$ 的任意子向量都是正态随机向量.
+\item 若 $\rvec{X}$ 与 $\rvec{Y}$ 是独立的正态随机向量, 则 $(\rvec{X},\rvec{Y})$ 是正态随机向量.
+\item 若 $\rvec{Z}\sim N(\rvec{0},\mat{I}_n)$, $\mat{Q}$ 是正交矩阵, 则 $\mat{Q}\rvec{Z}\sim N(\rvec{0},\mat{I}_n)$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 对 $\rvec{a}\in\R^k$, $\rvec{a}^\T(\mat{B}\rvec{X}+\rvec{c})=(\mat{B}^\T\rvec{a})^\T\rvec{X}+\rvec{a}^\T\rvec{c}$ 是正态随机变量加常数, 仍是正态的. 均值与协方差由命题~\ref{prop:covariance-matrix} (2) 给出. 取 $\mat{B}$ 为选取部分坐标的矩阵即得子向量的结论.
+(2) 由定理~\ref{thm:indep-cf} 与 (B), $\varphi_{(\rvec{X},\rvec{Y})}(\rvec{s},\rvec{t})=\varphi_{\rvec{X}}(\rvec{s})\varphi_{\rvec{Y}}(\rvec{t})$ 是二次多项式的指数, 形如 (B), 其协方差矩阵为分块对角阵 $\mathrm{diag}(\mat{\Sigma}_{\rvec{X}},\mat{\Sigma}_{\rvec{Y}})$.
+(3) 由 (1), $\mat{Q}\rvec{Z}\sim N(\rvec{0},\mat{Q}\mat{Q}^\T)=N(\rvec{0},\mat{I}_n)$.
+\end{proof}
+
+(3) 说明标准正态向量的分布是旋转不变的, 这与例~\ref{ex:box-muller} 中 $\Theta$ 服从均匀分布是同一件事. 下面是正态随机向量最重要的性质.
+
+\begin{theorem}[正态向量: 不相关等价于独立]\label{thm:gaussian-uncorrelated}
+设 $(\rvec{X},\rvec{Y})=(X_1,\dots,X_k,Y_1,\dots,Y_m)^\T$ 是正态随机向量. 则 $\rvec{X}$ 与 $\rvec{Y}$ 独立, 当且仅当 $\Cov(X_i,Y_j)=0$ 对一切 $i,j$ 成立.
+\end{theorem}
+
+\begin{proof}
+``仅当'': 由推论~\ref{cor:indep-consequences} (2).
+
+``当'': 由假设, 协方差矩阵是分块对角的: $\mat{\Sigma}=\mathrm{diag}(\mat{\Sigma}_{\rvec{X}},\mat{\Sigma}_{\rvec{Y}})$, 其中 $\mat{\Sigma}_{\rvec{X}}=\Cov(\rvec{X})$, $\mat{\Sigma}_{\rvec{Y}}=\Cov(\rvec{Y})$. 记期望向量为 $(\rvec{\mu}_{\rvec{X}},\rvec{\mu}_{\rvec{Y}})$. 由定理~\ref{thm:gaussian-equivalent} (B), 对 $\rvec{s}\in\R^k$, $\rvec{t}\in\R^m$,
+\begin{align*}
+\varphi_{(\rvec{X},\rvec{Y})}(\rvec{s},\rvec{t})&=\exp\Big(\mathrm{i}(\rvec{s}^\T\rvec{\mu}_{\rvec{X}}+\rvec{t}^\T\rvec{\mu}_{\rvec{Y}})-\frac{1}{2}\big(\rvec{s}^\T\mat{\Sigma}_{\rvec{X}}\rvec{s}+\rvec{t}^\T\mat{\Sigma}_{\rvec{Y}}\rvec{t}\big)\Big)\\
+&=\exp\Big(\mathrm{i}\rvec{s}^\T\rvec{\mu}_{\rvec{X}}-\frac{1}{2}\rvec{s}^\T\mat{\Sigma}_{\rvec{X}}\rvec{s}\Big)\exp\Big(\mathrm{i}\rvec{t}^\T\rvec{\mu}_{\rvec{Y}}-\frac{1}{2}\rvec{t}^\T\mat{\Sigma}_{\rvec{Y}}\rvec{t}\Big)\\
+&=\varphi_{\rvec{X}}(\rvec{s})\,\varphi_{\rvec{Y}}(\rvec{t}),
+\end{align*}
+最后一步是因为 $\rvec{X}$、$\rvec{Y}$ 作为子向量也是正态的 (命题~\ref{prop:gaussian-operations} (1)), 其特征函数由 (B) 给出. 由独立性的特征函数判别法 (定理~\ref{thm:indep-cf}), $\rvec{X}$ 与 $\rvec{Y}$ 独立.
+\end{proof}
+
+\begin{intuition}
+对一般随机变量, 协方差为零只排除了线性依赖 (例~\ref{ex:uncorrelated-dependent}); 但对联合正态的随机变量, 一切依赖关系都是线性的, 所以 ``没有线性依赖'' 就是 ``没有依赖''. 这一性质使得正态随机向量的计算可以完全化归为线性代数.
+\end{intuition}
+
+定理中 ``联合正态'' 的假设不能减弱为 ``各分量分别是正态的''.
+
+\begin{example}[两个正态变量不相关却不独立]\label{ex:normal-not-joint}
+设 $X\sim N(0,1)$, $S$ 与 $X$ 独立, 且 $\P(S=1)=\P(S=-1)=\frac{1}{2}$. 令 $Y=SX$.
+\begin{itemize}
+\item \emph{$Y\sim N(0,1)$}: 由全概率与独立性, $\P(Y\le y)=\frac{1}{2}\P(X\le y)+\frac{1}{2}\P(-X\le y)=\Phi(y)$.
+\item \emph{不相关}: 由定理~\ref{thm:indep-product}, $\Cov(X,Y)=\E[SX^2]=\E[S]\E[X^2]=0$.
+\item \emph{不独立}: $\abs{Y}=\abs{X}$, 于是 $\P(\abs{X}\le1,\abs{Y}\le1)=\P(\abs{X}\le1)\ne\P(\abs{X}\le1)^2$.
+\item \emph{$(X,Y)$ 不是正态随机向量}: $X+Y=(1+S)X$ 以概率 $\frac{1}{2}$ 等于 $0$, 但不恒为 $0$. 非退化正态分布没有原子, 退化正态分布是常数, 所以 $X+Y$ 不服从正态分布.
+\end{itemize}
+如图~\ref{fig:normal-not-joint}, $(X,Y)$ 的全部概率集中在两条对角线上, 完全不像图~\ref{fig:gaussian-contours} 中的椭圆.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.85]
+  \draw[->,SADark!70] (-3,0) -- (3.2,0) node[right,font=\small] {$x$};
+  \draw[->,SADark!70] (0,-3) -- (0,3.2) node[above,font=\small] {$y$};
+  \foreach \t in {0,0.1,...,2.8} {
+    \pgfmathsetmacro{\o}{90*exp(-\t*\t/2)+5}
+    \fill[SARed!\o] (\t,\t) circle (2.4pt);
+    \fill[SARed!\o] (-\t,-\t) circle (2.4pt);
+    \fill[SABlue!\o] (\t,-\t) circle (2.4pt);
+    \fill[SABlue!\o] (-\t,\t) circle (2.4pt);
+  }
+  \node[SARed,font=\small,anchor=west] at (2.9,2.7) {$S=1$: $y=x$};
+  \node[SABlue,font=\small,anchor=west] at (2.9,-2.7) {$S=-1$: $y=-x$};
+\end{tikzpicture}
+\caption{例~\ref{ex:normal-not-joint} 中 $(X,Y)$ 的分布: 概率以各 $\frac{1}{2}$ 的比例分布在两条对角线上 (颜色深浅表示密度大小). 两个边缘分布都是 $N(0,1)$, 但联合分布不是二维正态}
+\label{fig:normal-not-joint}
+\end{figure}
+
+定理~\ref{thm:gaussian-uncorrelated} 的一个直接应用是把一个正态变量分解为 ``可由另一个变量线性解释的部分'' 与 ``独立的噪声''. 它预示了第~2~章的条件期望, 也是第~4~章研究布朗桥的基本工具.
+
+\begin{example}[正态变量的正交分解]\label{ex:gaussian-regression}
+设 $(X,Y)$ 是二维正态随机向量, $\Var(Y)>0$. 令
+\[
+b=\frac{\Cov(X,Y)}{\Var(Y)},\qquad W=X-bY.
+\]
+由命题~\ref{prop:gaussian-operations} (1), $(W,Y)$ 是正态随机向量 (它是 $(X,Y)$ 的线性变换). 又
+$\Cov(W,Y)=\Cov(X,Y)-b\Var(Y)=0$, 由定理~\ref{thm:gaussian-uncorrelated}, $W$ 与 $Y$ 独立. 于是
+\[
+X=bY+W,\qquad W\ \text{与}\ Y\ \text{独立},\quad W\sim N\big(\E X-b\E Y,\ \Var(X)-b^2\Var(Y)\big).
+\]
+例如对布朗运动, 取 $X=B_s$, $Y=B_t$ ($0<s<t$), 则 $\Cov(B_s,B_t)=s$, $b=\frac{s}{t}$, 从而 $B_s=\frac{s}{t}B_t+W$, $W$ 与 $B_t$ 独立: 已知终点 $B_t$ 时, $B_s$ 的 ``最佳猜测'' 是线性插值 $\frac{s}{t}B_t$. 方差的计算: $\Var(W)=\Var(X)-2b\Cov(X,Y)+b^2\Var(Y)=\Var(X)-b^2\Var(Y)$.
+\end{example}
+
+% =====================================================================
+\section{平方可积随机变量空间 \texorpdfstring{$L^2(\Omega,\mathcal{F},\P)$}{L2}}
+\label{sec:1-6}
+
+前面几节分别讨论了方差、协方差与正态分布. 本节换一个视角: 把平方可积的随机变量看作一个无穷维空间中的\emph{向量}. 在这个空间里, 标准差是向量的长度, 协方差是内积, 相关系数是夹角的余弦, 而 ``用已知信息对未知量作最佳预测'' 就是向子空间作正交投影. 这一几何观点有两个直接的后续: 第~2~章把条件期望定义为正交投影; 第~5~章把 Itô 积分构造为一个保持长度的映射 (Itô 等距). 两者都依赖于本节证明的完备性.
+
+% ---------------------------------------------------------------------
+\subsection{\texorpdfstring{$L^p$}{Lp} 空间与 \texorpdfstring{$L^2$}{L2} 的内积}
+
+几乎必然相等的随机变量具有相同的期望 (定理~\ref{thm:expectation-properties} (4)), 在讨论矩和范数时无法区分. 因此我们把它们视为同一个元素.
+
+\begin{definition}[$L^p$ 空间]\label{def:Lp}
+设 $p\ge1$. 在满足 $\E\abs{X}^p<\infty$ 的随机变量全体上, 定义等价关系 $X\sim Y\iff X=Y$ $\as$, 其等价类全体记为 $L^p(\Omega,\mathcal{F},\P)$, 简记为 $L^p$. 在 $L^p$ 上定义 $\norm{X}_p=(\E\abs{X}^p)^{1/p}$.
+\end{definition}
+
+按照惯例, 我们仍把 $L^p$ 的元素称为随机变量, 并用其中任意一个代表元进行运算; 由于期望不依赖于零概率集上的取值, 加法、数乘、范数都与代表元的选取无关.
+
+\begin{proposition}\label{prop:Lp-normed}
+对 $p\ge1$, $(L^p,\norm{\cdot}_p)$ 是赋范线性空间.
+\end{proposition}
+
+\begin{proof}
+由 Minkowski 不等式~\ref{thm:minkowski}, $L^p$ 对加法封闭且三角不等式成立; 齐次性 $\norm{aX}_p=\abs{a}\norm{X}_p$ 是显然的; 最后, $\norm{X}_p=0$ 当且仅当 $\E\abs{X}^p=0$, 由推论~\ref{cor:nonneg-properties} (3), 当且仅当 $X=0$ $\as$, 即 $X$ 是 $L^p$ 中的零元.
+\end{proof}
+
+$p=2$ 的情形有额外的结构: 内积.
+
+\begin{proposition}[$L^2$ 的内积]\label{prop:L2-inner}
+对 $X,Y\in L^2$ 定义 $\ip{X,Y}=\E[XY]$. 则
+\begin{enumerate}
+\item $\ip{\cdot,\cdot}$ 是 $L^2$ 上的内积 (对称、双线性、正定), 且 $\ip{X,X}=\norm{X}_2^2$;
+\item Cauchy-Schwarz 不等式: $\abs{\ip{X,Y}}\le\norm{X}_2\norm{Y}_2$, 等号成立当且仅当 $X,Y$ 线性相关 (即存在不全为零的 $a,b$ 使 $aX+bY=0$ $\as$);
+\item 平行四边形法则: $\norm{X+Y}_2^2+\norm{X-Y}_2^2=2\norm{X}_2^2+2\norm{Y}_2^2$;
+\item 勾股定理: 若 $\ip{X,Y}=0$ (称 $X$ 与 $Y$ \textbf{正交}, 记作 $X\perp Y$), 则 $\norm{X+Y}_2^2=\norm{X}_2^2+\norm{Y}_2^2$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+以下记 $\norm{\cdot}=\norm{\cdot}_2$. (1) 由 H\"older 不等式~\ref{thm:holder}, $XY\in L^1$, 内积有定义. 对称与双线性来自期望的线性; 正定性即命题~\ref{prop:Lp-normed} 中 $\norm{X}=0\iff X=0$.
+
+(2) 若 $\norm{Y}=0$, 则 $Y=0$, 两边为 $0$, 且 $X,Y$ 线性相关. 设 $\norm{Y}>0$. 对任意 $t\in\R$, 由双线性,
+\[
+0\le\norm{X-tY}^2=\norm{X}^2-2t\ip{X,Y}+t^2\norm{Y}^2.
+\]
+这个关于 $t$ 的二次函数非负, 判别式 $4\ip{X,Y}^2-4\norm{X}^2\norm{Y}^2\le0$, 即得不等式. 等号成立当且仅当判别式为零, 当且仅当二次函数有实根 $t_0$, 即 $\norm{X-t_0Y}=0$, $X=t_0Y$ $\as$; 而当 $\norm{Y}>0$ 时, 线性相关恰好意味着 $X$ 是 $Y$ 的倍数.
+
+(3)(4) 展开 $\norm{X\pm Y}^2=\norm{X}^2\pm2\ip{X,Y}+\norm{Y}^2$, 两式相加得 (3); 当 $\ip{X,Y}=0$ 时得 (4).
+\end{proof}
+
+现在可以用几何语言重新解读 1.3 节的数字特征. 记中心化的随机变量为 $\tilde X=X-\E X$. 则
+\[
+\norm{\tilde X}_2^2=\Var(X),\qquad \ip{\tilde X,\tilde Y}=\Cov(X,Y),\qquad \E[X]=\ip{X,1}.
+\]
+标准差是中心化向量的长度, 协方差是中心化向量的内积. 于是自然地定义夹角.
+
+\begin{definition}[相关系数]\label{def:correlation}
+设 $X,Y\in L^2$ 且 $\Var(X),\Var(Y)>0$. 称
+\[
+\rho(X,Y)=\frac{\Cov(X,Y)}{\sqrt{\Var(X)}\sqrt{\Var(Y)}}=\frac{\ip{\tilde X,\tilde Y}}{\norm{\tilde X}_2\norm{\tilde Y}_2}
+\]
+为 $X$ 与 $Y$ 的\textbf{相关系数}. 它是 $\tilde X$ 与 $\tilde Y$ 夹角 $\theta$ 的余弦. $\rho=0$ 时称 $X$ 与 $Y$ \textbf{不相关}, 即 $\tilde X\perp\tilde Y$.
+\end{definition}
+
+\begin{proposition}\label{prop:correlation}
+$\abs{\rho(X,Y)}\le1$; 且 $\abs{\rho(X,Y)}=1$ 当且仅当存在常数 $a\ne0$, $b$ 使 $Y=aX+b$ $\as$, 此时 $a$ 与 $\rho$ 同号.
+\end{proposition}
+
+\begin{proof}
+对 $\tilde X,\tilde Y$ 用 Cauchy-Schwarz 不等式 (命题~\ref{prop:L2-inner} (2)) 得 $\abs{\rho}\le1$. 等号成立当且仅当 $\tilde X,\tilde Y$ 线性相关; 由于二者都非零, 这等价于 $\tilde Y=a\tilde X$ ($a\ne0$), 即 $Y=aX+(\E Y-a\E X)$. 此时 $\Cov(X,Y)=a\Var(X)$ 与 $a$ 同号.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.2]
+  \coordinate (O) at (0,0);
+  \coordinate (X) at (3.2,0.4);
+  \coordinate (Y) at (1.6,2.2);
+  \draw[->,SABlue,very thick] (O) -- (X) node[below right,font=\small] {$\tilde X=X-\E X$};
+  \draw[->,SARed,very thick] (O) -- (Y) node[above,font=\small] {$\tilde Y=Y-\E Y$};
+  \draw[SADark] ($(O)!0.55cm!(X)$) arc[start angle={atan(0.4/3.2)}, end angle={atan(2.2/1.6)}, radius=0.55cm];
+  \node[font=\small] at (0.62,0.42) {$\theta$};
+  \node[font=\small,align=left,anchor=west] at (5.6,1.8) {长度: $\norm{\tilde X}_2=\sigma_X$};
+  \node[font=\small,align=left,anchor=west] at (5.6,1.1) {内积: $\ip{\tilde X,\tilde Y}=\Cov(X,Y)$};
+  \node[font=\small,align=left,anchor=west] at (5.6,0.4) {夹角: $\cos\theta=\rho(X,Y)$};
+\end{tikzpicture}
+\caption{$L^2$ 中的几何: 中心化后, 标准差是长度, 协方差是内积, 相关系数是夹角余弦. 不相关即正交; 方差可加性 $\Var(X+Y)=\Var(X)+\Var(Y)$ ($\rho=0$ 时) 就是勾股定理}
+\label{fig:correlation-angle}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{完备性}
+
+有限维欧氏空间的一个基本性质是 Cauchy 序列必收敛. 无穷维空间未必如此 (例如区间上的连续函数全体在 $L^2$ 范数下不完备). $L^p$ 空间的完备性是 Lebesgue 积分理论最重要的成果之一; 在随机分析中, 它保证了 ``用简单过程逼近, 再取极限'' 的构造方法 (例如 Itô 积分) 能够得到一个真正存在的对象.
+
+\begin{definition}[Cauchy 序列]
+称 $\{X_n\}\subseteq L^p$ 为 \textbf{Cauchy 序列}, 如果对任意 $\varepsilon>0$, 存在 $N$, 使得 $m,n\ge N$ 时 $\norm{X_n-X_m}_p<\varepsilon$.
+\end{definition}
+
+\begin{theorem}[Riesz-Fischer 定理]\label{thm:riesz-fischer}
+设 $p\ge1$. 若 $\{X_n\}$ 是 $L^p$ 中的 Cauchy 序列, 则存在 $X\in L^p$ 使 $X_n\xrightarrow{L^p}X$, 并且存在子列 $X_{n_k}\xrightarrow{\as}X$. 即 $L^p$ 是完备的赋范线性空间 (Banach 空间); 特别地, $L^2$ 是 Hilbert 空间.
+\end{theorem}
+
+\begin{proof}
+\emph{第一步: 选取快速收敛的子列.} 由 Cauchy 性, 可取 $n_1<n_2<\cdots$, 使得 $\norm{X_n-X_m}_p\le2^{-k}$ 对一切 $m,n\ge n_k$ 成立. 特别地 $\norm{X_{n_{k+1}}-X_{n_k}}_p\le2^{-k}$.
+
+\emph{第二步: 子列几乎必然收敛.} 令 $G_K=\sum_{k=1}^K\abs{X_{n_{k+1}}-X_{n_k}}$, $G=\lim_KG_K=\sum_{k=1}^\infty\abs{X_{n_{k+1}}-X_{n_k}}$. 由 Minkowski 不等式~\ref{thm:minkowski},
+$\norm{G_K}_p\le\sum_{k=1}^K\norm{X_{n_{k+1}}-X_{n_k}}_p\le\sum_{k\ge1}2^{-k}=1$. 由于 $G_K^p\uparrow G^p$, 由单调收敛定理~\ref{thm:mct}, $\E[G^p]=\lim_K\E[G_K^p]\le1$, 从而由推论~\ref{cor:nonneg-properties} (4), $G<\infty$ $\as$ 在 $\{G<\infty\}$ 上, 级数
+\[
+X_{n_1}+\sum_{k=1}^\infty\big(X_{n_{k+1}}-X_{n_k}\big)
+\]
+绝对收敛, 而其部分和恰为 $X_{n_{K+1}}$. 所以 $X_{n_k}$ 几乎必然收敛. 令 $X=\lim_kX_{n_k}$ (在极限不存在的零概率集上令 $X=0$), 由命题~\ref{prop:rv-operations} (3), $X$ 是随机变量.
+
+\emph{第三步: $L^p$ 收敛.} 给定 $\varepsilon>0$, 取 $N$ 使 $m,n\ge N$ 时 $\norm{X_n-X_m}_p<\varepsilon$. 固定 $n\ge N$, 对 $\abs{X_n-X_{n_k}}^p\to\abs{X_n-X}^p$ ($k\to\infty$, $\as$) 使用 Fatou 引理~\ref{thm:fatou},
+\[
+\E\abs{X_n-X}^p\le\liminf_{k\to\infty}\E\abs{X_n-X_{n_k}}^p\le\varepsilon^p,
+\]
+这里用到当 $k$ 充分大时 $n_k\ge N$. 于是 $X_n-X\in L^p$, 从而 $X=X_n-(X_n-X)\in L^p$, 且 $\norm{X_n-X}_p\le\varepsilon$ 对一切 $n\ge N$ 成立.
+\end{proof}
+
+\begin{proposition}[内积的连续性]\label{prop:inner-continuity}
+若 $X_n\xrightarrow{L^2}X$, $Y_n\xrightarrow{L^2}Y$, 则 $\ip{X_n,Y_n}\to\ip{X,Y}$. 特别地, $\E X_n\to\E X$, $\Var(X_n)\to\Var(X)$, $\Cov(X_n,Y_n)\to\Cov(X,Y)$.
+\end{proposition}
+
+\begin{proof}
+由三角不等式 $\norm{Y_n}_2\le\norm{Y}_2+\norm{Y_n-Y}_2$, 序列 $\norm{Y_n}_2$ 有界. 由 Cauchy-Schwarz 不等式,
+\begin{align*}
+\abs{\ip{X_n,Y_n}-\ip{X,Y}}&\le\abs{\ip{X_n-X,Y_n}}+\abs{\ip{X,Y_n-Y}}\\
+&\le\norm{X_n-X}_2\norm{Y_n}_2+\norm{X}_2\norm{Y_n-Y}_2\to0.
+\end{align*}
+取 $Y_n=Y=1$ 得 $\E X_n\to\E X$; 再由 $\Var(X_n)=\ip{X_n,X_n}-(\E X_n)^2$ 及协方差的类似表达式得其余结论.
+\end{proof}
+
+\begin{example}[独立随机变量级数]\label{ex:L2-series}
+设 $\xi_1,\xi_2,\dots$ 独立, $\E\xi_k=0$, $\Var(\xi_k)=1$, 实数列 $\{a_k\}$ 满足 $\sum_ka_k^2<\infty$. 令 $S_n=\sum_{k=1}^na_k\xi_k$. 由推论~\ref{cor:indep-consequences} (2), $\xi_k$ 两两正交, 于是对 $m<n$,
+\[
+\norm{S_n-S_m}_2^2=\Big\|\sum_{k=m+1}^na_k\xi_k\Big\|_2^2=\sum_{k=m+1}^na_k^2\to0\quad(m,n\to\infty).
+\]
+所以 $\{S_n\}$ 是 $L^2$ 中的 Cauchy 序列. 由 Riesz-Fischer 定理~\ref{thm:riesz-fischer}, 级数 $S=\sum_{k=1}^\infty a_k\xi_k$ 在 $L^2$ 中收敛, 且由内积的连续性, $\E S=0$, $\Var(S)=\sum_ka_k^2$. 例如 $\sum_k\frac{\xi_k}{k}$ 收敛, 而 $\xi_k$ 取 $\pm1$ 时这是 ``随机符号的调和级数''. 第~4~章将用这种级数 (取 $\xi_k$ 为标准正态变量) 构造布朗运动.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{正交投影}
+
+设我们观察到了随机变量 $Y$, 想用 $Y$ 的某个函数去预测未知的 $X$, 并以均方误差 $\E[(X-\hat X)^2]$ 衡量预测的好坏. 若只允许常数预测, 最佳选择是什么? 若允许 $Y$ 的线性函数呢? 这些问题都是 ``在 $L^2$ 的某个子空间中, 求离 $X$ 最近的点''.
+
+\begin{definition}[闭子空间]
+$L^2$ 的线性子空间 $\mathcal{K}$ 称为\textbf{闭}的, 如果它对 $L^2$ 极限封闭: 若 $X_n\in\mathcal{K}$ 且 $X_n\xrightarrow{L^2}X$, 则 $X\in\mathcal{K}$.
+\end{definition}
+
+\begin{example}\label{ex:closed-subspaces}
+\begin{enumerate}
+\item 有限维子空间总是闭的, 例如常数全体 $\{c\cdot1: c\in\R\}$, 以及 $\mathrm{span}\{1,Y_1,\dots,Y_n\}$ (这是线性代数中的事实: 有限维赋范空间完备).
+\item \textbf{子 $\sigma$-代数对应的子空间.} 设 $\mathcal{G}\subseteq\mathcal{F}$ 是子 $\sigma$-代数. 令 $L^2(\mathcal{G})$ 为含有 $\mathcal{G}$-可测代表元的 $L^2$ 元素全体, 即 ``只依赖于信息 $\mathcal{G}$'' 的平方可积随机变量. 它显然是线性子空间. 它是闭的: 若 $X_n\in L^2(\mathcal{G})$ ($X_n$ 取为 $\mathcal{G}$-可测的代表元) 且 $X_n\xrightarrow{L^2}X$, 由 Riesz-Fischer 定理~\ref{thm:riesz-fischer}, 存在子列 $X_{n_k}\to X$ $\as$ 令 $X'=\limsup_kX_{n_k}$ (在其不是有限实数处令 $X'=0$), 由命题~\ref{prop:rv-operations} (3) (在可测空间 $(\Omega,\mathcal{G})$ 上使用), $X'$ 是 $\mathcal{G}$-可测的, 且 $X'=X$ $\as$ 所以 $X\in L^2(\mathcal{G})$. 这个子空间将是第~2~章的主角.
+\end{enumerate}
+\end{example}
+
+\begin{theorem}[正交投影定理]\label{thm:projection}
+设 $\mathcal{K}$ 是 $L^2$ 的闭子空间, $X\in L^2$. 则存在唯一的 $Y\in\mathcal{K}$, 使得
+\[
+\norm{X-Y}_2=\inf_{W\in\mathcal{K}}\norm{X-W}_2.
+\]
+并且 $Y$ 由以下性质刻画: $Y\in\mathcal{K}$, 且 $X-Y\perp\mathcal{K}$ (即对一切 $W\in\mathcal{K}$, $\ip{X-Y,W}=0$). 称 $Y$ 为 $X$ 在 $\mathcal{K}$ 上的\textbf{正交投影}, 记作 $\Pi_{\mathcal{K}}X$.
+\end{theorem}
+
+\begin{proof}
+记 $\norm{\cdot}=\norm{\cdot}_2$, $d=\inf_{W\in\mathcal{K}}\norm{X-W}$.
+
+\emph{存在性.} 取 $Y_n\in\mathcal{K}$ 使 $\norm{X-Y_n}^2<d^2+\frac{1}{n}$. 对 $X-Y_n$ 与 $X-Y_m$ 用平行四边形法则 (命题~\ref{prop:L2-inner} (3)),
+\[
+\norm{Y_m-Y_n}^2=2\norm{X-Y_n}^2+2\norm{X-Y_m}^2-4\Big\|X-\frac{Y_n+Y_m}{2}\Big\|^2.
+\]
+由于 $\mathcal{K}$ 是线性子空间, $\frac{Y_n+Y_m}{2}\in\mathcal{K}$, 所以最后一项中的范数平方 $\ge d^2$. 于是
+\[
+\norm{Y_m-Y_n}^2\le2\Big(d^2+\frac{1}{n}\Big)+2\Big(d^2+\frac{1}{m}\Big)-4d^2=\frac{2}{n}+\frac{2}{m}.
+\]
+因此 $\{Y_n\}$ 是 Cauchy 序列. 由 Riesz-Fischer 定理~\ref{thm:riesz-fischer}, $Y_n\xrightarrow{L^2}Y$; 由 $\mathcal{K}$ 闭, $Y\in\mathcal{K}$. 由范数的连续性 ($\abs{\norm{A}-\norm{B}}\le\norm{A-B}$), $\norm{X-Y}=\lim_n\norm{X-Y_n}=d$.
+
+\emph{唯一性.} 若 $Y,Y'\in\mathcal{K}$ 都满足 $\norm{X-Y}=\norm{X-Y'}=d$, 与上面同样用平行四边形法则, $\norm{Y-Y'}^2\le2d^2+2d^2-4d^2=0$, 故 $Y=Y'$.
+
+\emph{刻画: 最近点 $\Rightarrow$ 正交.} 设 $Y$ 是最近点, $W\in\mathcal{K}$. 对 $t\in\R$, $Y+tW\in\mathcal{K}$, 故
+\[
+f(t)=\norm{X-Y-tW}^2=d^2-2t\ip{X-Y,W}+t^2\norm{W}^2\ge d^2=f(0).
+\]
+二次函数 $f$ 在 $t=0$ 取最小值, 故 $f'(0)=-2\ip{X-Y,W}=0$.
+
+\emph{刻画: 正交 $\Rightarrow$ 最近点.} 设 $Y\in\mathcal{K}$ 且 $X-Y\perp\mathcal{K}$. 对任意 $W\in\mathcal{K}$, $Y-W\in\mathcal{K}$, 由勾股定理 (命题~\ref{prop:L2-inner} (4)),
+\[
+\norm{X-W}^2=\norm{(X-Y)+(Y-W)}^2=\norm{X-Y}^2+\norm{Y-W}^2\ge\norm{X-Y}^2.\qedhere
+\]
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=1.1]
+  \fill[SABlue!10] (-0.5,-0.6) -- (5.2,-0.6) -- (6.6,1.4) -- (0.9,1.4) -- cycle;
+  \draw[SABlue!60] (-0.5,-0.6) -- (5.2,-0.6) -- (6.6,1.4) -- (0.9,1.4) -- cycle;
+  \node[SABlue!80!black,font=\small] at (5.9,0.3) {$\mathcal{K}$};
+  \coordinate (O) at (0.6,0);
+  \coordinate (Y) at (3.6,0.5);
+  \coordinate (X) at (3.6,3.1);
+  \coordinate (W) at (1.9,0.9);
+  \fill (O) circle (1.2pt) node[below left,font=\small] {$0$};
+  \draw[->,SADark,very thick] (O) -- (X) node[above,font=\small] {$X$};
+  \draw[->,SABlue,very thick] (O) -- (Y) node[below right,font=\small] {$\Pi_{\mathcal{K}}X$};
+  \draw[SARed,very thick,dashed] (Y) -- (X) node[midway,right,font=\small] {$X-\Pi_{\mathcal{K}}X\perp\mathcal{K}$};
+  \draw[SARed] ($(Y)+(0,0.22)$) -- ($(Y)+(-0.24,0.18)$) -- ($(Y)+(-0.24,-0.04)$);
+  \fill[SAGreenText] (W) circle (1.4pt) node[below,font=\small] {$W$};
+  \draw[SAGreenText,dashed] (W) -- (X);
+  \node[SAGreenText,font=\small,anchor=east] at (2.6,2.2) {$\norm{X-W}_2$ 更大};
+\end{tikzpicture}
+\caption{正交投影: 子空间 $\mathcal{K}$ 中离 $X$ 最近的点 $\Pi_{\mathcal{K}}X$, 恰是使残差 $X-\Pi_{\mathcal{K}}X$ 与 $\mathcal{K}$ 垂直的那个点}
+\label{fig:projection}
+\end{figure}
+
+\begin{proposition}[投影算子的性质]\label{prop:projection-properties}
+设 $\mathcal{K},\mathcal{K}_1\subseteq\mathcal{K}_2$ 是 $L^2$ 的闭子空间, $\Pi=\Pi_{\mathcal{K}}$, $X,Z\in L^2$, $a,b\in\R$. 则
+\begin{enumerate}
+\item 线性: $\Pi(aX+bZ)=a\Pi X+b\Pi Z$;
+\item $\Pi X=X$ 当且仅当 $X\in\mathcal{K}$; 特别地 $\Pi(\Pi X)=\Pi X$;
+\item 勾股分解: $\norm{X}_2^2=\norm{\Pi X}_2^2+\norm{X-\Pi X}_2^2$, 从而 $\norm{\Pi X}_2\le\norm{X}_2$;
+\item 自伴性: $\ip{\Pi X,Z}=\ip{X,\Pi Z}$;
+\item 塔性质: $\Pi_{\mathcal{K}_1}\big(\Pi_{\mathcal{K}_2}X\big)=\Pi_{\mathcal{K}_1}X$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+各条都利用定理~\ref{thm:projection} 中的刻画: 要证 $Y=\Pi X$, 只需验证 $Y\in\mathcal{K}$ 且 $X-Y\perp\mathcal{K}$.
+
+(1) $a\Pi X+b\Pi Z\in\mathcal{K}$, 且 $(aX+bZ)-(a\Pi X+b\Pi Z)=a(X-\Pi X)+b(Z-\Pi Z)$ 与 $\mathcal{K}$ 中每个元素正交.
+
+(2) 若 $X\in\mathcal{K}$, 则 $Y=X$ 满足刻画 ($X-Y=0$). 反之 $\Pi X\in\mathcal{K}$. 由于 $\Pi X\in\mathcal{K}$, 再用一次得 $\Pi(\Pi X)=\Pi X$.
+
+(3) $X=\Pi X+(X-\Pi X)$, 两项正交, 由勾股定理即得.
+
+(4) 由于 $\Pi X\in\mathcal{K}$ 而 $Z-\Pi Z\perp\mathcal{K}$, $\ip{\Pi X,Z}=\ip{\Pi X,\Pi Z}+\ip{\Pi X,Z-\Pi Z}=\ip{\Pi X,\Pi Z}$. 同理 $\ip{X,\Pi Z}=\ip{\Pi X,\Pi Z}$.
+
+(5) 记 $Y=\Pi_{\mathcal{K}_1}(\Pi_{\mathcal{K}_2}X)\in\mathcal{K}_1$. 写
+$X-Y=(X-\Pi_{\mathcal{K}_2}X)+(\Pi_{\mathcal{K}_2}X-Y)$. 对 $W\in\mathcal{K}_1$: 由于 $W\in\mathcal{K}_2$, 第一项与 $W$ 正交; 由 $Y$ 的定义, 第二项与 $\mathcal{K}_1$ 正交, 也与 $W$ 正交. 所以 $X-Y\perp\mathcal{K}_1$, $Y=\Pi_{\mathcal{K}_1}X$.
+\end{proof}
+
+\begin{intuition}
+(5) 说: 先投影到大子空间, 再投影到小子空间, 等于直接投影到小子空间. 把子空间理解为 ``信息'', 这就是说 ``先用较多信息作预测, 再用较少信息对这个预测作预测, 结果等于直接用较少信息作预测''. 第~2~章中, 它将成为条件期望的塔性质 $\E[\E[X\,|\,\mathcal{G}]\,|\,\mathcal{H}]=\E[X\,|\,\mathcal{H}]$ ($\mathcal{H}\subseteq\mathcal{G}$).
+\end{intuition}
+
+\begin{example}[最佳常数预测]\label{ex:best-constant}
+取 $\mathcal{K}=\{c\cdot1: c\in\R\}$. 由于 $\ip{X-\E X,c}=c\,\E[X-\E X]=0$, 由投影的刻画, $\Pi_{\mathcal{K}}X=\E X$. 所以 $\min_c\E[(X-c)^2]=\E[(X-\E X)^2]=\Var(X)$: 期望是均方意义下最好的常数预测, 方差是相应的最小误差.
+\end{example}
+
+\begin{example}[最佳线性预测]\label{ex:best-linear}
+设 $X,Y\in L^2$, $\Var(Y)>0$. 求 $a,b$ 使 $\E[(X-a-bY)^2]$ 最小, 即求 $X$ 在 $\mathcal{K}=\mathrm{span}\{1,Y\}$ 上的投影. 由刻画, 只需 $X-a-bY$ 与 $1$ 和 $Y$ 都正交:
+\[
+\E[X-a-bY]=0,\qquad \E[(X-a-bY)Y]=0.
+\]
+由第一式 $a=\E X-b\E Y$, 代入第二式得 $\E[(\tilde X-b\tilde Y)Y]=\Cov(X,Y)-b\Var(Y)=0$, 所以
+\[
+b=\frac{\Cov(X,Y)}{\Var(Y)},\qquad \Pi_{\mathcal{K}}X=\E X+\frac{\Cov(X,Y)}{\Var(Y)}(Y-\E Y).
+\]
+由勾股分解, 最小均方误差为
+\[
+\E\big[(X-\Pi_{\mathcal{K}}X)^2\big]=\Var(X)-b^2\Var(Y)=\Var(X)\big(1-\rho(X,Y)^2\big).
+\]
+所以 $\rho^2$ 是 $X$ 的方差中能被 $Y$ \emph{线性}解释的比例. 若 $(X,Y)$ 是正态随机向量, 例~\ref{ex:gaussian-regression} 表明残差 $X-\Pi_{\mathcal{K}}X$ 与 $Y$ 独立, 这时线性预测已经用尽了 $Y$ 中关于 $X$ 的全部信息. 在非正态情形下, 线性预测未必能提取全部信息. 若 $X\sim N(0,1)$, $Y=X^2$, 则 $\rho(X,Y)=0$ (例~\ref{ex:uncorrelated-dependent}), 用 $X$ 对 $Y$ 作最佳线性预测只能得到常数 $\E Y=1$, 而 $Y$ 其实是 $X$ 的函数, 可以被完全预测. 要利用 $X$ 的全部信息, 应当在更大的闭子空间 $L^2(\sigma(X))$ (例~\ref{ex:closed-subspaces} (2)) 上投影, 这正是第~2~章条件期望 $\E[Y\,|\,X]$ 的定义.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{正态随机变量的 \texorpdfstring{$L^2$}{L2} 极限}
+
+最后证明一个对第~5~章至关重要的基本事实, 即正态性在 $L^2$ 极限下保持. Wiener 积分 $\int_0^tf(s)\dd B_s$ 定义为黎曼和 $\sum_if(t_i)(B_{t_{i+1}}-B_{t_i})$ 的 $L^2$ 极限, 每个黎曼和都是正态的, 由下面的定理, 极限也是正态的.
+
+\begin{theorem}[正态性在 $L^2$ 极限下保持]\label{thm:gaussian-L2-limit}
+设 $X_n\sim N(\mu_n,\sigma_n^2)$, 且 $X_n\xrightarrow{L^2}X$. 则极限 $\mu=\lim_n\mu_n$ 与 $\sigma^2=\lim_n\sigma_n^2$ 存在, 且 $X\sim N(\mu,\sigma^2)$.
+\end{theorem}
+
+\begin{proof}
+由内积的连续性 (命题~\ref{prop:inner-continuity}), $\mu_n=\E X_n\to\E X$, $\sigma_n^2=\Var(X_n)\to\Var(X)$. 记 $\mu=\E X$, $\sigma^2=\Var(X)$.
+
+对实数 $a,b$, $\abs{e^{\mathrm{i}a}-e^{\mathrm{i}b}}=\Big|\int_b^a\mathrm{i}e^{\mathrm{i}s}\dd s\Big|\le\abs{a-b}$. 于是由引理~\ref{lem:complex-abs} 与 Lyapunov 不等式~\ref{cor:lyapunov}, 对每个 $t$,
+\[
+\abs{\varphi_{X_n}(t)-\varphi_X(t)}\le\E\abs{e^{\mathrm{i}tX_n}-e^{\mathrm{i}tX}}\le\abs{t}\,\E\abs{X_n-X}\le\abs{t}\,\norm{X_n-X}_2\to0.
+\]
+另一方面, 由 \eqref{eq:normal-cf},
+\[
+\varphi_{X_n}(t)=\exp\Big(\mathrm{i}\mu_nt-\frac{1}{2}\sigma_n^2t^2\Big)\to\exp\Big(\mathrm{i}\mu t-\frac{1}{2}\sigma^2t^2\Big).
+\]
+因此 $\varphi_X(t)=\exp(\mathrm{i}\mu t-\frac{1}{2}\sigma^2t^2)$, 由唯一性定理~\ref{thm:cf-uniqueness}, $X\sim N(\mu,\sigma^2)$.
+\end{proof}
+
+\begin{corollary}[高斯族的闭线性张成]\label{cor:gaussian-space}
+设 $\{G_i\}_{i\in I}$ 是一族随机变量, 其中任意有限个都构成正态随机向量. 令 $\mathcal{H}$ 为 $\{G_i\}_{i\in I}$ 的线性张成在 $L^2$ 中的闭包. 则 $\mathcal{H}$ 中任意有限个元素 $H_1,\dots,H_n$ 构成正态随机向量.
+\end{corollary}
+
+\begin{proof}
+$\mathcal{H}$ 是线性子空间 (线性子空间的闭包仍是线性子空间: 若 $A_k\to A$, $B_k\to B$, 则 $aA_k+bB_k\to aA+bB$). 对 $\rvec{a}\in\R^n$, $\sum_ja_jH_j\in\mathcal{H}$, 所以只需证明 $\mathcal{H}$ 中每个元素服从正态分布. 设 $H\in\mathcal{H}$, 则存在 $\{G_i\}$ 的有限线性组合 $L_k$ 使 $L_k\xrightarrow{L^2}H$. 每个 $L_k$ 是有限个 $G_i$ 组成的正态随机向量的线性组合, 由定义~\ref{def:gaussian-vector}, $L_k$ 服从正态分布. 由定理~\ref{thm:gaussian-L2-limit}, $H$ 服从正态分布.
+\end{proof}
+
+\begin{example}
+在例~\ref{ex:L2-series} 中取 $\xi_k=Z_k$ 为 $\iid$ 的 $N(0,1)$ 随机变量. 由定理~\ref{thm:gaussian-L2-limit}, $\sum_{k=1}^\infty a_kZ_k\sim N\big(0,\sum_ka_k^2\big)$. 更进一步, 由推论~\ref{cor:gaussian-space}, 对任意平方可和数列 $\{a_k\},\{b_k\}$, $\big(\sum_ka_kZ_k,\sum_kb_kZ_k\big)$ 是二维正态随机向量, 其协方差为 $\sum_ka_kb_k$ (内积的连续性). 第~4~章正是用这种方式, 取适当的函数列 $a_k=a_k(t)$, 构造出一族联合正态、协方差为 $s\wedge t$ 的随机变量 $\{B_t\}$, 即布朗运动.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection*{本章小结}
+\addcontentsline{toc}{subsection}{本章小结}
+
+本章建立了全书使用的概率论框架. 表~\ref{tab:ch1-summary} 列出了本章的主要工具及其在后续各章中的作用.
+
+\begin{center}
+\captionof{table}{第~1~章的主要工具及其后续应用}
+\label{tab:ch1-summary}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\raggedright\arraybackslash}p{0.54\textwidth}}
+\toprule
+本章工具 & 后续应用 \\
+\midrule
+$\sigma$-代数、$\sigma(X)$、独立性 & 信息流 $\{\mathcal{F}_t\}$、适应过程、独立增量 (第~2、4~章) \\
+$\pi$-$\lambda$ 定理 & 验证条件期望、马尔可夫性对整个 $\sigma$-代数成立 (第~2~章) \\
+Borel-Cantelli 引理、0-1 律 & 布朗运动轨道性质、重对数律 (第~4~章) \\
+MCT、Fatou、DCT & 条件期望的极限定理、随机积分的构造 (第~2、5~章) \\
+一致可积与 Vitali 定理 & 鞅收敛定理、可选停时定理 (第~3~章) \\
+特征函数、多元正态分布 & 布朗运动作为高斯过程、Girsanov 定理 (第~4、5~章) \\
+$L^2$ 完备性与正交投影 & 条件期望的定义 (第~2~章)、Itô 等距与 Itô 积分 (第~5~章) \\
+\bottomrule
+\end{tabular}
+\end{center}

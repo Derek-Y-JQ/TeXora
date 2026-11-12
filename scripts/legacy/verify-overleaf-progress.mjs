@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+export default async function({evalJs,click,sleep,shot}){
+ const wait=async expr=>{for(let i=0;i<100;i++){if(await evalJs(expr))return;await sleep(30);}throw Error('Timeout '+expr);};
+ await wait('!!window.__texora?.api');
+ await evalJs(`(()=>{const c=window.__texora;c.state.settings.files.autoSave=false;c.state.settings.build.livePreview=false;c.app.openProject=async()=>{window.__opened=(window.__opened||0)+1;};c.api={...c.api,overleaf:{binding:async()=>({ok:true,binding:null}),projects:async()=>({ok:true,projects:[{id:'123456789012345678901234',name:'下载进度测试',access:'owner'}]}),onLoadProgress:cb=>{window.__progressCb=cb;return()=>{if(window.__progressCb===cb){window.__progressCb=null;window.__unsubscribed=(window.__unsubscribed||0)+1;}};},load:async(id,requestId)=>{window.__loadId=requestId;return new Promise(resolve=>{window.__finishLoad=resolve;});}}};return true;})()`);
+ await click('#overleafBtn');await wait('!!document.querySelector("[data-load]")');await click('[data-load]');await wait('!!window.__loadId');
+ const event=async obj=>{await evalJs(`window.__progressCb({...${JSON.stringify(obj)},requestId:window.__loadId});true`);};
+ await event({phase:'waiting',receivedBytes:0,totalBytes:null,speedBytesPerSecond:0,elapsedSeconds:7});
+ assert.equal(await evalJs('document.querySelector("[data-transfer-bar]").hasAttribute("value")'),false);
+ assert.ok(await evalJs('document.querySelector("[data-transfer-stage]").textContent.includes("等待")'));
+ await evalJs('window.__progressCb({requestId:"other-request",phase:"downloading",receivedBytes:999,totalBytes:999});true');
+ assert.equal(await evalJs('document.querySelector("[data-transfer-size]").textContent'),'0 B');
+ await event({phase:'downloading',receivedBytes:4*1024*1024,totalBytes:8*1024*1024,speedBytesPerSecond:1024*1024,elapsedSeconds:8});
+ assert.equal(await evalJs('document.querySelector("[data-transfer-bar]").value'),50);
+ assert.equal(await evalJs('document.querySelector("[data-transfer-percent]").textContent'),'50.0%');
+ assert.equal(await evalJs('document.querySelector("[data-transfer-speed]").textContent'),'1.0 MB/s');
+ assert.equal(await evalJs('document.querySelector("[data-transfer-size]").textContent'),'4.0 MB / 8.0 MB');
+ await shot('.capture/overleaf-progress/known-size.png');
+ await event({phase:'downloading',receivedBytes:5*1024*1024,totalBytes:null,speedBytesPerSecond:0,elapsedSeconds:12});
+ assert.equal(await evalJs('document.querySelector("[data-transfer-bar]").hasAttribute("value")'),false);
+ assert.equal(await evalJs('document.querySelector("[data-transfer-speed]").textContent'),'0 B/s');
+ assert.equal(await evalJs('document.querySelector("[data-transfer-percent]").textContent'),'总大小未知');
+ await event({phase:'extracting',filesCompleted:3,totalFiles:10});
+ assert.equal(await evalJs('document.querySelector("[data-transfer-bar]").value'),30);
+ assert.equal(await evalJs('document.querySelector("[data-transfer-percent]").textContent'),'3 / 10 文件');
+ await evalJs('window.__finishLoad({ok:false,error:"模拟网络中断，请重试"});true');
+ await wait('document.querySelector("[data-transfer-bar]").hidden');
+ assert.ok(await evalJs('document.querySelector("[data-transfer-elapsed]").textContent.includes("模拟网络中断")'));
+ const old=await evalJs('window.__loadId');await click('[data-load]');await wait(`window.__loadId!==${JSON.stringify(old)}`);
+ await evalJs(`window.__progressCb({requestId:${JSON.stringify(old)},phase:'downloading',receivedBytes:999,totalBytes:999});true`);
+ assert.equal(await evalJs('document.querySelector("[data-transfer-size]").textContent'),'0 B');
+ await click('.modal-close');assert.equal(await evalJs('window.__progressCb'),null);
+ await evalJs('window.__finishLoad({ok:true,root:"fixture",cached:false});true');await sleep(100);
+ assert.equal(await evalJs('window.__opened||0'),0,'closing progress must not switch the project after a late completion');
+ await click('#overleafBtn');await wait('!!document.querySelector("[data-load]")');
+ assert.equal(await evalJs('document.querySelector("[data-transfer]").hidden'),true);
+ console.log('PASS UI progress: known percent/bytes/speed, unknown size, stalled speed, extraction counts, errors, retry/request isolation, listener cleanup and background completion.');
+}

@@ -1,0 +1,1306 @@
+% =====================================================================
+%  第 3 章  鞅
+% =====================================================================
+\chapter{鞅}
+\label{ch:3}
+
+``鞅'' (martingale) 一词原指 18 世纪法国流行的一种赌博策略: 输了就加倍下注, 直到赢一次为止. 数学上的鞅刻画的是\emph{公平}的赌博, 无论过去发生了什么, 下一局的期望输赢都是零. 这个看似朴素的条件蕴含了很强的结论. 公平赌博中, 任何下注策略、任何 (合理的) 离场时机都无法带来期望收益 (3.1--3.2 节); 鞅的最大值可以用终值控制 (3.3 节); 有界的鞅必定收敛 (3.4 节). 这些结论构成了现代概率论最有力的工具箱. 在随机分析中, 布朗运动是连续时间鞅的原型, Itô 积分是鞅变换的连续版本, 而随机微积分的全部理论都建立在连续鞅之上 (3.5 节).
+
+本章 3.1--3.4 节讨论离散时间, 总在带流的概率空间 $(\Omega,\mathcal{F},\{\mathcal{F}_n\}_{n\ge0},\P)$ 上进行 (定义~\ref{def:filtration}), 记 $\mathcal{F}_\infty=\sigma\big(\bigcup_n\mathcal{F}_n\big)$. 对过程 $X$, 记增量 $\Delta X_n=X_n-X_{n-1}$ ($n\ge1$).
+
+% =====================================================================
+\section{鞅的定义与经典例子}
+\label{sec:3-1}
+
+% ---------------------------------------------------------------------
+\subsection{定义与基本性质}
+
+\begin{definition}[鞅、下鞅、上鞅]\label{def:martingale}
+设 $X=\{X_n\}_{n\ge0}$ 适应于 $\{\mathcal{F}_n\}$, 且每个 $X_n$ 可积. 若对一切 $n\ge0$,
+\begin{enumerate}
+\item $\E[X_{n+1}\,|\,\mathcal{F}_n]=X_n$, 称 $X$ 为\textbf{鞅};
+\item $\E[X_{n+1}\,|\,\mathcal{F}_n]\ge X_n$, 称 $X$ 为\textbf{下鞅};
+\item $\E[X_{n+1}\,|\,\mathcal{F}_n]\le X_n$, 称 $X$ 为\textbf{上鞅}.
+\end{enumerate}
+需要强调信息流时, 称 $X$ 为 $\{\mathcal{F}_n\}$-鞅.
+\end{definition}
+
+把 $X_n$ 想象成赌徒在第 $n$ 局后的财富: 鞅是公平赌博, 下鞅是有利的赌博, 上鞅是不利的赌博 (例如赌场里的轮盘赌对赌客是上鞅). 名称中的 ``上''、``下'' 与直觉相反, 它来自位势理论: 下鞅对应下调和函数. $X$ 是上鞅当且仅当 $-X$ 是下鞅, 所以关于下鞅的结论都可以平行地转换为上鞅的结论.
+
+\begin{proposition}\label{prop:martingale-basic}
+\begin{enumerate}
+\item $X$ 是鞅, 当且仅当对一切 $m\ge n$, $\E[X_m\,|\,\mathcal{F}_n]=X_n$; 下鞅 (上鞅) 的情形把等号换成 $\ge$ ($\le$).
+\item 鞅的期望不变: $\E X_n=\E X_0$; 下鞅的期望单调不减.
+\item 若 $X$ 是 $\{\mathcal{F}_n\}$-鞅, 则它也是关于自然信息流 $\{\mathcal{F}^X_n\}$ 的鞅.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 对 $m-n$ 归纳. 设 $\E[X_{m}\,|\,\mathcal{F}_n]=X_n$, 则由塔性质~\ref{thm:tower},
+$\E[X_{m+1}\,|\,\mathcal{F}_n]=\E\big[\E[X_{m+1}\,|\,\mathcal{F}_m]\,\big|\,\mathcal{F}_n\big]=\E[X_m\,|\,\mathcal{F}_n]=X_n$. 下鞅情形在第二个等号处换成 $\ge$, 并用条件期望的单调性.
+(2) 对 (1) 取期望并用全期望公式.
+(3) $\mathcal{F}^X_n\subseteq\mathcal{F}_n$ (因为 $X$ 适应), 由塔性质 $\E[X_{n+1}\,|\,\mathcal{F}^X_n]=\E\big[\E[X_{n+1}\,|\,\mathcal{F}_n]\,\big|\,\mathcal{F}^X_n\big]=\E[X_n\,|\,\mathcal{F}^X_n]=X_n$.
+\end{proof}
+
+\begin{proposition}[鞅的凸函数是下鞅]\label{prop:convex-submartingale}
+\begin{enumerate}
+\item 若 $X$ 是鞅, $\phi$ 是凸函数, 且每个 $\phi(X_n)$ 可积, 则 $\phi(X)$ 是下鞅.
+\item 若 $X$ 是下鞅, $\phi$ 是单调不减的凸函数, 且每个 $\phi(X_n)$ 可积, 则 $\phi(X)$ 是下鞅.
+\end{enumerate}
+特别地, 若 $X$ 是鞅, 则 $\abs{X}$、$X^+$ 以及 (当 $X_n\in L^p$ 时) $\abs{X}^p$ ($p\ge1$) 都是下鞅; 若 $X$ 是下鞅, 则 $X^+$ 与 $(X-a)^+$ 是下鞅.
+\end{proposition}
+
+\begin{proof}
+由条件 Jensen 不等式~\ref{thm:cjensen}, $\E[\phi(X_{n+1})\,|\,\mathcal{F}_n]\ge\phi(\E[X_{n+1}\,|\,\mathcal{F}_n])$. 在 (1) 中右端等于 $\phi(X_n)$; 在 (2) 中 $\E[X_{n+1}\,|\,\mathcal{F}_n]\ge X_n$, 由 $\phi$ 单调不减, 右端 $\ge\phi(X_n)$.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{经典例子}
+
+\begin{example}[独立随机变量的和与积]\label{ex:sum-martingales}
+设 $\xi_1,\xi_2,\dots$ 独立, $\mathcal{F}_0=\{\varnothing,\Omega\}$, $\mathcal{F}_n=\sigma(\xi_1,\dots,\xi_n)$, $S_0=0$, $S_n=\sum_{k=1}^n\xi_k$. 由于 $\xi_{n+1}$ 与 $\mathcal{F}_n$ 独立 (分组原理~\ref{cor:grouping}), 而 $S_n$ 是 $\mathcal{F}_n$-可测的, 由条件期望的基本性质~\ref{thm:ce-basic} 与提出已知因子~\ref{thm:take-out}, 以下三个过程都是鞅:
+\begin{enumerate}
+\item \textbf{和.} 若 $\E\xi_k=0$, 则 $S_n$ 是鞅: $\E[S_{n+1}\,|\,\mathcal{F}_n]=S_n+\E[\xi_{n+1}]=S_n$. 一般地, 若 $\E\xi_k=\mu_k$, 则 $S_n-\sum_{k\le n}\mu_k$ 是鞅; 若各 $\mu_k\ge0$, 则 $S_n$ 是下鞅.
+\item \textbf{平方补偿.} 若 $\E\xi_k=0$, $\Var(\xi_k)=\sigma_k^2<\infty$, 则 $S_n^2-\sum_{k\le n}\sigma_k^2$ 是鞅:
+\[
+\E[S_{n+1}^2\,|\,\mathcal{F}_n]=S_n^2+2S_n\E[\xi_{n+1}]+\E[\xi_{n+1}^2]=S_n^2+\sigma_{n+1}^2.
+\]
+\item \textbf{指数鞅.} 若 $\xi_k$ 同分布, $\varphi(\theta)=\E[e^{\theta\xi_1}]<\infty$, 则 $Z_n=e^{\theta S_n}/\varphi(\theta)^n$ 是鞅:
+$\E[Z_{n+1}\,|\,\mathcal{F}_n]=Z_n\,\E[e^{\theta\xi_{n+1}}]/\varphi(\theta)=Z_n$. 更一般地, 若 $Y_k\ge0$ 独立且 $\E Y_k=1$, 则乘积 $\prod_{k\le n}Y_k$ 是鞅.
+\end{enumerate}
+第~4~章将看到, 对布朗运动 $B_t$, 三个对应的鞅分别是 $B_t$、$B_t^2-t$ 与 $e^{\theta B_t-\theta^2t/2}$.
+\end{example}
+
+\begin{example}[Doob 鞅]\label{ex:doob-martingale}
+设 $X\in L^1$, 令 $M_n=\E[X\,|\,\mathcal{F}_n]$. 由塔性质, $\E[M_{n+1}\,|\,\mathcal{F}_n]=\E\big[\E[X\,|\,\mathcal{F}_{n+1}]\,\big|\,\mathcal{F}_n\big]=M_n$, 所以 $M$ 是鞅. $M_n$ 是在时刻 $n$ 对 $X$ 的最佳预测, 随着信息增加不断修正. 3.4 节将证明, 每个一致可积鞅都是这种形式, 并且 $M_n\to\E[X\,|\,\mathcal{F}_\infty]$.
+\end{example}
+
+\begin{example}[折现资产价格]\label{ex:binomial-model}
+在二叉树模型中, 股票价格每期以因子 $u$ 或 $d$ 变化 ($0<d<1+r<u$, $r$ 为无风险利率): $S_{n+1}=S_n\eta_{n+1}$, 其中 $\eta_1,\eta_2,\dots$ 独立, 以概率 $p^*$ 取 $u$、以概率 $1-p^*$ 取 $d$. 取
+\[
+p^*=\frac{1+r-d}{u-d}\in(0,1),
+\]
+则 $\E[\eta_{n+1}]=p^*u+(1-p^*)d=1+r$, 从而折现价格 $\tilde S_n=S_n/(1+r)^n$ 满足 $\E[\tilde S_{n+1}\,|\,\mathcal{F}_n]=\tilde S_n\E[\eta_{n+1}]/(1+r)=\tilde S_n$, 是鞅. 使折现价格成为鞅的概率测度称为\textbf{风险中性测度}. 金融数学的基本定理断言: 在无套利市场中, 衍生品的价格等于其折现收益在风险中性测度下的期望. 第~5~章的 Girsanov 定理正是在连续时间中构造这种测度的工具.
+\end{example}
+
+\begin{example}[Galton-Watson 分支过程]\label{ex:galton-watson}
+设 $\{\xi_{n,i}\}_{n,i\ge1}$ 是 $\iid$ 的非负整数值随机变量 (第 $n$ 代第 $i$ 个个体的后代数), $\mu=\E\xi_{1,1}\in(0,\infty)$, 母函数 $f(s)=\E[s^{\xi_{1,1}}]$ ($s\in[0,1]$). 令 $Z_0=1$,
+\[
+Z_{n+1}=\sum_{i=1}^{Z_n}\xi_{n+1,i}\qquad(\text{约定空和为 }0),
+\]
+$\mathcal{F}_n=\sigma(\xi_{k,i}: k\le n,\ i\ge1)$. $Z_n$ 是第 $n$ 代的个体数 (图~\ref{fig:galton-watson}).
+\begin{enumerate}
+\item $W_n=Z_n/\mu^n$ 是鞅. 事实上, $\sigma(Z_n)$ 由可数分割 $\{Z_n=k\}$ 生成, 而 $\{\xi_{n+1,i}\}_i$ 与 $\mathcal{F}_n$ 独立. 对 $A\in\mathcal{F}_n$, 由于在 $A\cap\{Z_n=k\}$ 上 $Z_{n+1}=\sum_{i=1}^k\xi_{n+1,i}$,
+\begin{align*}
+\E[Z_{n+1};A]&=\sum_{k\ge0}\E\Big[\sum_{i=1}^k\xi_{n+1,i};A\cap\{Z_n=k\}\Big]\\
+&=\sum_{k\ge0}k\mu\,\P(A\cap\{Z_n=k\})=\E[\mu Z_n;A]
+\end{align*}
+(第一个等号由单调收敛定理, 第二个等号由独立性). 所以 $\E[Z_{n+1}\,|\,\mathcal{F}_n]=\mu Z_n$.
+\item 若 $q\in[0,1]$ 满足 $f(q)=q$, 则 $q^{Z_n}$ 是鞅. 同理, 在 $\{Z_n=k\}$ 上, $\E[q^{Z_{n+1}}\,|\,\mathcal{F}_n]=\E[q^{\sum_{i\le k}\xi_{n+1,i}}]=f(q)^k=q^k$.
+\end{enumerate}
+3.4 节将用这两个鞅研究种群的灭绝: 当 $\mu\le1$ 时种群几乎必然灭绝, 当 $\mu>1$ 时灭绝概率是方程 $f(q)=q$ 在 $[0,1)$ 中的根.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  ind/.style={circle,draw=SADark,fill=SABlue!20,inner sep=0pt,minimum size=3.2mm},
+  dead/.style={circle,draw=SADark!50,fill=white,inner sep=0pt,minimum size=3.2mm},
+  ed/.style={SADark!60}]
+  \node[ind] (a) at (0,0) {};
+  \node[ind] (b1) at (-3,-1.2) {}; \node[ind] (b2) at (0,-1.2) {}; \node[ind] (b3) at (3,-1.2) {};
+  \foreach \c in {b1,b2,b3} \draw[ed] (a) -- (\c);
+  \node[ind] (c1) at (-3.6,-2.4) {}; \node[ind] (c2) at (-2.4,-2.4) {};
+  \node[ind] (c3) at (2.2,-2.4) {}; \node[ind] (c4) at (3.0,-2.4) {}; \node[ind] (c5) at (3.8,-2.4) {};
+  \draw[ed] (b1) -- (c1); \draw[ed] (b1) -- (c2);
+  \draw[ed] (b3) -- (c3); \draw[ed] (b3) -- (c4); \draw[ed] (b3) -- (c5);
+  \node[font=\scriptsize,SADark!60] at (0,-1.65) {无后代};
+  \node[ind] (d1) at (-3.6,-3.6) {};
+  \node[ind] (d2) at (2.0,-3.6) {}; \node[ind] (d3) at (2.6,-3.6) {};
+  \node[ind] (d4) at (3.8,-3.6) {};
+  \draw[ed] (c1) -- (d1); \draw[ed] (c3) -- (d2); \draw[ed] (c3) -- (d3); \draw[ed] (c5) -- (d4);
+  \foreach \y/\l in {0/{$Z_0=1$},-1.2/{$Z_1=3$},-2.4/{$Z_2=5$},-3.6/{$Z_3=4$}} { \node[anchor=west,font=\small] at (5,\y) {\l}; }
+\end{tikzpicture}
+\caption{Galton-Watson 分支过程的一个实现. 每个个体独立地产生随机个后代, $Z_n$ 是第 $n$ 代的个体数}
+\label{fig:galton-watson}
+\end{figure}
+
+\begin{example}[P\'olya 罐子]\label{ex:polya}
+罐中起初有一个红球和一个蓝球. 每次随机取出一球, 把它连同一个同色的新球放回. 设 $R_n$ 为 $n$ 次操作后的红球数, 则罐中共有 $n+2$ 个球, 令 $X_n=\frac{R_n}{n+2}$ 为红球比例. 严格地, 设 $U_1,U_2,\dots$ 是 $\iid$ 的 $\mathrm{U}(0,1)$ 随机变量, 第 $n+1$ 次取出红球当且仅当 $U_{n+1}\le X_n$, 取 $\mathcal{F}_n=\sigma(U_1,\dots,U_n)$. 则 $R_{n+1}=R_n+\1_{\{U_{n+1}\le X_n\}}$. 由于 $U_{n+1}$ 与 $\mathcal{F}_n$ 独立而 $X_n$ 是 $\mathcal{F}_n$-可测的, 由代入引理~\ref{lem:freezing}, $\E[\1_{\{U_{n+1}\le X_n\}}\,|\,\mathcal{F}_n]=X_n$. 于是
+\[
+\E[X_{n+1}\,|\,\mathcal{F}_n]=\frac{R_n+X_n}{n+3}=\frac{R_n+\frac{R_n}{n+2}}{n+3}=\frac{R_n}{n+2}=X_n,
+\]
+红球比例是鞅. 直观上, 红球多时更可能再抽到红球 (``富者愈富''), 但比例的增量恰好被总数的增长抵消. 3.4 节将证明 $X_n$ 几乎必然收敛, 且极限服从 $\mathrm{U}(0,1)$.
+\end{example}
+
+\begin{example}[似然比鞅]\label{ex:likelihood-ratio}
+设 $Y_1,Y_2,\dots$ 是 $\iid$ 的, 密度为 $f>0$; $g$ 是另一个概率密度. 令 $\mathcal{F}_n=\sigma(Y_1,\dots,Y_n)$,
+\[
+L_n=\prod_{k=1}^n\frac{g(Y_k)}{f(Y_k)}.
+\]
+由于 $\E\big[\frac{g(Y_k)}{f(Y_k)}\big]=\int\frac{g(y)}{f(y)}f(y)\dd y=\int g(y)\dd y=1$, 由例~\ref{ex:sum-martingales} (3), $L_n$ 是鞅. 统计学上, $L_n$ 是检验 ``数据来自 $g$'' 对 ``数据来自 $f$'' 的似然比. 若在 $(\Omega,\mathcal{F}_n)$ 上定义新测度 $\mathbb{Q}(A)=\E[L_n;A]$, 则在 $\mathbb{Q}$ 下 $Y_1,\dots,Y_n$ 是 $\iid$ 的、密度为 $g$ (对乘积集合直接验证). 因此 $L_n$ 就是 Radon-Nikodym 导数 $\frac{\dd\mathbb{Q}}{\dd\P}\big|_{\mathcal{F}_n}$. 这是第~5~章 Girsanov 定理中 ``测度变换'' 的离散原型. 3.4 节将证明: 若 $g\ne f$, 则在 $\P$ 下 $L_n\to0$ 几乎必然成立, 尽管 $\E L_n\equiv1$.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{鞅变换: 公平赌博中的策略}
+
+在例~\ref{ex:betting} 中我们引入了可料的赌博策略. 现在可以精确地回答: 策略能否改变赌博的公平性?
+
+\begin{definition}[鞅变换]\label{def:martingale-transform}
+设 $X$ 适应, $H=\{H_n\}_{n\ge1}$ 可料. 定义
+\[
+(H\cdot X)_0=0,\qquad (H\cdot X)_n=\sum_{k=1}^nH_k(X_k-X_{k-1})=\sum_{k=1}^nH_k\,\Delta X_k,\quad n\ge1.
+\]
+称 $H\cdot X$ 为 $X$ 关于 $H$ 的\textbf{鞅变换} (或离散随机积分).
+\end{definition}
+
+若 $X_n$ 是每单位赌注在第 $n$ 局后的累计输赢, $H_k$ 是第 $k$ 局的赌注, 则 $(H\cdot X)_n$ 就是按策略 $H$ 下注的累计收益. 记号 $H\cdot X$ 有意模仿积分 $\int H\dd X$: 第~5~章的 Itô 积分正是它的连续时间极限.
+
+\begin{theorem}[鞅变换定理]\label{thm:martingale-transform}
+设 $H$ 可料, 且每个 $H_n$ 有界.
+\begin{enumerate}
+\item 若 $X$ 是鞅, 则 $H\cdot X$ 是鞅.
+\item 若 $X$ 是下鞅 (上鞅), 且 $H_n\ge0$, 则 $H\cdot X$ 是下鞅 (上鞅).
+\end{enumerate}
+若 $X$ 是平方可积鞅, 则把 ``$H_n$ 有界'' 换成 ``$H_n\in L^2$'' 时 (1) 仍成立.
+\end{theorem}
+
+\begin{proof}
+$(H\cdot X)_n$ 是 $\mathcal{F}_n$-可测的有限和. 若 $\abs{H_k}\le c_k$, 则 $\abs{(H\cdot X)_n}\le\sum_{k\le n}c_k(\abs{X_k}+\abs{X_{k-1}})$, 故可积. 由于 $H_{n+1}$ 是 $\mathcal{F}_n$-可测的, 由提出已知因子 (定理~\ref{thm:take-out}),
+\[
+\E\big[(H\cdot X)_{n+1}-(H\cdot X)_n\,\big|\,\mathcal{F}_n\big]=\E[H_{n+1}\Delta X_{n+1}\,|\,\mathcal{F}_n]=H_{n+1}\E[\Delta X_{n+1}\,|\,\mathcal{F}_n].
+\]
+在 (1) 中 $\E[\Delta X_{n+1}\,|\,\mathcal{F}_n]=0$; 在 (2) 中它 $\ge0$ ($\le0$), 乘以 $H_{n+1}\ge0$ 后符号不变. 平方可积情形: 由 Cauchy-Schwarz 不等式, $H_k\Delta X_k\in L^1$, 其余论证相同.
+\end{proof}
+
+\begin{corollary}
+若 $X$ 是鞅, $H$ 可料且有界, 则 $\E[(H\cdot X)_n]=0$ 对一切 $n$ 成立: 在公平赌博中, 任何有界的可料策略在任何固定时刻的期望收益都是零.
+\end{corollary}
+
+\begin{intuition}
+定理~\ref{thm:martingale-transform} 的关键是可料性: 赌注 $H_{n+1}$ 必须在第 $n+1$ 局开始前确定. 若允许 ``偷看'' 结果再下注 ($H_{n+1}=\sgn(\Delta X_{n+1})$), 显然稳赚不赔. 第~5~章 Itô 积分的定义要求被积过程在每个小区间的左端点取值, 原因完全相同.
+\end{intuition}
+
+\begin{example}[加倍策略]\label{ex:doubling}
+设 $\xi_k$ 是 $\iid$ 的, 以等概率取 $\pm1$, $X_n=\sum_{k\le n}\xi_k$ 是鞅. 加倍策略为: $H_1=1$; 若前 $n-1$ 局全输, 则 $H_n=2^{n-1}$; 一旦赢了一局, 此后 $H_n=0$. $H$ 是可料的, 每个 $H_n$ 有界 (至多 $2^{n-1}$). 若前 $k-1$ 局全输而第 $k$ 局赢, 则累计收益为 $-(1+2+\cdots+2^{k-2})+2^{k-1}=1$. 由于 ``永远不赢'' 的概率为 $\lim_n2^{-n}=0$, 收益几乎必然最终等于 $1$. 但由鞅变换定理, $\E[(H\cdot X)_n]=0$ 对每个 $n$ 成立. 前 $n$ 局全输的概率是 $2^{-n}$, 此时损失为 $2^n-1$, 恰好抵消了其余情形下的收益 $1$, 即
+\[
+1\cdot(1-2^{-n})+(-(2^n-1))\cdot2^{-n}=0.
+\]
+加倍策略在任何固定的时刻都不占便宜; 它 ``几乎必然赢'' 的代价是需要无限的本金和无限的时间. 3.2 节的可选停时定理将精确地说明这一点.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=10cm, height=5.6cm, xmin=0, xmax=7.5, ymin=-16, ymax=4,
+  xtick={1,2,3,4,5,6,7}, ytick={-15,-7,-3,-1,1}, xlabel={$n$}, ylabel={$(H\cdot X)_n$}]
+  \addplot[SABlue,very thick,mark=*,mark size=1.5pt] coordinates {(0,0) (1,-1) (2,-3) (3,-7) (4,1) (5,1) (6,1) (7,1)};
+  \addplot[SARed,thick,dashed,mark=o,mark size=1.5pt] coordinates {(0,0) (1,-1) (2,-3) (3,-7) (4,-15)};
+  \node[SABlue,font=\small,anchor=south west] at (axis cs:4.1,1.2) {第 4 局赢: 收益为 $1$};
+  \node[SARed,font=\small,anchor=north west] at (axis cs:4.1,-14) {若再输: 损失 $2^n-1$};
+\end{axis}
+\end{tikzpicture}
+\caption{加倍策略的收益轨道. 每次赢后收益恰为 $1$, 但在赢之前, 损失以指数速度增长}
+\label{fig:doubling}
+\end{figure}
+
+% =====================================================================
+\section{停时与可选停时定理}
+\label{sec:3-2}
+
+鞅变换定理说: 公平赌博中, 调整赌注无法获利. 另一个自然的想法是选择\emph{何时离场}: 比如 ``领先时就收手''. 离场时刻依赖于赌局的进展, 是一个随机时刻; 但它只能依据已经发生的事情来决定, 而不能预知未来. 这样的随机时刻称为停时.
+
+% ---------------------------------------------------------------------
+\subsection{停时}
+
+\begin{definition}[停时]\label{def:stopping-time}
+取值于 $\{0,1,2,\dots\}\cup\{\infty\}$ 的随机变量 $\tau$ 称为 (关于 $\{\mathcal{F}_n\}$ 的) \textbf{停时}, 如果对每个 $n\ge0$, $\{\tau\le n\}\in\mathcal{F}_n$.
+\end{definition}
+
+由于 $\{\tau=n\}=\{\tau\le n\}\setminus\{\tau\le n-1\}$ 且 $\{\tau\le n\}=\bigcup_{k\le n}\{\tau=k\}$, 条件 $\{\tau\le n\}\in\mathcal{F}_n$ 等价于对每个 $n$, $\{\tau=n\}\in\mathcal{F}_n$: 在时刻 $n$, 根据已有的信息就能判断 ``是否现在停止''.
+
+\begin{example}[首达时]\label{ex:hitting-time}
+设 $X$ 适应, $B$ 是 Borel 集. 令 $\tau_B=\inf\{n\ge0: X_n\in B\}$ (约定 $\inf\varnothing=\infty$) 为 $X$ 首次进入 $B$ 的时刻. 由于
+\[
+\{\tau_B\le n\}=\bigcup_{k=0}^n\{X_k\in B\}\in\mathcal{F}_n,
+\]
+$\tau_B$ 是停时 (图~\ref{fig:hitting-time}). 相反, $X$ 在时刻 $N$ 之前\emph{最后一次}位于 $B$ 中的时刻 $\lambda=\sup\{n\le N: X_n\in B\}$ 一般不是停时: 判断 $\{\lambda=n\}$ 需要知道 $X_{n+1},\dots,X_N$ 都不在 $B$ 中, 这依赖于未来.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, width=11.5cm, height=5.4cm, xmin=0, xmax=41, ymin=-3, ymax=15,
+  xtick={10,20,30,40}, ytick={5,10}, xlabel={$n$}, ylabel={$X_n$}]
+  \addplot[SADark!20,forget plot] coordinates {(0,5) (41,5)};
+  \addplot[SABlue!50,thick,mark=*,mark size=0.8pt,forget plot] coordinates {(0,0) (1,-1) (2,-2) (3,-1) (4,-2) (5,-1) (6,0) (7,1) (8,2) (9,1) (10,0) (11,1) (12,0) (13,1) (14,2) (15,3) (16,4) (17,3) (18,2) (19,3) (20,2) (21,3) (22,4) (23,5) (24,4) (25,5) (26,6) (27,7) (28,8) (29,9) (30,10) (31,11) (32,12) (33,11) (34,10) (35,11) (36,12) (37,13) (38,14) (39,13) (40,12)};
+  \addplot[SABlue,very thick,mark=*,mark size=1.1pt] coordinates {(0,0) (1,-1) (2,-2) (3,-1) (4,-2) (5,-1) (6,0) (7,1) (8,2) (9,1) (10,0) (11,1) (12,0) (13,1) (14,2) (15,3) (16,4) (17,3) (18,2) (19,3) (20,2) (21,3) (22,4) (23,5)};
+  \addplot[SARed,dashed] coordinates {(23,-3) (23,5)};
+  \fill[SARed] (axis cs:23,5) circle (2.2pt);
+  \node[SARed,font=\small,anchor=south west] at (axis cs:23.5,-2.8) {$\tau=\inf\{n: X_n\ge5\}=23$};
+  \node[font=\small,anchor=south west] at (axis cs:0.5,5.2) {$5$};
+\end{axis}
+\end{tikzpicture}
+\caption{首达时: 在时刻 $n$, 只需查看 $X_0,\dots,X_n$ 就能判断 $\tau\le n$ 是否发生. 粗线是停止过程 $X_{\tau\wedge n}$ 在 $\tau$ 之前的部分, 此后它保持在 $X_\tau=5$}
+\label{fig:hitting-time}
+\end{figure}
+
+\begin{proposition}[停时的运算]\label{prop:stopping-operations}
+设 $\sigma,\tau$ 是停时, $m\ge0$ 是整数. 则 $\sigma\wedge\tau$、$\sigma\vee\tau$、$\sigma+\tau$、$\tau+m$ 都是停时.
+\end{proposition}
+
+\begin{proof}
+$\{\sigma\wedge\tau\le n\}=\{\sigma\le n\}\cup\{\tau\le n\}$, $\{\sigma\vee\tau\le n\}=\{\sigma\le n\}\cap\{\tau\le n\}$. 对和,
+$\{\sigma+\tau=n\}=\bigcup_{k=0}^n\{\sigma=k\}\cap\{\tau=n-k\}$, 其中 $\{\sigma=k\}\in\mathcal{F}_k\subseteq\mathcal{F}_n$, $\{\tau=n-k\}\in\mathcal{F}_{n-k}\subseteq\mathcal{F}_n$. 常数 $m$ 显然是停时.
+\end{proof}
+
+注意 $\tau-1$ 一般不是停时: $\{\tau-1=n\}=\{\tau=n+1\}$ 需要时刻 $n+1$ 的信息.
+
+\begin{definition}[停时前的信息]\label{def:F-tau}
+设 $\tau$ 是停时. 定义
+\[
+\mathcal{F}_\tau=\big\{A\in\mathcal{F}_\infty:\ A\cap\{\tau\le n\}\in\mathcal{F}_n\text{ 对一切 }n\ge0\text{ 成立}\big\}.
+\]
+\end{definition}
+
+$A\in\mathcal{F}_\tau$ 是指在 $\tau$ 发生的那一刻, 已经能够判断 $A$ 是否发生. 若 $\tau\equiv n$, 则 $\mathcal{F}_\tau=\mathcal{F}_n$.
+
+\begin{proposition}[$\mathcal{F}_\tau$ 的性质]\label{prop:F-tau}
+设 $\sigma,\tau$ 是停时.
+\begin{enumerate}
+\item $\mathcal{F}_\tau$ 是 $\sigma$-代数, 且 $\tau$ 是 $\mathcal{F}_\tau$-可测的.
+\item 若 $\sigma\le\tau$, 则 $\mathcal{F}_\sigma\subseteq\mathcal{F}_\tau$.
+\item 若 $X$ 适应, 则 $X_\tau\1_{\{\tau<\infty\}}$ 是 $\mathcal{F}_\tau$-可测的.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) $\Omega\cap\{\tau\le n\}\in\mathcal{F}_n$. 若 $A\in\mathcal{F}_\tau$, 则 $A^c\cap\{\tau\le n\}=\{\tau\le n\}\setminus(A\cap\{\tau\le n\})\in\mathcal{F}_n$. 若 $A_k\in\mathcal{F}_\tau$, 则 $\big(\bigcup_kA_k\big)\cap\{\tau\le n\}=\bigcup_k(A_k\cap\{\tau\le n\})\in\mathcal{F}_n$. 对 $\tau$ 的可测性: $\{\tau\le m\}\cap\{\tau\le n\}=\{\tau\le m\wedge n\}\in\mathcal{F}_n$.
+
+(2) 若 $A\in\mathcal{F}_\sigma$, 由 $\sigma\le\tau$ 得 $\{\tau\le n\}\subseteq\{\sigma\le n\}$, 于是 $A\cap\{\tau\le n\}=\big(A\cap\{\sigma\le n\}\big)\cap\{\tau\le n\}\in\mathcal{F}_n$.
+
+(3) 对 Borel 集 $B$, $\{X_\tau\1_{\{\tau<\infty\}}\in B\}$ 在 $\{\tau<\infty\}$ 上的部分与 $\{\tau\le n\}$ 之交为 $\bigcup_{k\le n}\big(\{X_k\in B\}\cap\{\tau=k\}\big)\in\mathcal{F}_n$; 在 $\{\tau=\infty\}$ 上取值为 $0$, 而 $\{\tau=\infty\}\in\mathcal{F}_\tau$ (由 (1)). 两部分合起来得到结论.
+\end{proof}
+
+\begin{definition}[停止过程]\label{def:stopped-process}
+设 $X$ 适应, $\tau$ 是停时. 称 $X^\tau_n=X_{\tau\wedge n}$ 为 $X$ 在 $\tau$ 处的\textbf{停止过程}.
+\end{definition}
+
+\begin{theorem}[停止过程仍是鞅]\label{thm:stopped-martingale}
+若 $X$ 是鞅 (下鞅、上鞅), $\tau$ 是停时, 则 $X^\tau$ 也是鞅 (下鞅、上鞅).
+\end{theorem}
+
+\begin{proof}
+令 $H_k=\1_{\{\tau\ge k\}}=1-\1_{\{\tau\le k-1\}}$, 它是 $\mathcal{F}_{k-1}$-可测的, 所以 $H$ 是可料、非负且有界的. 由于 $\sum_{k=1}^nH_k\Delta X_k=\sum_{k=1}^{\tau\wedge n}\Delta X_k=X_{\tau\wedge n}-X_0$,
+\[
+X^\tau_n=X_0+(H\cdot X)_n.
+\]
+由鞅变换定理~\ref{thm:martingale-transform}, $X^\tau$ 是鞅 (下鞅、上鞅).
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{可选停时定理}
+
+\begin{theorem}[可选停时定理: 有界停时]\label{thm:ost-bounded}
+设 $X$ 是鞅 (下鞅), $\sigma\le\tau\le N$ 是有界停时 ($N$ 为常数). 则 $X_\tau$, $X_\sigma$ 可积, 且
+\[
+\E[X_\tau\,|\,\mathcal{F}_\sigma]=X_\sigma\qquad(\text{下鞅时为 }\ge).
+\]
+特别地, $\E X_\tau=\E X_\sigma=\E X_0$ (下鞅时 $\E X_0\le\E X_\sigma\le\E X_\tau\le\E X_N$).
+\end{theorem}
+
+\begin{proof}
+可积性: $\abs{X_\tau}\le\sum_{k=0}^N\abs{X_k}$.
+
+\emph{第一步: $\E X_\tau=\E X_\sigma$ (下鞅时为 $\ge$).} 令 $H_k=\1_{\{\sigma<k\le\tau\}}=\1_{\{\sigma\le k-1\}}-\1_{\{\tau\le k-1\}}$, 它可料、非负、有界, 且
+$(H\cdot X)_N=\sum_{k=\sigma+1}^{\tau}\Delta X_k=X_\tau-X_\sigma$. 由鞅变换定理, $\E[X_\tau-X_\sigma]=\E[(H\cdot X)_N]=\E[(H\cdot X)_0]=0$ (下鞅时 $\ge0$).
+
+\emph{第二步: 条件形式.} 设 $A\in\mathcal{F}_\sigma$. 定义
+\[
+\sigma_A=\begin{cases}\sigma,&\text{在 }A\text{ 上},\\ N,&\text{在 }A^c\text{ 上},\end{cases}\qquad
+\tau_A=\begin{cases}\tau,&\text{在 }A\text{ 上},\\ N,&\text{在 }A^c\text{ 上}.\end{cases}
+\]
+它们是停时: 对 $n<N$, $\{\sigma_A\le n\}=A\cap\{\sigma\le n\}\in\mathcal{F}_n$; 对 $n\ge N$, $\{\sigma_A\le n\}=\Omega$. 由于 $A\in\mathcal{F}_\sigma\subseteq\mathcal{F}_\tau$ (命题~\ref{prop:F-tau} (2)), 对 $\tau_A$ 同理. 又 $\sigma_A\le\tau_A\le N$. 由第一步, $\E X_{\tau_A}=\E X_{\sigma_A}$, 即
+\[
+\E[X_\tau;A]+\E[X_N;A^c]=\E[X_\sigma;A]+\E[X_N;A^c],
+\]
+所以 $\E[X_\tau;A]=\E[X_\sigma;A]$ (下鞅时为 $\ge$). 由命题~\ref{prop:F-tau} (3), $X_\sigma$ 是 $\mathcal{F}_\sigma$-可测的. 鞅情形由条件期望的定义即得; 下鞅情形, 由于 $\E\big[\E[X_\tau\,|\,\mathcal{F}_\sigma];A\big]=\E[X_\tau;A]\ge\E[X_\sigma;A]$ 对一切 $A\in\mathcal{F}_\sigma$ 成立, 由比较引理~\ref{lem:ce-compare} 即得.
+\end{proof}
+
+\begin{intuition}
+在有限期限内, 任何不偷看未来的离场规则都无法使公平赌博变得有利. ``领先时收手'' 看似聪明, 但它同时意味着在落后时继续赌下去, 而落后时的损失恰好抵消了领先时的收益.
+\end{intuition}
+
+有界性不能简单地去掉.
+
+\begin{example}\label{ex:ost-fails}
+设 $X_n$ 是从 $0$ 出发的简单对称随机游动, $\tau=\inf\{n: X_n=1\}$. 下面的例~\ref{ex:gambler-ruin} 将证明 $\tau<\infty$ 几乎必然成立, 从而 $X_\tau=1$, $\E X_\tau=1\ne0=\E X_0$. 加倍策略 (例~\ref{ex:doubling}) 是同一现象: 离场时刻 ``首次赢的时刻'' 几乎必然有限, 但无界. 问题出在离场之前可能经历巨大的亏损: 由例~\ref{ex:gambler-ruin} 中的计算, $\E\tau=\infty$.
+\end{example}
+
+对无界的停时, 需要附加条件. 下面的充分条件不依赖于收敛理论; 3.4 节将给出基于一致可积性的最一般的版本.
+
+\begin{theorem}[可选停时定理: 有界增量]\label{thm:ost-bounded-increments}
+设 $X$ 是鞅, $\tau$ 是停时, $\E\tau<\infty$, 且存在常数 $c$ 使对一切 $n\ge1$,
+$\E\big[\abs{\Delta X_n}\,\big|\,\mathcal{F}_{n-1}\big]\le c$. 则 $X_\tau$ 可积, 且 $\E X_\tau=\E X_0$.
+\end{theorem}
+
+\begin{proof}
+由 $\E\tau<\infty$, $\tau<\infty$ $\as$, 所以 $X_{\tau\wedge n}\to X_\tau$ $\as$ 令 $Y=\sum_{k=1}^\tau\abs{\Delta X_k}=\sum_{k=1}^\infty\abs{\Delta X_k}\1_{\{\tau\ge k\}}$, 则 $\abs{X_{\tau\wedge n}}\le\abs{X_0}+Y$ 对一切 $n$ 成立. 由于 $\{\tau\ge k\}\in\mathcal{F}_{k-1}$, 由逐项求期望 (推论~\ref{cor:series})、全期望公式与提出已知因子,
+\[
+\E Y=\sum_{k=1}^\infty\E\Big[\1_{\{\tau\ge k\}}\E\big[\abs{\Delta X_k}\,\big|\,\mathcal{F}_{k-1}\big]\Big]\le c\sum_{k=1}^\infty\P(\tau\ge k)=c\,\E\tau<\infty,
+\]
+最后一步是尾积分公式的离散形式 ($\tau=\sum_{k\ge1}\1_{\{\tau\ge k\}}$, 再逐项求期望). 由控制收敛定理~\ref{thm:dct} (控制函数 $\abs{X_0}+Y$) 与定理~\ref{thm:ost-bounded} (用于有界停时 $\tau\wedge n$),
+\[
+\E X_\tau=\lim_{n\to\infty}\E X_{\tau\wedge n}=\E X_0.\qedhere
+\]
+\end{proof}
+
+\begin{corollary}[Wald 恒等式]\label{cor:wald}
+设 $\xi_1,\xi_2,\dots$ 是 $\iid$ 可积随机变量, $\E\xi_1=\mu$, $S_n=\sum_{k\le n}\xi_k$, $\mathcal{F}_n=\sigma(\xi_1,\dots,\xi_n)$, $\tau$ 是停时且 $\E\tau<\infty$.
+\begin{enumerate}
+\item $\E S_\tau=\mu\,\E\tau$.
+\item 若进一步 $\mu=0$, $\Var(\xi_1)=\sigma^2<\infty$, 则 $\E S_\tau^2=\sigma^2\E\tau$.
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}
+(1) $M_n=S_n-n\mu$ 是鞅 (例~\ref{ex:sum-martingales} (1)), 且 $\E[\abs{\Delta M_n}\,|\,\mathcal{F}_{n-1}]=\E\abs{\xi_n-\mu}=\E\abs{\xi_1-\mu}$ 是常数 (独立性化简). 由定理~\ref{thm:ost-bounded-increments}, $\E[S_\tau-\tau\mu]=0$.
+
+(2) 记 $T_n=S_{\tau\wedge n}=\sum_{k=1}^n\xi_k\1_{\{\tau\ge k\}}$. 对 $j<k$, $\xi_j\1_{\{\tau\ge j\}}\1_{\{\tau\ge k\}}$ 是 $\mathcal{F}_{k-1}$-可测的, 而 $\xi_k$ 与 $\mathcal{F}_{k-1}$ 独立, 所以交叉项 $\E[\xi_j\1_{\{\tau\ge j\}}\xi_k\1_{\{\tau\ge k\}}]=0$; 同理 $\E[\xi_k^2\1_{\{\tau\ge k\}}]=\sigma^2\P(\tau\ge k)$. 于是对 $m<n$,
+\[
+\E\big[(T_n-T_m)^2\big]=\sum_{k=m+1}^n\sigma^2\P(\tau\ge k)\xrightarrow{m,n\to\infty}0,
+\]
+因为 $\sum_k\P(\tau\ge k)=\E\tau<\infty$. 由 Riesz-Fischer 定理~\ref{thm:riesz-fischer}, $T_n$ 在 $L^2$ 中收敛, 而它几乎必然收敛到 $S_\tau$, 故 $L^2$ 极限就是 $S_\tau$. 由内积的连续性 (命题~\ref{prop:inner-continuity}), $\E S_\tau^2=\lim_n\E T_n^2=\lim_n\sigma^2\sum_{k\le n}\P(\tau\ge k)=\sigma^2\E\tau$.
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{应用: 赌徒破产与模式等待时间}
+
+\begin{example}[赌徒破产问题]\label{ex:gambler-ruin}
+赌徒的初始财富为整数 $x$, $0<x<N$. 每局以概率 $p$ 赢 $1$、以概率 $q=1-p$ 输 $1$, 各局独立. 他在财富达到 $N$ 或 $0$ (破产) 时停止. 设 $S_n=x+\sum_{k\le n}\xi_k$, $\tau=\inf\{n: S_n\in\{0,N\}\}$ (图~\ref{fig:gambler-ruin}).
+
+\emph{$\E\tau<\infty$.} 把时间分成长为 $N$ 的块. 若某一块中 $N$ 局全赢, 则无论起点在哪里, 赌徒在这一块结束之前必然已经停止. 各块独立, 每块全赢的概率为 $p^N$, 所以 $\P(\tau>kN)\le(1-p^N)^k$. 于是
+\[
+\E\tau=\sum_{n\ge0}\P(\tau>n)\le\sum_{k\ge0}N\,\P(\tau>kN)\le N\sum_{k\ge0}(1-p^N)^k=\frac{N}{p^N}<\infty.
+\]
+
+\emph{对称情形 $p=q=\frac{1}{2}$.} $S_n$ 是鞅, 增量有界, 由定理~\ref{thm:ost-bounded-increments}, $\E S_\tau=x$. 而 $S_\tau$ 只取 $0$ 与 $N$, 所以
+\[
+\P(S_\tau=N)=\frac{x}{N},\qquad\P(S_\tau=0)=\frac{N-x}{N}.
+\]
+再由 Wald 第二恒等式 (推论~\ref{cor:wald} (2), $\sigma^2=1$),
+\[
+\E\tau=\E(S_\tau-x)^2=\frac{x}{N}(N-x)^2+\frac{N-x}{N}x^2=x(N-x).
+\]
+
+\emph{非对称情形 $p\ne q$.} 令 $r=\frac{q}{p}$. 由于 $\E[r^{\xi_k}]=p\cdot\frac{q}{p}+q\cdot\frac{p}{q}=1$, $r^{S_n}$ 是鞅 (例~\ref{ex:sum-martingales} (3)). 停止过程 $r^{S_{\tau\wedge n}}$ 是有界鞅 (取值于 $r^0,\dots,r^N$ 之间), 由有界收敛定理~\ref{cor:bct} 与定理~\ref{thm:ost-bounded},
+$\E r^{S_\tau}=\lim_n\E r^{S_{\tau\wedge n}}=r^x$. 解 $r^N\P(S_\tau=N)+(1-\P(S_\tau=N))=r^x$ 得
+\[
+\P(S_\tau=N)=\frac{r^x-1}{r^N-1}.
+\]
+由 Wald 第一恒等式 (推论~\ref{cor:wald} (1), $\mu=p-q$), $\E\tau=\frac{\E S_\tau-x}{p-q}=\frac{1}{p-q}\Big(N\frac{r^x-1}{r^N-1}-x\Big)$.
+
+\emph{对称随机游动的常返性.} 设 $X$ 是从 $0$ 出发的对称随机游动. 把它看作 $x=N_0$、目标为 $N_0+1$、下界为 $0$ 的赌徒破产问题 (平移 $N_0$), 则 $X$ 在跌到 $-N_0$ 之前到达 $1$ 的概率为 $\frac{N_0}{N_0+1}$. 令 $N_0\to\infty$, 由概率的连续性, $\P(X\text{ 终将到达 }1)=1$. 但若 $\E\tau_1<\infty$ ($\tau_1$ 为首达 $1$ 的时刻), 由 Wald 第一恒等式将得到 $1=\E X_{\tau_1}=0\cdot\E\tau_1=0$, 矛盾. 所以 $\E\tau_1=\infty$: 对称随机游动必然到达 $1$, 但平均需要无穷长的时间. 这正是例~\ref{ex:ost-fails} 中可选停时定理失效的原因.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11cm, height=5.4cm, xmin=0, xmax=16, ymin=-0.8, ymax=10.5,
+  xtick={5,10,15}, ytick={3,8}, yticklabels={$x$,$N$}, xlabel={$n$}, ylabel={$S_n$}]
+  \addplot[SAGreenText,thick,forget plot] coordinates {(0,8) (16,8)};
+  \addplot[SARed,thick,forget plot] coordinates {(0,0) (16,0)};
+  \addplot[SABlue,very thick,mark=*,mark size=1.2pt] coordinates {(0,3) (1,4) (2,3) (3,2) (4,3) (5,4) (6,5) (7,4) (8,5) (9,6) (10,7) (11,6) (12,7) (13,8)};
+  \addplot[SADark!50,dashed] coordinates {(13,-0.8) (13,8)};
+  \node[SAGreenText,font=\small,anchor=south west] at (axis cs:0.3,8.1) {达到目标 (概率 $\frac{x}{N}$)};
+  \node[SARed,font=\small,anchor=south east] at (axis cs:15.8,0.1) {破产 (概率 $\frac{N-x}{N}$)};
+  \node[font=\small,anchor=south] at (axis cs:13,8.3) {$\tau$};
+\end{axis}
+\end{tikzpicture}
+\caption{对称赌徒破产问题: 从 $x$ 出发的随机游动在两条吸收边界之间运动, 直到首次碰到其中一条. 由可选停时定理, 碰到上边界的概率为 $\frac{x}{N}$, 平均持续时间为 $x(N-x)$}
+\label{fig:gambler-ruin}
+\end{figure}
+
+\begin{example}[ABRACADABRA]\label{ex:abracadabra}
+一只猴子在打字机上独立地、均匀随机地从 26 个字母中敲击. 问: 平均需要敲多少次才首次出现单词 ABRACADABRA?
+
+一般地, 设字母表有 $m$ 个字母, $X_1,X_2,\dots$ 是 $\iid$ 的均匀随机字母, 目标单词为 $w=w_1w_2\cdots w_L$, $\tau=\inf\{n\ge L: X_{n-L+1}\cdots X_n=w\}$, $\mathcal{F}_n=\sigma(X_1,\dots,X_n)$. 我们用一群 ``公平赌徒'' 构造鞅.
+
+\emph{构造.} 在第 $j$ 次敲击前 ($j=1,2,\dots$), 第 $j$ 个赌徒带着本金 $1$ 入场, 押注 ``$X_j=w_1$'': 若押中, 财富变为 $m$ (赔率公平, 因为押中的概率为 $\frac{1}{m}$), 否则变为 $0$ 并离场. 若押中, 他把全部财富押在 ``$X_{j+1}=w_2$'' 上, 依此类推, 直到押错或押完整个单词为止. 记第 $j$ 个赌徒在时刻 $n$ 的财富为 $G^{(j)}_n$ (入场前约定为 $1$). 具体地, 对 $n\ge j$, 令 $\ell=\min\{n-j+1,L\}$, 则
+\[
+G^{(j)}_n=m^{\ell}\,\1_{\{X_j=w_1,\dots,X_{j+\ell-1}=w_\ell\}}.
+\]
+\begin{itemize}
+\item \emph{每个 $G^{(j)}$ 是鞅.} 若 $j\le n+1\le j+L-1$, 则 $G^{(j)}_{n+1}=G^{(j)}_n\cdot m\1_{\{X_{n+1}=w_{n+2-j}\}}$, 其中 $G^{(j)}_n$ 是 $\mathcal{F}_n$-可测的, 第二个因子与 $\mathcal{F}_n$ 独立且期望为 $1$; 否则 $G^{(j)}_{n+1}=G^{(j)}_n$. 由提出已知因子与独立性化简, $\E[G^{(j)}_{n+1}\,|\,\mathcal{F}_n]=G^{(j)}_n$.
+\item \emph{总净收益是鞅.} 令 $M_n=\sum_{j=1}^n(G^{(j)}_n-1)$, 即已入场的 $n$ 个赌徒的总财富减去总本金. 由于 $j>n$ 时 $G^{(j)}_n-1=0$, 也可写成 $M_n=\sum_{j\ge1}(G^{(j)}_n-1)$, 其中对每个 $n$ 只有有限项非零. 于是 $M_{n+1}-M_n=\sum_{j=n-L+2}^{n+1}(G^{(j)}_{n+1}-G^{(j)}_n)$ (只有仍在场的赌徒的财富会变化), 每项的条件期望为零, 所以 $M$ 是鞅, $M_0=0$; 且 $\abs{\Delta M_n}\le L(m^L+1)$, 增量有界.
+\item \emph{$\E\tau<\infty$.} 与例~\ref{ex:gambler-ruin} 相同, 把时间分成长为 $L$ 的不交块, 每块恰为 $w$ 的概率为 $m^{-L}$, 故 $\E\tau\le Lm^L<\infty$.
+\end{itemize}
+由定理~\ref{thm:ost-bounded-increments}, $\E M_\tau=0$.
+
+\emph{计算 $M_\tau$.} 在时刻 $\tau$, 最后 $L$ 个字母恰为 $w$. 第 $j$ 个赌徒的财富分两种情形:
+\begin{itemize}
+\item 若 $j\le\tau-L$, 他已经离场. 事实上, 若他押完了整个单词, 则单词在 $\tau$ 之前已经出现, 与 $\tau$ 的定义矛盾; 所以他必然押错过, 财富为 $0$.
+\item 若 $j=\tau-k+1$ ($1\le k\le L$), 他押了 $k$ 次, 需要 $X_{\tau-k+1}\cdots X_\tau=w_1\cdots w_k$. 而已知 $X_{\tau-k+1}\cdots X_\tau=w_{L-k+1}\cdots w_L$ (单词的最后 $k$ 个字母). 所以他的财富为 $m^k$ 当且仅当 $w$ 的长为 $k$ 的前缀等于长为 $k$ 的后缀, 否则为 $0$.
+\end{itemize}
+于是 $M_\tau=c(w)-\tau$, 其中 $c(w)=\sum_{k\in K(w)}m^k$, $K(w)=\{k\le L: w_1\cdots w_k=w_{L-k+1}\cdots w_L\}$ 是确定的数. 由 $\E M_\tau=0$ 得
+\[
+\E\tau=c(w)=\sum_{k\in K(w)}m^k.
+\]
+对 ABRACADABRA, 前缀与后缀相同的长度为 $k=1$ (A)、$k=4$ (ABRA)、$k=11$ (整个单词), 所以平均等待时间为 $26^{11}+26^4+26$. 再如抛硬币 ($m=2$): 等待 ``正正'' 平均需要 $2^2+2=6$ 次, 而等待 ``正反'' 只需 $2^2=4$ 次. 自身重叠的模式反而更 ``难等'': 一旦部分匹配失败, 重叠模式浪费的进度更多.
+\end{example}
+
+% =====================================================================
+\section{Doob 分解与 Doob 鞅不等式}
+\label{sec:3-3}
+
+% ---------------------------------------------------------------------
+\subsection{Doob 分解}
+
+下鞅是 ``有利的赌博'', 能否把有利的部分与公平的部分分开? 答案是肯定的, 每个适应过程都可以唯一地写成 ``鞅 + 可料过程''.
+
+\begin{theorem}[Doob 分解]\label{thm:doob-decomposition}
+设 $X$ 适应且每个 $X_n$ 可积. 则存在鞅 $M$ (满足 $M_0=0$) 与可料过程 $A$ (满足 $A_0=0$, 即 $A_n$ 是 $\mathcal{F}_{n-1}$-可测的, $n\ge1$), 使得
+\[
+X_n=X_0+M_n+A_n,\qquad n\ge0,
+\]
+并且这种分解在几乎必然的意义下唯一. $X$ 是下鞅当且仅当 $A$ 单调不减; $X$ 是鞅当且仅当 $A\equiv0$.
+\end{theorem}
+
+\begin{proof}
+\emph{存在性.} 令
+\[
+A_n=\sum_{k=1}^n\E[\Delta X_k\,|\,\mathcal{F}_{k-1}],\qquad M_n=X_n-X_0-A_n=\sum_{k=1}^n\big(\Delta X_k-\E[\Delta X_k\,|\,\mathcal{F}_{k-1}]\big).
+\]
+$A_n$ 是 $\mathcal{F}_{n-1}$-可测的, 所以 $A$ 可料. $M$ 适应且可积, 并且
+$\E[\Delta M_n\,|\,\mathcal{F}_{n-1}]=\E[\Delta X_n\,|\,\mathcal{F}_{n-1}]-\E[\Delta X_n\,|\,\mathcal{F}_{n-1}]=0$, 所以 $M$ 是鞅.
+
+\emph{唯一性.} 若 $X_n=X_0+M_n+A_n=X_0+M'_n+A'_n$ 是两个这样的分解, 则 $N=M-M'=A'-A$ 既是鞅又是可料的, 且 $N_0=0$. 于是 $N_n=\E[N_n\,|\,\mathcal{F}_{n-1}]=N_{n-1}$ (前一个等号因为 $N_n$ 是 $\mathcal{F}_{n-1}$-可测的), 递推得 $N_n=N_0=0$.
+
+\emph{刻画.} $\Delta A_n=\E[\Delta X_n\,|\,\mathcal{F}_{n-1}]$, 所以 $A$ 单调不减当且仅当对一切 $n$, $\E[\Delta X_n\,|\,\mathcal{F}_{n-1}]\ge0$, 即 $X$ 是下鞅. 鞅的情形同理.
+\end{proof}
+
+\begin{intuition}
+$\Delta A_n=\E[\Delta X_n\,|\,\mathcal{F}_{n-1}]$ 是 ``在时刻 $n-1$ 就能预见的那部分变化'' (漂移), $\Delta M_n$ 是 ``不可预见的意外'' (噪声). 这是随机微分方程 $\dd X_t=b\dd t+\sigma\dd B_t$ 中 ``漂移 + 扩散'' 分解的离散原型. 可料性保证了分解的唯一性: 若允许 $A$ 只是适应的, 则 $X$ 自己就是一个平凡的分解.
+\end{intuition}
+
+对平方可积鞅 $M$, $M^2$ 是下鞅 (命题~\ref{prop:convex-submartingale}), 它的 Doob 分解中的可料部分具有特别重要的意义.
+
+\begin{definition}[尖括号过程与二次变差]\label{def:bracket}
+设 $M$ 是平方可积鞅 (即每个 $M_n\in L^2$). 定义
+\[
+\ip{M}_n=\sum_{k=1}^n\E\big[(\Delta M_k)^2\,\big|\,\mathcal{F}_{k-1}\big],\qquad [M]_n=\sum_{k=1}^n(\Delta M_k)^2,
+\]
+$\ip{M}_0=[M]_0=0$. 称 $\ip{M}$ 为 $M$ 的\textbf{尖括号过程} (条件二次变差, 或可料二次变差), 称 $[M]$ 为 $M$ 的\textbf{二次变差}.
+\end{definition}
+
+\begin{proposition}\label{prop:bracket}
+设 $M$ 是平方可积鞅. 则
+\begin{enumerate}
+\item 鞅增量正交: 对 $j<k$, $\E[\Delta M_j\Delta M_k]=0$; 且 $\E[(\Delta M_k)^2\,|\,\mathcal{F}_{k-1}]=\E[M_k^2-M_{k-1}^2\,|\,\mathcal{F}_{k-1}]$.
+\item $M^2-\ip{M}$ 是鞅, 即 $M_n^2=M_0^2+(\text{鞅})+\ip{M}_n$ 是 $M^2$ 的 Doob 分解.
+\item 若 $[M]_n$ 可积, 则 $M^2-[M]$ 也是鞅.
+\item $\E[M_n^2]=\E[M_0^2]+\E\ip{M}_n=\E[M_0^2]+\E[M]_n$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) $\Delta M_j$ 是 $\mathcal{F}_{k-1}$-可测的, 由提出已知因子 (乘积可积由 Cauchy-Schwarz 不等式保证),
+\[
+\E[\Delta M_j\Delta M_k]=\E\big[\Delta M_j\E[\Delta M_k\,|\,\mathcal{F}_{k-1}]\big]=0.
+\]
+其次, $M_k^2-M_{k-1}^2=(\Delta M_k)^2+2M_{k-1}\Delta M_k$, 而
+\[
+\E[M_{k-1}\Delta M_k\,|\,\mathcal{F}_{k-1}]=M_{k-1}\E[\Delta M_k\,|\,\mathcal{F}_{k-1}]=0.
+\]
+
+(2) 由 (1), $\E[\Delta(M^2)_k\,|\,\mathcal{F}_{k-1}]=\E[(\Delta M_k)^2\,|\,\mathcal{F}_{k-1}]=\Delta\ip{M}_k$, 这正是 Doob 分解中的可料部分 (定理~\ref{thm:doob-decomposition} 的证明).
+
+(3) $M_n^2-[M]_n=M_0^2+\sum_{k=1}^n\big(M_k^2-M_{k-1}^2-(\Delta M_k)^2\big)=M_0^2+2\sum_{k=1}^nM_{k-1}\Delta M_k$, 由 (1) 的证明, 每一项的条件期望为零.
+
+(4) 对 (2)(3) 取期望; 或直接由 (1): $\E[M_n^2]=\E[M_0^2]+\sum_{k\le n}\E[(\Delta M_k)^2]$.
+\end{proof}
+
+\begin{example}\label{ex:bracket-rw}
+设 $S_n=\sum_{k\le n}\xi_k$, $\xi_k$ 独立, $\E\xi_k=0$, $\Var(\xi_k)=\sigma_k^2$. 则 $\ip{S}_n=\sum_{k\le n}\sigma_k^2$ 是确定性的, 而 $[S]_n=\sum_{k\le n}\xi_k^2$ 是随机的. 对简单对称随机游动 ($\xi_k=\pm1$), 二者都等于 $n$: Doob 分解 $S_n^2=(S_n^2-n)+n$ 把下鞅 $S_n^2$ 分成了鞅 $S_n^2-n$ 与确定性的增过程 $n$ (图~\ref{fig:doob-decomposition}). 第~4~章将证明布朗运动的二次变差也是确定性的: $[B]_t=t$.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11.5cm, height=6cm, xmin=0, xmax=25, ymin=-18, ymax=28,
+  xtick={5,10,15,20}, ytick={-10,10,20}, xlabel={$n$},
+  legend style={draw=none,fill=none,font=\small,at={(0.5,-0.2)},anchor=north,legend columns=3,/tikz/every even column/.append style={column sep=1em}}]
+  \addplot[SABlue,very thick,mark=*,mark size=0.9pt] coordinates {(0,0) (1,1) (2,4) (3,1) (4,4) (5,1) (6,0) (7,1) (8,4) (9,1) (10,0) (11,1) (12,0) (13,1) (14,4) (15,9) (16,16) (17,9) (18,4) (19,9) (20,4) (21,9) (22,16) (23,25) (24,16)};
+  \addlegendentry{下鞅 $S_n^2$}
+  \addplot[SARed,thick,dashed] coordinates {(0,0) (24,24)};
+  \addlegendentry{可料增过程 $\ip{S}_n=n$}
+  \addplot[SAGreenText,thick,mark=o,mark size=0.9pt] coordinates {(0,0) (1,0) (2,2) (3,-2) (4,0) (5,-4) (6,-6) (7,-6) (8,-4) (9,-8) (10,-10) (11,-10) (12,-12) (13,-12) (14,-10) (15,-6) (16,0) (17,-8) (18,-14) (19,-10) (20,-16) (21,-12) (22,-6) (23,2) (24,-8)};
+  \addlegendentry{鞅 $S_n^2-n$}
+\end{axis}
+\end{tikzpicture}
+\caption{Doob 分解: 简单对称随机游动的平方 $S_n^2$ (下鞅) 等于鞅 $S_n^2-n$ 加上确定性的增过程 $n$}
+\label{fig:doob-decomposition}
+\end{figure}
+
+命题~\ref{prop:bracket} (4) 对鞅变换给出一个非常有用的等距公式.
+
+\begin{corollary}[离散 Itô 等距]\label{cor:discrete-ito-isometry}
+设 $M$ 是平方可积鞅, $H$ 可料且有界. 则
+\[
+\E\big[(H\cdot M)_n^2\big]=\E\Big[\sum_{k=1}^nH_k^2\,\Delta\ip{M}_k\Big].
+\]
+特别地, 对简单对称随机游动 $S$, $\E[(H\cdot S)_n^2]=\E\big[\sum_{k=1}^nH_k^2\big]$.
+\end{corollary}
+
+\begin{proof}
+由鞅变换定理, $H\cdot M$ 是平方可积鞅, 其增量为 $H_k\Delta M_k$. 由命题~\ref{prop:bracket} (4) 与提出已知因子 ($H_k^2$ 是 $\mathcal{F}_{k-1}$-可测的),
+\[
+\E\big[(H\cdot M)_n^2\big]=\sum_{k=1}^n\E\big[H_k^2(\Delta M_k)^2\big]=\sum_{k=1}^n\E\Big[H_k^2\,\E\big[(\Delta M_k)^2\,\big|\,\mathcal{F}_{k-1}\big]\Big]=\E\Big[\sum_{k=1}^nH_k^2\Delta\ip{M}_k\Big].\qedhere
+\]
+\end{proof}
+
+\begin{intuition}
+左边是 ``随机积分'' 的均方, 右边是被积函数对 ``时钟'' $\ip{M}$ 的普通积分. 第~5~章的 Itô 等距 $\E\big[(\int_0^tH_s\dd B_s)^2\big]=\E\int_0^tH_s^2\dd s$ 是它的连续极限, 而它正是构造 Itô 积分的基石: 等距映射可以从简单过程唯一地延拓到它们的 $L^2$ 闭包.
+\end{intuition}
+
+\begin{remark}[Doob-Meyer 分解]
+在连续时间中, Doob 分解的推广称为 Doob-Meyer 分解: 满足适当可积条件 (``(D) 类'') 的右连续下鞅可以唯一地写成鞅与可料增过程之和 (见~\cite{karatzas} 定理 1.4.10). 其证明远比离散情形困难, 因为连续时间中没有 ``前一个时刻''. 对平方可积的连续鞅 $M$, 这给出连续增过程 $\ip{M}$, 使 $M^2-\ip{M}$ 是鞅 (3.5 节).
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{Doob 鞅不等式}
+
+Markov 不等式用 $\E\abs{X_n}$ 控制单个时刻 $\P(\abs{X_n}\ge\lambda)$; 鞅的同一个期望还可以控制\emph{整条轨道}在 $[0,n]$ 上的最大值: 这是鞅与一般随机序列最显著的区别之一.
+
+\begin{theorem}[Doob 最大值不等式]\label{thm:doob-maximal}
+设 $X$ 是下鞅, $n\ge0$, $\lambda>0$. 记 $X^*_n=\max_{k\le n}X_k$. 则
+\[
+\lambda\,\P(X^*_n\ge\lambda)\le\E\big[X_n;X^*_n\ge\lambda\big]\le\E[X_n^+].
+\]
+特别地, 若 $M$ 是鞅, 则 $\lambda\,\P\big(\max_{k\le n}\abs{M_k}\ge\lambda\big)\le\E\abs{M_n}$.
+\end{theorem}
+
+\begin{proof}
+令 $\tau=\inf\{k: X_k\ge\lambda\}\wedge n$, 它是有界停时, 且 $\tau\le n$. 记 $A=\{X^*_n\ge\lambda\}$. 在 $A$ 上, $X$ 在时刻 $n$ 之前达到 $\lambda$, 所以 $X_\tau\ge\lambda$; 在 $A^c$ 上, $\tau=n$. 由可选停时定理~\ref{thm:ost-bounded} (下鞅情形, $\tau\le n$), $\E X_\tau\le\E X_n$, 即
+\[
+\E[X_\tau;A]+\E[X_n;A^c]\le\E[X_n;A]+\E[X_n;A^c].
+\]
+消去 $\E[X_n;A^c]$ 得 $\E[X_\tau;A]\le\E[X_n;A]$. 于是
+\[
+\lambda\P(A)\le\E[X_\tau;A]\le\E[X_n;A]\le\E[X_n^+;A]\le\E[X_n^+].
+\]
+对鞅 $M$, $\abs{M}$ 是下鞅 (命题~\ref{prop:convex-submartingale}), 应用上式即得.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11cm, height=5.4cm, xmin=0, xmax=21, ymin=-3, ymax=6,
+  xtick={5,10,15,20}, xticklabels={5,10,15,$n=20$}, ytick={3}, yticklabels={$\lambda$}, xlabel={$k$}, ylabel={$X_k$}]
+  \addplot[SARed!60,forget plot] coordinates {(0,3) (21,3)};
+  \addplot[SABlue,very thick,mark=*,mark size=0.9pt] coordinates {(0,0) (1,-1) (2,-2) (3,-1) (4,-2) (5,-1) (6,0) (7,1) (8,2) (9,1) (10,0) (11,1) (12,0) (13,1) (14,2) (15,3) (16,4) (17,3) (18,2) (19,3) (20,2)};
+  \addplot[SADark!50,dashed] coordinates {(15,-3) (15,3)};
+  \fill[SARed] (axis cs:15,3) circle (2.2pt);
+  \node[font=\small,anchor=north west] at (axis cs:15.2,-1.3) {$\tau=15$: 首次 $X_k\ge\lambda$};
+  \node[font=\small,SADark!80,anchor=south west] at (axis cs:16.2,4.3) {$X^*_{20}=4\ge\lambda$};
+\end{axis}
+\end{tikzpicture}
+\caption{Doob 最大值不等式的证明思路: 在首次越过 $\lambda$ 的时刻 $\tau$ 停下. 在事件 $\{X^*_n\ge\lambda\}$ 上 $X_\tau\ge\lambda$, 而下鞅性质保证从 $\tau$ 到 $n$ 平均不会下降, 所以 $X_n$ 在该事件上的平均也至少为 $\lambda$}
+\label{fig:doob-maximal}
+\end{figure}
+
+\begin{corollary}[Kolmogorov 不等式]\label{cor:kolmogorov-inequality}
+设 $\xi_1,\dots,\xi_n$ 独立, $\E\xi_k=0$, $\Var(\xi_k)<\infty$, $S_k=\sum_{j\le k}\xi_j$. 则对 $\lambda>0$,
+\[
+\P\Big(\max_{k\le n}\abs{S_k}\ge\lambda\Big)\le\frac{\Var(S_n)}{\lambda^2}.
+\]
+\end{corollary}
+
+\begin{proof}
+$S$ 是鞅, $S^2$ 是下鞅. 由 Doob 最大值不等式 (对 $S^2$, 水平为 $\lambda^2$), $\P(\max_k S_k^2\ge\lambda^2)\le\E[S_n^2]/\lambda^2$.
+\end{proof}
+
+与 Chebyshev 不等式 $\P(\abs{S_n}\ge\lambda)\le\Var(S_n)/\lambda^2$ 相比, Kolmogorov 不等式用\emph{同一个}上界控制了整个部分和序列的最大值.
+
+\begin{theorem}[Doob $L^p$ 不等式]\label{thm:doob-Lp}
+设 $X$ 是非负下鞅, $p>1$, $q=\frac{p}{p-1}$. 则
+\[
+\Big\|\max_{k\le n}X_k\Big\|_p\le q\,\norm{X_n}_p.
+\]
+特别地, 若 $M$ 是鞅, 则 $\E\big[\max_{k\le n}\abs{M_k}^p\big]\le q^p\,\E\abs{M_n}^p$; $p=2$ 时,
+\[
+\E\Big[\max_{k\le n}M_k^2\Big]\le4\,\E[M_n^2].
+\]
+\end{theorem}
+
+\begin{proof}
+若 $\norm{X_n}_p=\infty$, 结论显然, 下设 $X_n\in L^p$. 记 $X^*=\max_{k\le n}X_k$, 并取截断 $K>0$. 由尾积分公式 (例~\ref{ex:tail-formula}, 用于 $(X^*\wedge K)^p$, 并作变量替换 $t=\lambda^p$),
+\[
+\E\big[(X^*\wedge K)^p\big]=\int_0^\infty p\lambda^{p-1}\P(X^*\wedge K>\lambda)\dd\lambda\le\int_0^Kp\lambda^{p-1}\P(X^*\ge\lambda)\dd\lambda.
+\]
+由 Doob 最大值不等式~\ref{thm:doob-maximal}, $\P(X^*\ge\lambda)\le\frac{1}{\lambda}\E[X_n;X^*\ge\lambda]$. 代入并用 Tonelli 定理~\ref{thm:fubini} 交换积分次序,
+\begin{align*}
+\E\big[(X^*\wedge K)^p\big]&\le\int_0^Kp\lambda^{p-2}\E\big[X_n\1_{\{X^*\ge\lambda\}}\big]\dd\lambda=\E\Big[X_n\int_0^{X^*\wedge K}p\lambda^{p-2}\dd\lambda\Big]\\
+&=\frac{p}{p-1}\E\big[X_n(X^*\wedge K)^{p-1}\big]\le q\,\norm{X_n}_p\,\big\|(X^*\wedge K)^{p-1}\big\|_q,
+\end{align*}
+最后一步是 H\"older 不等式~\ref{thm:holder}. 由于 $(p-1)q=p$, $\big\|(X^*\wedge K)^{p-1}\big\|_q=\big(\E[(X^*\wedge K)^p]\big)^{1-1/p}$. 若 $\E[(X^*\wedge K)^p]=0$ 则无需证明; 否则它不超过 $K^p$, 是有限正数, 两边除以 $\big(\E[(X^*\wedge K)^p]\big)^{1-1/p}$ 得
+$\norm{X^*\wedge K}_p\le q\norm{X_n}_p$. 令 $K\to\infty$, 由单调收敛定理即得. 对鞅 $M$, 取 $X=\abs{M}$.
+\end{proof}
+
+\begin{remark}
+$p=1$ 时类似的不等式不成立: $\E[\max_{k\le n}\abs{M_k}]$ 不能被 $C\,\E\abs{M_n}$ 控制 (需要 $\E[\abs{M_n}\log^+\abs{M_n}]$, 见~\cite{durrett} 4.4 节). 这是 $L^1$ 与 $L^p$ ($p>1$) 在鞅论中表现不同的又一体现.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{Azuma-Hoeffding 不等式}
+
+Doob 不等式只用到矩. 若鞅的增量有界, 可以得到指数型的尾概率估计, 其形式与正态尾概率 $e^{-\lambda^2/2}$ 相同.
+
+\begin{lemma}[Hoeffding 引理]\label{lem:hoeffding}
+设 $Y$ 是随机变量, $\abs{Y}\le c$, $\E[Y\,|\,\mathcal{G}]=0$. 则对任意 $\theta\in\R$, $\E[e^{\theta Y}\,|\,\mathcal{G}]\le e^{\theta^2c^2/2}$.
+\end{lemma}
+
+\begin{proof}
+若 $c=0$, 结论显然, 下设 $c>0$. 由 $y\mapsto e^{\theta y}$ 的凸性, 对 $y\in[-c,c]$, 把 $y$ 写成端点 $\pm c$ 的凸组合 $y=\frac{c-y}{2c}(-c)+\frac{c+y}{2c}c$,
+\[
+e^{\theta y}\le\frac{c-y}{2c}e^{-\theta c}+\frac{c+y}{2c}e^{\theta c}.
+\]
+代入 $y=Y$, 取条件期望并用 $\E[Y\,|\,\mathcal{G}]=0$, 得 $\E[e^{\theta Y}\,|\,\mathcal{G}]\le\frac{1}{2}(e^{-\theta c}+e^{\theta c})=\cosh(\theta c)$. 最后, 比较幂级数的系数并利用 $(2k)!\ge2^kk!$,
+\[
+\cosh x=\sum_{k\ge0}\frac{x^{2k}}{(2k)!}\le\sum_{k\ge0}\frac{x^{2k}}{2^kk!}=e^{x^2/2}.\qedhere
+\]
+\end{proof}
+
+\begin{theorem}[Azuma-Hoeffding 不等式]\label{thm:azuma}
+设 $M$ 是鞅, $\abs{\Delta M_k}\le c_k$ ($c_k$ 为常数). 则对 $\lambda>0$,
+\[
+\P\Big(\max_{k\le n}(M_k-M_0)\ge\lambda\Big)\le\exp\Big(-\frac{\lambda^2}{2\sum_{k=1}^nc_k^2}\Big).
+\]
+\end{theorem}
+
+\begin{proof}
+记 $v_n=\sum_{k\le n}c_k^2$, 设 $v_n>0$ (否则 $M_k=M_0$, 结论显然). 固定 $\theta>0$. 先证明 $\E[e^{\theta(M_n-M_0)}]\le e^{\theta^2v_n/2}$. 对 $n$ 归纳: 由于 $e^{\theta(M_{n-1}-M_0)}$ 是 $\mathcal{F}_{n-1}$-可测的, 由提出已知因子与 Hoeffding 引理~\ref{lem:hoeffding} (取 $Y=\Delta M_n$, $\mathcal{G}=\mathcal{F}_{n-1}$),
+\[
+\E[e^{\theta(M_n-M_0)}]=\E\Big[e^{\theta(M_{n-1}-M_0)}\E\big[e^{\theta\Delta M_n}\,\big|\,\mathcal{F}_{n-1}\big]\Big]\le e^{\theta^2c_n^2/2}\E[e^{\theta(M_{n-1}-M_0)}].
+\]
+其次, $e^{\theta(M_k-M_0)}$ 是鞅的凸函数, 因而是非负下鞅 (命题~\ref{prop:convex-submartingale}), 由 Doob 最大值不等式~\ref{thm:doob-maximal},
+\begin{align*}
+\P\Big(\max_{k\le n}(M_k-M_0)\ge\lambda\Big)&=\P\Big(\max_{k\le n}e^{\theta(M_k-M_0)}\ge e^{\theta\lambda}\Big)\\
+&\le e^{-\theta\lambda}\E[e^{\theta(M_n-M_0)}]\le e^{-\theta\lambda+\theta^2v_n/2}.
+\end{align*}
+取 $\theta=\lambda/v_n$ 使右端最小, 即得.
+\end{proof}
+
+\begin{example}\label{ex:azuma}
+对简单对称随机游动 ($c_k=1$), $\P(\max_{k\le n}S_k\ge\lambda)\le e^{-\lambda^2/(2n)}$. 取 $\lambda=x\sqrt{n}$, 得 $\P(\max_{k\le n}S_k\ge x\sqrt{n})\le e^{-x^2/2}$: 随机游动在 $n$ 步内的最大偏离以 $\sqrt{n}$ 为尺度, 并且有正态型的尾部. 这正是第~4~章把随机游动按 $\sqrt{n}$ 缩放得到布朗运动的原因. Azuma-Hoeffding 不等式也广泛用于随机算法与组合概率: 只要一个量对每个独立输入的依赖都有界, 它的 Doob 鞅就有有界增量, 从而它高度集中在其均值附近.
+\end{example}
+
+% =====================================================================
+\section{鞅收敛定理}
+\label{sec:3-4}
+
+图~\ref{fig:polya-paths} 画出了 P\'olya 罐子中红球比例的几条轨道. 每条轨道最终都稳定在某个值附近, 这是有界鞅必定收敛的结果; 不同轨道的极限则不同. 本节证明这一事实及其各种变形. 核心思想是 Doob 的上穿计数. 若一条轨道不收敛, 它必须在某两个水平之间来回穿越无穷多次; 而 (下) 鞅穿越的期望次数是有限的.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11.5cm, height=5.6cm, xmin=0, xmax=205, ymin=0, ymax=1.02,
+  xtick={50,100,150,200}, ytick={0.25,0.5,0.75,1}, xlabel={$n$}, ylabel={$X_n$}]
+  \addplot[SABlue,thick] coordinates {(0,0.500) (5,0.857) (10,0.917) (15,0.882) (20,0.909) (25,0.926) (30,0.938) (35,0.946) (40,0.952) (45,0.936) (50,0.942) (55,0.930) (60,0.919) (65,0.925) (70,0.917) (75,0.922) (80,0.927) (85,0.908) (90,0.913) (95,0.918) (100,0.912) (105,0.907) (110,0.911) (115,0.906) (120,0.910) (125,0.913) (130,0.909) (135,0.912) (140,0.915) (145,0.918) (150,0.921) (155,0.924) (160,0.926) (165,0.928) (170,0.930) (175,0.932) (180,0.934) (185,0.936) (190,0.922) (195,0.919) (200,0.921)};
+  \addplot[SARed,thick] coordinates {(0,0.500) (5,0.429) (10,0.333) (15,0.353) (20,0.318) (25,0.296) (30,0.281) (35,0.270) (40,0.310) (45,0.340) (50,0.365) (55,0.386) (60,0.419) (65,0.433) (70,0.431) (75,0.416) (80,0.402) (85,0.391) (90,0.391) (95,0.381) (100,0.373) (105,0.383) (110,0.402) (115,0.393) (120,0.385) (125,0.378) (130,0.386) (135,0.387) (140,0.394) (145,0.388) (150,0.375) (155,0.376) (160,0.370) (165,0.383) (170,0.378) (175,0.384) (180,0.390) (185,0.385) (190,0.375) (195,0.365) (200,0.366)};
+  \addplot[SAGreenText,thick] coordinates {(0,0.500) (5,0.714) (10,0.583) (15,0.647) (20,0.636) (25,0.704) (30,0.719) (35,0.703) (40,0.667) (45,0.660) (50,0.635) (55,0.632) (60,0.613) (65,0.612) (70,0.611) (75,0.610) (80,0.622) (85,0.621) (90,0.630) (95,0.639) (100,0.637) (105,0.626) (110,0.643) (115,0.641) (120,0.639) (125,0.630) (130,0.629) (135,0.635) (140,0.641) (145,0.633) (150,0.645) (155,0.637) (160,0.630) (165,0.617) (170,0.622) (175,0.627) (180,0.632) (185,0.626) (190,0.635) (195,0.640) (200,0.649)};
+  \addplot[SAYellowText,thick] coordinates {(0,0.500) (5,0.143) (10,0.083) (15,0.059) (20,0.045) (25,0.037) (30,0.031) (35,0.027) (40,0.024) (45,0.021) (50,0.019) (55,0.018) (60,0.016) (65,0.015) (70,0.014) (75,0.026) (80,0.037) (85,0.046) (90,0.054) (95,0.052) (100,0.049) (105,0.047) (110,0.045) (115,0.043) (120,0.041) (125,0.039) (130,0.038) (135,0.044) (140,0.042) (145,0.041) (150,0.046) (155,0.045) (160,0.043) (165,0.042) (170,0.041) (175,0.040) (180,0.038) (185,0.037) (190,0.036) (195,0.041) (200,0.040)};
+\end{axis}
+\end{tikzpicture}
+\caption{P\'olya 罐子中红球比例 $X_n$ 的四条模拟轨道. 每条轨道都收敛, 但极限是随机的; 定理~\ref{thm:mart-conv} 与例~\ref{ex:polya-limit} 将证明极限服从 $\mathrm{U}(0,1)$}
+\label{fig:polya-paths}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{上穿不等式与几乎必然收敛}
+
+设 $a<b$. 对适应过程 $X$, 递归地定义停时
+\[
+\sigma_1=\inf\{k\ge0: X_k\le a\},\quad \tau_j=\inf\{k>\sigma_j: X_k\ge b\},\quad \sigma_{j+1}=\inf\{k>\tau_j: X_k\le a\},
+\]
+并令 $U_n[a,b]=\sup\{j: \tau_j\le n\}$ (约定 $\sup\varnothing=0$) 为 $X$ 在时刻 $n$ 之前完成的\textbf{上穿} $[a,b]$ 的次数: 每次上穿是指从 $a$ 以下出发、到达 $b$ 以上 (图~\ref{fig:upcrossing}). 这些 $\sigma_j,\tau_j$ 都是停时: 例如 $\{\tau_j\le n\}=\bigcup_{k\le n}\big(\{\sigma_j\le k-1\}\cap\{X_k\ge b\}\big)$, 由归纳法可知它属于 $\mathcal{F}_n$.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, width=11.5cm, height=5.6cm, xmin=0, xmax=21, ymin=0, ymax=5.6,
+  xtick={2,5,8,11,15}, xticklabels={$\sigma_1$,$\tau_1$,$\sigma_2$,$\tau_2$,$\sigma_3$}, ytick={1,4}, yticklabels={$a$,$b$}, xlabel={$k$}]
+  \addplot[SADark!25,forget plot] coordinates {(0,1) (21,1)};
+  \addplot[SADark!25,forget plot] coordinates {(0,4) (21,4)};
+  \addplot[SABlue!50,thick,mark=*,mark size=0.9pt] coordinates {(0,3) (1,2) (2,0.5) (3,1.5) (4,3) (5,4.5) (6,3.5) (7,2) (8,0.8) (9,2) (10,3.2) (11,4.2) (12,5) (13,3) (14,1.5) (15,0.7) (16,1.8) (17,3) (18,3.8) (19,2.5) (20,3.5)};
+  \addplot[SARed,very thick] coordinates {(2,0.5) (3,1.5) (4,3) (5,4.5)};
+  \addplot[SARed,very thick] coordinates {(8,0.8) (9,2) (10,3.2) (11,4.2)};
+  \addplot[SARed,very thick,dashed] coordinates {(15,0.7) (16,1.8) (17,3) (18,3.8) (19,2.5) (20,3.5)};
+  \node[font=\small,anchor=south east] at (axis cs:20.8,4.7) {$U_{20}[a,b]=2$};
+\end{axis}
+\end{tikzpicture}
+\caption{上穿计数. 粗线是两次完成的上穿; 从 $\sigma_3$ 开始的最后一段 (虚线) 尚未到达 $b$, 不计入 $U_{20}[a,b]$. 证明中的策略 $H$ 恰在粗线与虚线所在的时段持有一单位 ``股票''}
+\label{fig:upcrossing}
+\end{figure}
+
+\begin{theorem}[Doob 上穿不等式]\label{thm:upcrossing}
+设 $X$ 是下鞅, $a<b$. 则
+\[
+(b-a)\,\E\,U_n[a,b]\le\E(X_n-a)^+-\E(X_0-a)^+\le\E X_n^++\abs{a}.
+\]
+\end{theorem}
+
+\begin{proof}
+令 $Y_k=(X_k-a)^+$. 由命题~\ref{prop:convex-submartingale} (2), $Y$ 是非负下鞅. $X$ 上穿 $[a,b]$ 恰好是 $Y$ 上穿 $[0,b-a]$, 且 $Y_{\sigma_j}=0$, $Y_{\tau_j}\ge b-a$.
+
+考虑如下策略: 在每段 $(\sigma_j,\tau_j]$ 中持有一单位, 其余时间不持有, 即
+\[
+H_k=\sum_{j\ge1}\1_{\{\sigma_j<k\le\tau_j\}}=\sum_{j\ge1}\big(\1_{\{\sigma_j\le k-1\}}-\1_{\{\tau_j\le k-1\}}\big).
+\]
+由于这些时段互不相交, $H_k\in\{0,1\}$; 由第二个表达式, $H_k$ 是 $\mathcal{F}_{k-1}$-可测的, 所以 $H$ 可料. 收益 $(H\cdot Y)_n$ 是各段中 $Y$ 的增量之和: 每段完成的上穿贡献 $Y_{\tau_j}-Y_{\sigma_j}\ge b-a$; 若在时刻 $n$ 有一段尚未完成, 它贡献 $Y_n-Y_{\sigma_j}=Y_n\ge0$. 所以
+\[
+(H\cdot Y)_n\ge(b-a)\,U_n[a,b].
+\]
+另一方面, $1-H$ 可料、非负、有界, 由鞅变换定理~\ref{thm:martingale-transform} (2), $((1-H)\cdot Y)$ 是下鞅, $\E[((1-H)\cdot Y)_n]\ge0$. 由于 $(H\cdot Y)_n+((1-H)\cdot Y)_n=Y_n-Y_0$,
+\[
+(b-a)\,\E\,U_n[a,b]\le\E[(H\cdot Y)_n]\le\E[(H\cdot Y)_n]+\E[((1-H)\cdot Y)_n]=\E Y_n-\E Y_0.
+\]
+最后 $Y_n\le X_n^++\abs{a}$, $Y_0\ge0$.
+\end{proof}
+
+\begin{intuition}
+策略 $H$ 是 ``低买高卖'': 价格跌到 $a$ 以下时买入, 涨到 $b$ 以上时卖出. 每完成一次上穿就获利至少 $b-a$. 但在下鞅 (至多 ``略有利'' 的赌博) 中, 任何策略的期望收益都不超过 ``一直持有'' 的收益 $\E Y_n-\E Y_0$. 所以上穿次数的期望受到控制.
+\end{intuition}
+
+\begin{theorem}[鞅收敛定理]\label{thm:mart-conv}
+设 $X$ 是下鞅, 且 $\sup_n\E X_n^+<\infty$. 则存在 $X_\infty\in L^1$, 使得 $X_n\to X_\infty$ $\as$
+\end{theorem}
+
+\begin{proof}
+对 $a<b$, 令 $U_\infty[a,b]=\lim_nU_n[a,b]$ (单调不减). 由单调收敛定理与上穿不等式~\ref{thm:upcrossing},
+\[
+\E\,U_\infty[a,b]=\lim_n\E\,U_n[a,b]\le\frac{\sup_n\E X_n^++\abs{a}}{b-a}<\infty,
+\]
+所以 $U_\infty[a,b]<\infty$ $\as$ 若 $\liminf_nX_n<a<b<\limsup_nX_n$, 则 $X_n$ 无穷多次低于 $a$ 又无穷多次高于 $b$, 从而 $U_\infty[a,b]=\infty$. 于是
+\begin{align*}
+\Big\{\liminf_nX_n<\limsup_nX_n\Big\}&=\bigcup_{a<b,\ a,b\in\Q}\Big\{\liminf_nX_n<a<b<\limsup_nX_n\Big\}\\
+&\subseteq\bigcup_{a<b,\ a,b\in\Q}\{U_\infty[a,b]=\infty\}
+\end{align*}
+是可列个零概率集之并, 概率为零. 所以 $X_\infty=\lim_nX_n$ 几乎必然存在 (可能为 $\pm\infty$). 由 Fatou 引理~\ref{thm:fatou}, 并利用 $\abs{X_n}=2X_n^+-X_n$ 与 $\E X_n\ge\E X_0$ (下鞅期望单调不减),
+\[
+\E\abs{X_\infty}\le\liminf_n\E\abs{X_n}=\liminf_n\big(2\E X_n^+-\E X_n\big)\le2\sup_n\E X_n^+-\E X_0<\infty.
+\]
+所以 $X_\infty$ 可积, 特别地几乎必然有限.
+\end{proof}
+
+由证明中的等式 $\E\abs{X_n}=2\E X_n^+-\E X_n$ 可知, 下鞅的条件 $\sup_n\E X_n^+<\infty$ 等价于 $L^1$ 有界 $\sup_n\E\abs{X_n}<\infty$; 上述定理对鞅的条件也就是 $L^1$ 有界.
+
+\begin{corollary}[非负上鞅收敛定理]\label{cor:nonneg-supermart}
+若 $X$ 是非负上鞅, 则 $X_n\to X_\infty$ $\as$, 且 $\E X_\infty\le\E X_0$.
+\end{corollary}
+
+\begin{proof}
+$-X$ 是下鞅, 且 $(-X_n)^+=0$. 由定理~\ref{thm:mart-conv}, $X_n$ 几乎必然收敛. 由 Fatou 引理与上鞅期望单调不增, $\E X_\infty\le\liminf_n\E X_n\le\E X_0$.
+\end{proof}
+
+\begin{remark}
+定理只断言几乎必然收敛, 不断言 $L^1$ 收敛. 加倍策略的财富 $W_n=1+(H\cdot X)_n$ (例~\ref{ex:doubling}, 起始本金 $1$) 是非负鞅, $W_n\to2$ $\as$, 但 $\E W_n=1\ne2$. 收敛何时是 $L^1$ 的, 由一致可积性回答 (3.4.3 小节).
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{应用: 回到经典例子}
+
+\begin{example}[P\'olya 罐子的极限]\label{ex:polya-limit}
+红球比例 $X_n$ 是取值于 $[0,1]$ 的鞅, 由定理~\ref{thm:mart-conv}, $X_n\to X_\infty$ $\as$ 下面证明 $X_\infty\sim\mathrm{U}(0,1)$.
+
+先计算 $R_n$ 的分布. 一个含 $k$ 个红、$n-k$ 个蓝的特定抽取序列, 其概率的分母依次为 $2,3,\dots,n+1$; 分子中, 第 $i$ 次抽到红球时罐中有 $i$ 个红球, 第 $i$ 次抽到蓝球时有 $i$ 个蓝球, 与红蓝出现的次序无关. 所以这个序列的概率为 $\frac{k!\,(n-k)!}{(n+1)!}$, 乘以序列个数 $\binom{n}{k}$ 得
+\[
+\P(R_n=k+1)=\frac{1}{n+1},\qquad k=0,1,\dots,n.
+\]
+即 $X_n$ 在 $\big\{\frac{1}{n+2},\dots,\frac{n+1}{n+2}\big\}$ 上均匀分布. 于是对 $x\in[0,1]$, $\P(X_n\le x)=\frac{\#\{k: (k+1)/(n+2)\le x\}}{n+1}\to x$. 几乎必然收敛蕴含依分布收敛 (定理~\ref{thm:convergence-implications}), 所以在 $F_{X_\infty}$ 的每个连续点处 $F_{X_\infty}(x)=x$; 连续点稠密, 由右连续性 $F_{X_\infty}(x)=x$ 对一切 $x\in[0,1]$ 成立. 罐子的长期组成是完全随机的: 最初几次抽取的偶然结果被 ``富者愈富'' 的机制放大并永久保留.
+\end{example}
+
+\begin{example}[分支过程的灭绝]\label{ex:gw-extinction}
+沿用例~\ref{ex:galton-watson} 的记号, 设 $\P(\xi_{1,1}=1)<1$.
+
+\emph{第一步: 种群不会稳定在正数.} 对整数 $k\ge1$, 令 $r_k=\P\big(\sum_{i=1}^k\xi_{1,i}=k\big)$. 则 $r_k<1$: 若 $\P(\xi_{1,1}\ge2)>0$, 则 ``$\xi_{1,1}\ge2$ 且其余 $\xi_{1,i}\ge1$'' 有正概率, 此时和大于 $k$; 否则 $\xi_{1,1}\in\{0,1\}$ 且 $\P(\xi_{1,1}=0)>0$, ``全部为 $0$'' 有正概率. 与例~\ref{ex:galton-watson} 的计算相同, 在 $\{Z_n=k\}$ 上 $\P(Z_{n+1}=k\,|\,\mathcal{F}_n)=r_k$, 所以由全期望公式递推,
+$\P(Z_N=Z_{N+1}=\cdots=Z_{N+m}=k)=r_k^m\,\P(Z_N=k)\to0$ ($m\to\infty$). 对可列个 $(N,k)$ 取并, $\P(\text{存在 }k\ge1\text{ 使 }Z_n\text{ 最终恒等于 }k)=0$.
+
+\emph{第二步: $\mu\le1$ 时必然灭绝.} $W_n=Z_n/\mu^n$ 是非负鞅, 由推论~\ref{cor:nonneg-supermart} 几乎必然收敛到有限极限. 当 $\mu\le1$ 时, $Z_n=\mu^nW_n$ 也几乎必然收敛到有限极限. 整数值序列收敛意味着最终恒定, 由第一步, 极限只能是 $0$. 所以 $\P(\text{灭绝})=1$.
+
+\emph{第三步: $\mu>1$ 时的灭绝概率.} 母函数 $f$ 在 $[0,1]$ 上连续, $f(1)=1$, 且左导数 $f'(1-)=\mu>1$ (由单调收敛定理求导), 所以 $s$ 略小于 $1$ 时 $f(s)<s$; 又 $f(0)=\P(\xi_{1,1}=0)\ge0$. 由介值定理, 存在 $q\in[0,1)$ 使 $f(q)=q$. 若 $q=0$, 则每个个体至少有一个后代, 种群不会灭绝. 设 $q\in(0,1)$. 由例~\ref{ex:galton-watson} (2), $q^{Z_n}$ 是取值于 $[0,1]$ 的鞅, 几乎必然收敛; 由于 $s\mapsto q^s$ 严格单调, $Z_n$ 在 $[0,\infty]$ 中几乎必然收敛, 由第一步, 极限 $Z_\infty\in\{0,\infty\}$. 由有界收敛定理 (约定 $q^\infty=0$),
+\[
+q=\E\,q^{Z_0}=\E\,q^{Z_n}\to\E\,q^{Z_\infty}=\P(Z_\infty=0)=\P(\text{灭绝}).
+\]
+所以灭绝概率等于 $q$ (这也说明 $f$ 在 $(0,1)$ 中至多有一个不动点), 且在不灭绝的事件上 $Z_n\to\infty$. 至于增长速度, $W_n\to W_\infty$, 而 $W_\infty>0$ 在 ``不灭绝'' 上几乎必然成立当且仅当 $\E[\xi_{1,1}\log^+\xi_{1,1}]<\infty$ (Kesten-Stigum 定理, 见~\cite{durrett} 5.4 节): 此时种群以 $\mu^n$ 的速度增长.
+\end{example}
+
+\begin{example}[似然比趋于零]\label{ex:likelihood-limit}
+在例~\ref{ex:likelihood-ratio} 中, 设 $g\ne f$ (即二者在正 Lebesgue 测度集上不同). $L_n$ 是非负鞅, 由推论~\ref{cor:nonneg-supermart}, $L_n\to L_\infty$ $\as$ 我们证明 $L_\infty=0$. 令 $\rho=\E\sqrt{g(Y_1)/f(Y_1)}=\int\sqrt{f(y)g(y)}\dd y$. 由 Cauchy-Schwarz 不等式, $\rho\le\big(\int f\big)^{1/2}\big(\int g\big)^{1/2}=1$, 且等号成立当且仅当 $\sqrt{g}$ 与 $\sqrt{f}$ 成比例, 即 $g=f$ 几乎处处; 所以 $\rho<1$. 由独立性, $\E\sqrt{L_n}=\rho^n\to0$. 由 Fatou 引理,
+\[
+\E\sqrt{L_\infty}\le\liminf_n\E\sqrt{L_n}=0,
+\]
+故 $L_\infty=0$ $\as$, 即数据真的来自 $f$ 时, 似然比终将压倒性地支持 $f$. 但 $\E L_n=1$ 对一切 $n$ 成立: 期望的 ``质量'' 集中在概率越来越小的事件上 (那些看起来像是来自 $g$ 的数据), 这正是 $L_n$ 不一致可积的表现. 图~\ref{fig:likelihood} 中的 $\log L_n$ 大致以斜率 $\E\log\frac{g(Y_1)}{f(Y_1)}<0$ 下降.
+\end{example}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[SAaxis, axis x line=bottom, axis y line=left, clip=false, width=11.5cm, height=6cm, xmin=0, xmax=124, ymin=-22, ymax=8,
+  xtick={30,60,90,120}, ytick={-20,-10,0}, xlabel={$n$}]
+  \node[font=\small,anchor=south west] at (rel axis cs:0,1.0) {$\log L_n$};
+  \addplot[SABlue,thick] coordinates {(0,0.00) (3,-0.30) (6,-1.63) (9,-1.82) (12,-2.26) (15,-1.42) (18,-0.79) (21,-2.08) (24,-2.59) (27,-1.93) (30,-2.75) (33,-4.66) (36,-5.31) (39,-3.64) (42,-4.49) (45,-4.67) (48,-5.68) (51,-5.02) (54,-5.22) (57,-4.53) (60,-4.91) (63,-3.85) (66,-3.88) (69,-3.92) (72,-5.30) (75,-4.13) (78,-3.24) (81,-2.25) (84,-2.16) (87,-1.49) (90,-0.33) (93,-0.17) (96,-0.86) (99,-0.29) (102,0.02) (105,-0.84) (108,-1.28) (111,-1.38) (114,-2.70) (117,-1.01) (120,-1.94)};
+  \addplot[SARed,thick] coordinates {(0,0.00) (3,1.24) (6,2.53) (9,1.93) (12,2.75) (15,0.80) (18,0.29) (21,0.18) (24,0.51) (27,-0.91) (30,0.16) (33,-0.99) (36,-0.05) (39,-1.33) (42,-2.32) (45,-1.20) (48,-2.45) (51,-3.37) (54,-4.66) (57,-5.57) (60,-5.57) (63,-7.23) (66,-6.98) (69,-6.43) (72,-8.02) (75,-8.21) (78,-7.38) (81,-8.26) (84,-10.77) (87,-11.31) (90,-10.59) (93,-11.75) (96,-11.44) (99,-10.76) (102,-12.16) (105,-12.74) (108,-13.00) (111,-14.91) (114,-15.24) (117,-15.41) (120,-15.70)};
+  \addplot[SAGreenText,thick] coordinates {(0,0.00) (3,0.22) (6,-0.10) (9,-1.59) (12,-0.84) (15,-1.11) (18,-1.59) (21,-3.24) (24,-4.88) (27,-6.00) (30,-5.73) (33,-6.54) (36,-7.23) (39,-9.49) (42,-9.25) (45,-8.85) (48,-10.38) (51,-10.12) (54,-10.77) (57,-11.78) (60,-14.18) (63,-11.90) (66,-13.51) (69,-13.08) (72,-13.08) (75,-14.65) (78,-15.12) (81,-16.14) (84,-15.36) (87,-16.21) (90,-16.87) (93,-17.01) (96,-16.20) (99,-17.07) (102,-17.71) (105,-18.12) (108,-17.07) (111,-18.47) (114,-19.15) (117,-19.78) (120,-20.39)};
+  \addplot[SAYellowText,thick] coordinates {(0,0.00) (3,-1.12) (6,-0.83) (9,-0.34) (12,-0.88) (15,-1.37) (18,-0.99) (21,-1.32) (24,-1.94) (27,-1.55) (30,-0.59) (33,-1.16) (36,-1.64) (39,-2.16) (42,-2.72) (45,-3.01) (48,-4.64) (51,-5.35) (54,-2.58) (57,-2.87) (60,-2.23) (63,-2.74) (66,-3.55) (69,-4.01) (72,-5.19) (75,-7.20) (78,-7.34) (81,-8.09) (84,-9.03) (87,-8.14) (90,-9.70) (93,-9.30) (96,-9.24) (99,-10.26) (102,-11.89) (105,-11.57) (108,-12.07) (111,-11.83) (114,-14.00) (117,-15.58) (120,-15.50)};
+  \addplot[SADark,dashed,thick,domain=0:120] {-x/8};
+  \node[font=\small,anchor=south] (sl) at (axis cs:105,2) {斜率 $-\frac{1}{8}$}; \draw[->,SADark!70] (sl.south) -- (axis cs:105,-12.9);
+\end{axis}
+\end{tikzpicture}
+\caption{似然比的对数 $\log L_n$ 的四条模拟轨道 ($f$ 为 $N(0,1)$ 密度, $g$ 为 $N(\frac{1}{2},1)$ 密度, 数据来自 $f$). 此时 $\log\frac{g}{f}(y)=\frac{y}{2}-\frac{1}{8}$, 期望为 $-\frac{1}{8}$ (虚线). $L_n\to0$ 几乎必然成立, 而 $\E L_n\equiv1$}
+\label{fig:likelihood}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{一致可积鞅}
+
+几乎必然收敛何时可以加强为 $L^1$ 收敛? 由 Vitali 定理~\ref{thm:vitali}, 答案是一致可积性. 鞅的一致可积性还与 ``鞅由其极限决定'' 等价.
+
+\begin{lemma}\label{lem:ce-family-ui}
+设 $X\in L^1$. 则族 $\{\E[X\,|\,\mathcal{G}]: \mathcal{G}\text{ 是 }\mathcal{F}\text{ 的子 }\sigma\text{-代数}\}$ 一致可积.
+\end{lemma}
+
+\begin{proof}
+给定 $\varepsilon>0$, 由引理~\ref{lem:single-integrable} (2), 取 $\delta>0$ 使 $\P(A)<\delta$ 时 $\E[\abs{X};A]<\varepsilon$. 取 $K>\E\abs{X}/\delta$. 对任意子 $\sigma$-代数 $\mathcal{G}$, 记 $Y=\E[X\,|\,\mathcal{G}]$. 由条件期望的三角不等式~\ref{thm:ce-basic} (3), $\abs{Y}\le\E[\abs{X}\,|\,\mathcal{G}]$, 所以由 Markov 不等式 $\P(\abs{Y}>K)\le\frac{\E\abs{Y}}{K}\le\frac{\E\abs{X}}{K}<\delta$. 由于 $\{\abs{Y}>K\}\in\mathcal{G}$,
+\[
+\E\big[\abs{Y};\abs{Y}>K\big]\le\E\big[\E[\abs{X}\,|\,\mathcal{G}];\abs{Y}>K\big]=\E\big[\abs{X};\abs{Y}>K\big]<\varepsilon.\qedhere
+\]
+\end{proof}
+
+\begin{theorem}[一致可积鞅]\label{thm:ui-mart}
+设 $M$ 是鞅. 以下四条等价:
+\begin{enumerate}
+\item $\{M_n\}$ 一致可积;
+\item $M_n$ 几乎必然且在 $L^1$ 中收敛;
+\item $M_n$ 在 $L^1$ 中收敛;
+\item 存在 $X\in L^1$, 使 $M_n=\E[X\,|\,\mathcal{F}_n]$ 对一切 $n$ 成立 (称 $M$ 为\textbf{闭鞅}).
+\end{enumerate}
+此时, 记 $M_\infty$ 为极限, 则 $M_n=\E[M_\infty\,|\,\mathcal{F}_n]$, 且在 (4) 中 $M_\infty=\E[X\,|\,\mathcal{F}_\infty]$.
+\end{theorem}
+
+\begin{proof}
+(1)$\Rightarrow$(2): 一致可积蕴含 $L^1$ 有界 (命题~\ref{prop:ui-equivalent}), 由鞅收敛定理~\ref{thm:mart-conv}, $M_n\to M_\infty$ $\as$; 几乎必然收敛蕴含依概率收敛, 由 Vitali 定理~\ref{thm:vitali}, 收敛也是 $L^1$ 的.
+
+(2)$\Rightarrow$(3): 显然.
+
+(3)$\Rightarrow$(4): 设 $M_n\xrightarrow{L^1}M_\infty$. 由定理~\ref{thm:partial-converses} (1), 有子列几乎必然收敛到 $M_\infty$, 故可取 $M_\infty$ 为 $\mathcal{F}_\infty$-可测的. 固定 $n$ 与 $A\in\mathcal{F}_n$. 对 $m\ge n$, 由鞅性质 $\E[M_m;A]=\E[M_n;A]$; 而 $\abs{\E[M_m;A]-\E[M_\infty;A]}\le\E\abs{M_m-M_\infty}\to0$. 所以 $\E[M_\infty;A]=\E[M_n;A]$, 即 $M_n=\E[M_\infty\,|\,\mathcal{F}_n]$. 取 $X=M_\infty$.
+
+(4)$\Rightarrow$(1): 由引理~\ref{lem:ce-family-ui}.
+
+最后, 在 (4) 中, 由 (4)$\Rightarrow$(1)$\Rightarrow$(2), $M_n\to M_\infty$. 要证 $M_\infty=\E[X\,|\,\mathcal{F}_\infty]$. 集族 $\bigcup_n\mathcal{F}_n$ 是包含 $\Omega$ 的 $\pi$-系 (它是递增 $\sigma$-代数之并), 生成 $\mathcal{F}_\infty$. 对 $A\in\mathcal{F}_n$, 由 (3)$\Rightarrow$(4) 的证明, $\E[M_\infty;A]=\E[M_n;A]=\E[X;A]$. 由引理~\ref{lem:ce-pi-system}, $M_\infty=\E[X\,|\,\mathcal{F}_\infty]$.
+\end{proof}
+
+\begin{corollary}[L\'evy 向上定理]\label{cor:levy-up}
+设 $X\in L^1$. 则 $\E[X\,|\,\mathcal{F}_n]\to\E[X\,|\,\mathcal{F}_\infty]$ 几乎必然且在 $L^1$ 中成立. 特别地, 对 $A\in\mathcal{F}_\infty$, $\P(A\,|\,\mathcal{F}_n)\to\1_A$ $\as$ (L\'evy 0-1 律).
+\end{corollary}
+
+\begin{proof}
+Doob 鞅 $\E[X\,|\,\mathcal{F}_n]$ 满足定理~\ref{thm:ui-mart} (4). 取 $X=\1_A$, $\E[\1_A\,|\,\mathcal{F}_\infty]=\1_A$.
+\end{proof}
+
+\begin{intuition}
+随着信息不断积累, 对 $X$ 的预测收敛到 ``用全部信息'' 所作的预测. L\'evy 0-1 律说: 由全部信息决定的事件, 其条件概率最终会趋于 $0$ 或 $1$, 即我们最终会 ``知道'' 它是否发生.
+\end{intuition}
+
+\begin{corollary}[Kolmogorov 0-1 律的鞅证明]\label{cor:kolmogorov-01-martingale}
+设 $\mathcal{G}_1,\mathcal{G}_2,\dots$ 是相互独立的 $\sigma$-代数, $A$ 属于它们的尾 $\sigma$-代数. 则 $\P(A)\in\{0,1\}$.
+\end{corollary}
+
+\begin{proof}
+令 $\mathcal{F}_n=\sigma(\mathcal{G}_1\cup\cdots\cup\mathcal{G}_n)$. 由于 $A\in\sigma\big(\bigcup_{k>n}\mathcal{G}_k\big)$, 由分组原理~\ref{cor:grouping}, $A$ 与 $\mathcal{F}_n$ 独立, 故 $\P(A\,|\,\mathcal{F}_n)=\P(A)$ (定理~\ref{thm:ce-basic} (6)). 又 $A\in\mathcal{F}_\infty$, 由 L\'evy 0-1 律, $\P(A)=\P(A\,|\,\mathcal{F}_n)\to\1_A$ $\as$ 常数 $\P(A)$ 几乎必然等于 $\1_A$, 只能是 $0$ 或 $1$.
+\end{proof}
+
+对一致可积鞅, 可选停时定理对任意停时成立 (包括可能取 $\infty$ 的停时, 此时约定 $M_\tau=M_\infty$ 在 $\{\tau=\infty\}$ 上).
+
+\begin{theorem}[可选停时定理: 一致可积鞅]\label{thm:ost-ui}
+设 $M$ 是一致可积鞅, $\sigma\le\tau$ 是停时. 则 $M_\tau$ 可积, $M_\tau=\E[M_\infty\,|\,\mathcal{F}_\tau]$, 且
+\[
+\E[M_\tau\,|\,\mathcal{F}_\sigma]=M_\sigma,\qquad\E M_\tau=\E M_0.
+\]
+\end{theorem}
+
+\begin{proof}
+由定理~\ref{thm:ui-mart}, $M_n=\E[M_\infty\,|\,\mathcal{F}_n]$, 且可取 $M_\infty$ 为 $\mathcal{F}_\infty$-可测的.
+
+\emph{可积性与可测性.} 在 $\{\tau=n\}$ 上 $\abs{M_\tau}=\abs{M_n}\le\E[\abs{M_\infty}\,|\,\mathcal{F}_n]$, 而 $\{\tau=n\}\in\mathcal{F}_n$, 所以 $\E[\abs{M_\tau};\tau=n]\le\E[\abs{M_\infty};\tau=n]$ (对 $n=\infty$ 显然). 对 $n\in\{0,1,\dots,\infty\}$ 求和得 $\E\abs{M_\tau}\le\E\abs{M_\infty}<\infty$. 由命题~\ref{prop:F-tau} (3), $M_\tau\1_{\{\tau<\infty\}}$ 是 $\mathcal{F}_\tau$-可测的; 而对 $A\in\mathcal{F}_\infty$, $A\cap\{\tau=\infty\}\in\mathcal{F}_\tau$ (它与 $\{\tau\le n\}$ 之交为空集), 所以 $M_\infty\1_{\{\tau=\infty\}}$ 也是 $\mathcal{F}_\tau$-可测的.
+
+\emph{$M_\tau=\E[M_\infty\,|\,\mathcal{F}_\tau]$.} 设 $A\in\mathcal{F}_\tau$. 对有限的 $n$, $A\cap\{\tau=n\}\in\mathcal{F}_n$, 所以 $\E[M_\infty;A\cap\{\tau=n\}]=\E[M_n;A\cap\{\tau=n\}]=\E[M_\tau;A\cap\{\tau=n\}]$; 对 $n=\infty$ 两边相同. 对 $n$ 求和 (由控制收敛定理, 控制函数分别为 $\abs{M_\infty}$ 与 $\abs{M_\tau}$), $\E[M_\infty;A]=\E[M_\tau;A]$.
+
+\emph{结论.} 由 $\mathcal{F}_\sigma\subseteq\mathcal{F}_\tau$ 与塔性质, $\E[M_\tau\,|\,\mathcal{F}_\sigma]=\E\big[\E[M_\infty\,|\,\mathcal{F}_\tau]\,\big|\,\mathcal{F}_\sigma\big]=\E[M_\infty\,|\,\mathcal{F}_\sigma]=M_\sigma$. 取 $\sigma=0$ 并取期望得 $\E M_\tau=\E M_0$.
+\end{proof}
+
+\begin{corollary}\label{cor:ost-bounded-stopped}
+设 $M$ 是鞅, $\tau$ 是停时, 停止过程 $M^\tau$ 一致可积 (例如 $\abs{M_{\tau\wedge n}}\le K$). 则 $M_\tau=\lim_nM_{\tau\wedge n}$ 几乎必然存在, 且 $\E M_\tau=\E M_0$.
+\end{corollary}
+
+\begin{proof}
+由定理~\ref{thm:stopped-martingale}, $M^\tau$ 是一致可积鞅, 由定理~\ref{thm:ui-mart} 它收敛, 极限在 $\{\tau<\infty\}$ 上等于 $M_\tau$. 由定理~\ref{thm:ost-ui} (对鞅 $M^\tau$ 与停时 $\tau$, 或直接由 $L^1$ 收敛), $\E M_\tau=\lim_n\E M_{\tau\wedge n}=\E M_0$.
+\end{proof}
+
+例如在例~\ref{ex:gambler-ruin} 的非对称情形中, 停止鞅 $r^{S_{\tau\wedge n}}$ 有界, 推论~\ref{cor:ost-bounded-stopped} 直接给出 $\E r^{S_\tau}=r^x$, 无需事先证明 $\tau<\infty$ (这一点可以由此反推出来).
+
+% ---------------------------------------------------------------------
+\subsection{\texorpdfstring{$L^2$}{L2} 有界鞅}
+
+\begin{theorem}[$L^2$ 有界鞅收敛定理]\label{thm:L2-mart}
+设 $M$ 是鞅, $\sup_n\E[M_n^2]<\infty$ (由命题~\ref{prop:bracket} (4), 这等价于 $\sum_k\E[(\Delta M_k)^2]<\infty$). 则 $M_n\to M_\infty$ 几乎必然且在 $L^2$ 中成立, 且
+\[
+\E[M_\infty^2]=\E[M_0^2]+\sum_{k=1}^\infty\E[(\Delta M_k)^2]=\E[M_0^2]+\E\ip{M}_\infty,
+\]
+\[
+\E\Big[\sup_nM_n^2\Big]\le4\sup_n\E[M_n^2].
+\]
+\end{theorem}
+
+\begin{proof}
+记 $C=\sup_n\E[M_n^2]$. 由命题~\ref{prop:ui-sufficient} (2), $M$ 一致可积, 由定理~\ref{thm:ui-mart}, $M_n\to M_\infty$ $\as$ 由 Doob $L^2$ 不等式~\ref{thm:doob-Lp}, $\E[\max_{k\le n}M_k^2]\le4C$; 令 $n\to\infty$, 由单调收敛定理, $\E[\sup_nM_n^2]\le4C$. 于是 $\abs{M_n-M_\infty}^2\le4\sup_kM_k^2$ 是可积控制, 由控制收敛定理, $\E\abs{M_n-M_\infty}^2\to0$. 最后由命题~\ref{prop:bracket} (4), 内积的连续性与单调收敛定理, $\E[M_\infty^2]=\lim_n\E[M_n^2]=\E[M_0^2]+\sum_k\E[(\Delta M_k)^2]$.
+\end{proof}
+
+\begin{example}[随机级数]\label{ex:random-series}
+设 $\xi_1,\xi_2,\dots$ 独立, $\E\xi_k=0$, $\Var(\xi_k)=1$, 且 $\sum_ka_k^2<\infty$. 则 $\sum_ka_k\xi_k$ \emph{几乎必然}收敛 (例~\ref{ex:L2-series} 只得到了 $L^2$ 收敛). 例如取 $\xi_k=\pm1$ (等概率), 则 ``随机符号的调和级数'' $\sum_k\pm\frac{1}{k}$ 几乎必然收敛, 尽管 $\sum_k\frac{1}{k}=\infty$: 随机符号带来的相消足以使级数收敛.
+\end{example}
+
+% ---------------------------------------------------------------------
+\subsection{逆向鞅与强大数定律}
+
+最后讨论信息\emph{递减}的情形. 设 $\mathcal{G}_0\supseteq\mathcal{G}_1\supseteq\mathcal{G}_2\supseteq\cdots$ 是递减的子 $\sigma$-代数, $\mathcal{G}_\infty=\bigcap_n\mathcal{G}_n$.
+
+\begin{theorem}[L\'evy 向下定理]\label{thm:levy-down}
+设 $X\in L^1$. 则 $\E[X\,|\,\mathcal{G}_n]\to\E[X\,|\,\mathcal{G}_\infty]$ 几乎必然且在 $L^1$ 中成立.
+\end{theorem}
+
+\begin{proof}
+记 $Y_n=\E[X\,|\,\mathcal{G}_n]$.
+
+\emph{几乎必然收敛.} 固定 $N$, 把时间反过来: 令 $Z_k=Y_{N-k}$, $\mathcal{H}_k=\mathcal{G}_{N-k}$ ($k=0,\dots,N$). 则 $\{\mathcal{H}_k\}$ 递增, 由塔性质 $\E[Z_{k+1}\,|\,\mathcal{H}_k]=\E\big[\E[X\,|\,\mathcal{G}_{N-k-1}]\,\big|\,\mathcal{G}_{N-k}\big]=Z_k$, 所以 $(Z_0,\dots,Z_N)$ 是鞅. 由上穿不等式~\ref{thm:upcrossing}, $Z$ 在 $[0,N]$ 上上穿 $[a,b]$ 的期望次数不超过 $\frac{\E\abs{Z_N}+\abs{a}}{b-a}\le\frac{\E\abs{X}+\abs{a}}{b-a}$, 与 $N$ 无关. $Z$ 的上穿对应于序列 $Y_N,Y_{N-1},\dots,Y_0$ 的上穿, 即序列 $Y_0,Y_1,\dots,Y_N$ 的 ``下穿'' ($Y$ 从 $b$ 以上下降到 $a$ 以下). 令 $N\to\infty$, 由单调收敛定理, 序列 $\{Y_n\}$ 下穿 $[a,b]$ 的总次数的期望有限, 故几乎必然有限. 与定理~\ref{thm:mart-conv} 的证明相同 (一个序列若不收敛, 它必然无穷多次下穿某个有理区间), $Y_n$ 几乎必然收敛到 $[-\infty,\infty]$ 中的极限 $Y_\infty$.
+
+\emph{$L^1$ 收敛与极限的识别.} 由引理~\ref{lem:ce-family-ui}, $\{Y_n\}$ 一致可积. 由 Fatou 引理 $Y_\infty$ 可积, 由 Vitali 定理, $Y_n\xrightarrow{L^1}Y_\infty$. 对每个 $m$, 当 $n\ge m$ 时 $Y_n$ 是 $\mathcal{G}_m$-可测的, 所以 $Y_\infty=\limsup_nY_n$ 是 $\mathcal{G}_m$-可测的; 对一切 $m$ 成立, 故 $Y_\infty$ 是 $\mathcal{G}_\infty$-可测的. 对 $A\in\mathcal{G}_\infty\subseteq\mathcal{G}_n$, $\E[Y_n;A]=\E[X;A]$, 令 $n\to\infty$ 由 $L^1$ 收敛得 $\E[Y_\infty;A]=\E[X;A]$. 所以 $Y_\infty=\E[X\,|\,\mathcal{G}_\infty]$.
+\end{proof}
+
+这样的序列 $Y_n=\E[X\,|\,\mathcal{G}_n]$ 称为\textbf{逆向鞅}. 与普通的鞅不同, 逆向鞅\emph{总是}一致可积的, 因而收敛总是 $L^1$ 的. 逆向鞅最著名的应用是强大数定律.
+
+\begin{theorem}[强大数定律]\label{thm:slln}
+设 $\xi_1,\xi_2,\dots$ 是 $\iid$ 可积随机变量, $\E\xi_1=\mu$, $S_n=\sum_{k\le n}\xi_k$. 则
+\[
+\frac{S_n}{n}\to\mu\qquad\text{几乎必然且在 }L^1\text{ 中成立}.
+\]
+\end{theorem}
+
+\begin{proof}
+令 $\mathcal{G}_n=\sigma(S_n,\xi_{n+1},\xi_{n+2},\dots)$. 由于 $S_{n+1}=S_n+\xi_{n+1}$, $\mathcal{G}_{n+1}\subseteq\mathcal{G}_n$, 即 $\{\mathcal{G}_n\}$ 递减.
+
+\emph{第一步: $\E[\xi_1\,|\,\mathcal{G}_n]=\frac{S_n}{n}$.} 由于 $\sigma(\xi_{n+1},\xi_{n+2},\dots)$ 与 $\sigma(\xi_1,S_n)$ 独立 (分组原理), 由命题~\ref{prop:drop-independent}, $\E[\xi_1\,|\,\mathcal{G}_n]=\E[\xi_1\,|\,S_n]$. 对 $k\le n$, $(\xi_k,S_n)$ 与 $(\xi_1,S_n)$ 同分布 ($S_n$ 关于 $\xi_1,\dots,\xi_n$ 对称), 所以对 Borel 集 $B$, $\E[\xi_k;S_n\in B]=\E[\xi_1;S_n\in B]$. 对 $k=1,\dots,n$ 求和, $\E[S_n;S_n\in B]=n\E[\xi_1;S_n\in B]$. 所以 $\E[\xi_1\,|\,S_n]=\frac{S_n}{n}$.
+
+\emph{第二步: 收敛.} 由 L\'evy 向下定理~\ref{thm:levy-down}, $\frac{S_n}{n}\to L=\E[\xi_1\,|\,\mathcal{G}_\infty]$ 几乎必然且在 $L^1$ 中成立.
+
+\emph{第三步: 极限是常数.} 对任意固定的 $k$, $\frac{S_n}{n}-\frac{S_n-S_k}{n}=\frac{S_k}{n}\to0$, 所以 $L=\limsup_n\frac{\xi_{k+1}+\cdots+\xi_n}{n}$ 是 $\sigma(\xi_{k+1},\xi_{k+2},\dots)$-可测的. 对一切 $k$ 成立, 所以 $L$ 关于 $\{\sigma(\xi_k)\}$ 的尾 $\sigma$-代数可测. 由 Kolmogorov 0-1 律~\ref{thm:kolmogorov-01}, 对每个 $c$, $\P(L\le c)\in\{0,1\}$, 所以 $L$ 几乎必然等于常数 $c^*=\inf\{c: \P(L\le c)=1\}$. 最后由 $L^1$ 收敛, $c^*=\E L=\lim_n\E\frac{S_n}{n}=\mu$.
+\end{proof}
+
+\begin{remark}
+特别地, 在 1.1 节引言的无穷次抛硬币中, 频率 $\frac{S_n}{n}\to\frac{1}{2}$ 几乎必然成立: 事件 \eqref{eq:1-freq-event} 的概率为 $1$. 这个证明的精妙之处在于, 它只假设了一阶矩有限, 而所需的全部 ``估计'' 都由上穿不等式与一致可积性提供.
+\end{remark}
+
+% =====================================================================
+\section{连续时间鞅}
+\label{sec:3-5}
+
+布朗运动及其随机积分都是连续时间的过程. 本节把离散时间鞅论的主要结果推广到连续时间. 推广的基本方法是\textbf{离散化}: 用二进有理时刻上的离散鞅逼近连续时间的鞅, 再利用轨道的右连续性取极限. 这要求对信息流和轨道作一些正则性假设.
+
+以下指标集为 $[0,\infty)$, $\{\mathcal{F}_t\}_{t\ge0}$ 是信息流, $\mathcal{F}_\infty=\sigma\big(\bigcup_t\mathcal{F}_t\big)$.
+
+% ---------------------------------------------------------------------
+\subsection{通常条件与轨道正则性}
+
+\begin{definition}[通常条件]\label{def:usual-conditions}
+称信息流 $\{\mathcal{F}_t\}$ 满足\textbf{通常条件}, 如果
+\begin{enumerate}
+\item \textbf{完备}: $\mathcal{F}_0$ 包含 $\mathcal{F}$ 中的全部零概率集 (从而每个 $\mathcal{F}_t$ 都包含);
+\item \textbf{右连续}: 对每个 $t\ge0$, $\mathcal{F}_t=\mathcal{F}_{t+}$, 其中 $\mathcal{F}_{t+}=\bigcap_{s>t}\mathcal{F}_s$.
+\end{enumerate}
+\end{definition}
+
+完备性保证: 若 $X$ 适应, 而 $Y$ 与 $X$ 不可区分, 则 $Y$ 也适应. 右连续性的含义是 ``在时刻 $t$ 之后无穷小的时间内不会突然获得新信息'', 它保证了 ``首次进入开集的时刻'' 是停时 (命题~\ref{prop:hitting-continuous}). 任何信息流都可以通过加入零概率集并取右极限而扩充为满足通常条件的信息流; 对布朗运动, 这样的扩充不改变其鞅性质与马尔可夫性 (第~4~章). \emph{今后在连续时间中, 总假设信息流满足通常条件.}
+
+\begin{definition}[连续时间鞅]\label{def:ct-martingale}
+适应于 $\{\mathcal{F}_t\}$ 的可积过程 $X$ 称为鞅 (下鞅、上鞅), 如果对一切 $0\le s\le t$, $\E[X_t\,|\,\mathcal{F}_s]=X_s$ ($\ge$, $\le$).
+\end{definition}
+
+\begin{example}\label{ex:ct-martingales}
+\begin{enumerate}
+\item 若 $X\in L^1$, 则 $M_t=\E[X\,|\,\mathcal{F}_t]$ 是鞅 (与例~\ref{ex:doob-martingale} 相同).
+\item 若 $X$ 有独立增量 (即 $X_t-X_s$ 与 $\mathcal{F}_s$ 独立, $s\le t$), 且 $\E X_t=0$, 则 $X$ 是鞅: $\E[X_t-X_s\,|\,\mathcal{F}_s]=\E[X_t-X_s]=0$. 第~4~章将证明标准布朗运动 $B_t$、$B_t^2-t$ 与 $e^{\theta B_t-\theta^2t/2}$ 都是连续鞅. 另一个例子是补偿 Poisson 过程 $N_t-\lambda t$, 它的轨道有跳跃.
+\end{enumerate}
+\end{example}
+
+对连续时间过程, 我们需要轨道至少是右连续的, 否则可数个时刻上的信息无法决定整条轨道. 若轨道右连续且处处有左极限, 称为 \textbf{c\`adl\`ag} (法语 continue \`a droite, limite \`a gauche) 轨道. 幸运的是, 在通常条件下这总可以做到.
+
+\begin{theorem}[鞅的正则化]\label{thm:regularization}
+设信息流满足通常条件. 则每个鞅都有一个 c\`adl\`ag 修正; 更一般地, 下鞅 $X$ 有 c\`adl\`ag 修正当且仅当 $t\mapsto\E X_t$ 右连续. (证明见~\cite{karatzas} 定理 1.3.13.)
+\end{theorem}
+
+由于修正有相同的有限维分布 (命题~\ref{prop:modification}), 且在通常条件下修正仍然适应, \emph{今后总取鞅的 c\`adl\`ag 版本}. 由命题~\ref{prop:modification} (2), 两个 c\`adl\`ag 修正是不可区分的, 所以这个版本本质上是唯一的.
+
+% ---------------------------------------------------------------------
+\subsection{停时与离散化}
+
+\begin{definition}[连续时间停时]\label{def:ct-stopping-time}
+取值于 $[0,\infty]$ 的随机变量 $\tau$ 称为\textbf{停时}, 如果对每个 $t\ge0$, $\{\tau\le t\}\in\mathcal{F}_t$. 定义 $\mathcal{F}_\tau=\{A\in\mathcal{F}_\infty: A\cap\{\tau\le t\}\in\mathcal{F}_t\text{ 对一切 }t\ge0\}$.
+\end{definition}
+
+命题~\ref{prop:stopping-operations} 与命题~\ref{prop:F-tau} (1)(2) 对连续时间停时成立, 证明完全相同 (把 $n$ 换成 $t$; 对 $\sigma+\tau$ 的证明需稍作修改, 见~\cite{karatzas} 引理 1.2.9). 若 $X$ 适应且轨道右连续, 则 $X_\tau\1_{\{\tau<\infty\}}$ 也是 $\mathcal{F}_\tau$-可测的 (见~\cite{karatzas} 命题 1.2.18).
+
+\begin{lemma}\label{lem:optional-time}
+在右连续的信息流下, $\tau$ 是停时当且仅当对每个 $t>0$, $\{\tau<t\}\in\mathcal{F}_t$.
+\end{lemma}
+
+\begin{proof}
+若 $\tau$ 是停时, 则 $\{\tau<t\}=\bigcup_n\{\tau\le t-\frac{1}{n}\}\in\mathcal{F}_t$. 反之, 对每个 $t\ge0$ 与 $m$, $\{\tau\le t\}=\bigcap_{n\ge m}\{\tau<t+\frac{1}{n}\}\in\mathcal{F}_{t+1/m}$; 对一切 $m$ 成立, 所以 $\{\tau\le t\}\in\mathcal{F}_{t+}=\mathcal{F}_t$.
+\end{proof}
+
+\begin{proposition}[首达时]\label{prop:hitting-continuous}
+设 $X$ 是适应过程, 取值于 $\R^d$.
+\begin{enumerate}
+\item 若 $X$ 的轨道连续, $F$ 是非空闭集, 则 $\tau_F=\inf\{t\ge0: X_t\in F\}$ 是停时.
+\item 若 $X$ 的轨道右连续, $G$ 是开集, 则 $\tau_G=\inf\{t\ge0: X_t\in G\}$ 是停时.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 令 $d(x,F)=\inf_{y\in F}\abs{x-y}$, 它是 $x$ 的连续函数, 且 $d(x,F)=0\iff x\in F$. 记 $Q_t=(\Q\cap[0,t])\cup\{t\}$ (可数集). 我们断言
+\[
+\{\tau_F\le t\}=\Big\{\inf_{s\in Q_t}d(X_s,F)=0\Big\}.
+\]
+``$\subseteq$'': 若 $\tau_F\le t$, 由下确界的定义, 存在 $s_k\downarrow\tau_F$ ($s_k\ge\tau_F$) 使 $X_{s_k}\in F$ (或 $X_{\tau_F}\in F$); 由轨道连续与 $F$ 闭, $X_{\tau_F}\in F$. 取 $r_k\in Q_t$, $r_k\to\tau_F$, 则 $d(X_{r_k},F)\to d(X_{\tau_F},F)=0$. ``$\supseteq$'': 若下确界为零, 取 $s_k\in Q_t$ 使 $d(X_{s_k},F)\to0$; 由 $[0,t]$ 的紧性, 有子列 $s_k\to s\in[0,t]$, 由连续性 $d(X_s,F)=0$, 即 $X_s\in F$, 所以 $\tau_F\le s\le t$. 右端是可数个 $\mathcal{F}_t$-可测随机变量的下确界等于零的事件, 属于 $\mathcal{F}_t$.
+
+(2) 我们断言 $\{\tau_G<t\}=\bigcup_{s\in\Q\cap[0,t)}\{X_s\in G\}$. ``$\supseteq$'' 是显然的. ``$\subseteq$'': 若 $\tau_G<t$, 存在 $u\in[\tau_G,t)$ 使 $X_u\in G$; 由于 $G$ 开且轨道右连续, 存在 $\delta>0$ 使 $X_s\in G$ 对 $s\in[u,u+\delta)$ 成立, 在其中取有理数 $s<t$ 即可. 于是 $\{\tau_G<t\}\in\mathcal{F}_t$, 由引理~\ref{lem:optional-time}, $\tau_G$ 是停时.
+\end{proof}
+
+连续时间结果的证明都依赖于下面的离散化.
+
+\begin{lemma}[停时的二进离散化]\label{lem:dyadic-approx}
+设 $\tau$ 是停时. 对 $n\ge1$, 令
+\[
+\tau_n=\frac{\lfloor2^n\tau\rfloor+1}{2^n}\qquad(\tau=\infty\text{ 时 }\tau_n=\infty).
+\]
+则 $\tau_n$ 是取值于 $D_n=\{k2^{-n}: k\ge1\}\cup\{\infty\}$ 的停时, $\tau_n>\tau$, 且 $\tau_n\downarrow\tau$ ($n\to\infty$).
+\end{lemma}
+
+\begin{proof}
+$\tau_n$ 是严格大于 $\tau$ 的最小的 $2^{-n}$ 整数倍, 所以 $\tau<\tau_n\le\tau+2^{-n}$, 且 $D_n\subseteq D_{n+1}$ 蕴含 $\tau_{n+1}\le\tau_n$. 对 $k\ge1$, $\{\tau_n=k2^{-n}\}=\{(k-1)2^{-n}\le\tau<k2^{-n}\}\in\mathcal{F}_{k2^{-n}}$ (由引理~\ref{lem:optional-time} 的证明, $\{\tau<t\}\in\mathcal{F}_t$). 由于 $\tau_n$ 只取 $D_n$ 中的值, 对任意 $t$, $\{\tau_n\le t\}=\bigcup_{k2^{-n}\le t}\{\tau_n=k2^{-n}\}\in\mathcal{F}_t$.
+\end{proof}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+  \draw[->,SADark!80] (-0.6,0) -- (12.8,0) node[right,font=\small] {$t$};
+  \draw[SADark!45] (0.000,-0.1) -- (0.000,0.1);
+  \draw[SADark!45] (1.500,-0.1) -- (1.500,0.1);
+  \draw[SADark!45] (3.000,-0.1) -- (3.000,0.1);
+  \draw[SADark!45] (4.500,-0.1) -- (4.500,0.1);
+  \draw[SADark!45] (6.000,-0.1) -- (6.000,0.1);
+  \draw[SADark!45] (7.500,-0.1) -- (7.500,0.1);
+  \draw[SADark!45] (9.000,-0.1) -- (9.000,0.1);
+  \draw[SADark!45] (10.500,-0.1) -- (10.500,0.1);
+  \draw[SADark!45] (12.000,-0.1) -- (12.000,0.1);
+  \draw[SADark,thick] (0.000,-0.2) -- (0.000,0.2);
+  \draw[SADark,thick] (6.000,-0.2) -- (6.000,0.2);
+  \draw[SADark,thick] (12.000,-0.2) -- (12.000,0.2);
+  \node[below,font=\small] at (0.000,-0.22) {$\tfrac{1}{4}$};
+  \node[below,font=\small] at (6.000,-0.22) {$\tfrac{1}{2}$};
+  \node[below,font=\small] at (12.000,-0.22) {$\tfrac{3}{4}$};
+  \node[below,font=\small,SADark!70] at (4.500,-0.22) {$\tfrac{7}{16}$};
+  \fill[SARed] (3.600,0) circle (2pt);
+  \draw[SARed,dashed] (3.600,0) -- (3.600,2.0) node[above,font=\small] {$\tau$};
+  \draw[SAGreenText,dashed] (4.500,0) -- (4.500,0.7);
+  \draw[->,SAGreenText,thick] (3.600,0.7) -- (4.500,0.7) node[right,font=\small] {$\tau_4=\tfrac{7}{16}$};
+  \draw[SABlue,dashed] (6.000,0) -- (6.000,1.4);
+  \draw[->,SABlue,thick] (3.600,1.4) -- (6.000,1.4) node[right,font=\small] {$\tau_2=\tau_3=\tfrac{1}{2}$};
+\end{tikzpicture}
+\caption{停时的二进离散化: $\tau_n$ 是严格大于 $\tau$ 的第一个 $2^{-n}$ 的整数倍. 图中 $\tau=0.4$, 粗刻度为 $\frac{1}{4}$ 的倍数, 细刻度为 $\frac{1}{16}$ 的倍数. 随着 $n$ 增大, $\tau_n$ 从右侧单调下降到 $\tau$. 由于 $\tau_n$ 只用到 ``$\tau$ 是否已经发生'', 它仍是停时; 而向下取整则会用到未来的信息}
+\label{fig:dyadic-approx}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\subsection{Doob 不等式、收敛定理与可选停时定理}
+
+\begin{theorem}[连续时间 Doob 不等式]\label{thm:ct-doob}
+设 $X$ 是轨道右连续的下鞅, $t>0$, $\lambda>0$. 则
+\[
+\lambda\,\P\Big(\sup_{s\le t}X_s\ge\lambda\Big)\le\E X_t^+.
+\]
+若 $X$ 非负, $p>1$, 则 $\E\big[\sup_{s\le t}X_s^p\big]\le\big(\frac{p}{p-1}\big)^p\E X_t^p$. 特别地, 对轨道右连续的鞅 $M$, $\E\big[\sup_{s\le t}M_s^2\big]\le4\E M_t^2$.
+\end{theorem}
+
+\begin{proof}
+令 $E_n=\{kt2^{-n}: 0\le k\le2^n\}$, 它们是递增的有限集, 其并 $E$ 在 $[0,t]$ 中稠密且包含 $t$. 把 $(X_s)_{s\in E_n}$ 看作 (按时间顺序排列的) 离散时间下鞅, 由 Doob 最大值不等式~\ref{thm:doob-maximal}, 对任意 $\mu>0$, $\mu\P(\max_{s\in E_n}X_s>\mu)\le\E X_t^+$. 由轨道的右连续性, 对每个 $s\in[0,t)$, 存在 $E$ 中的点从右侧逼近 $s$, 所以 $\sup_{s\le t}X_s=\sup_{s\in E}X_s$. 事件 $\{\max_{s\in E_n}X_s>\mu\}$ 关于 $n$ 递增, 其并为 $\{\sup_{s\le t}X_s>\mu\}$, 由概率的连续性, $\mu\P(\sup_{s\le t}X_s>\mu)\le\E X_t^+$. 取 $\mu=\lambda-\varepsilon$ 并令 $\varepsilon\downarrow0$, 由于 $\{\sup_{s\le t}X_s>\lambda-\varepsilon\}\downarrow\{\sup_{s\le t}X_s\ge\lambda\}$, 即得第一个不等式. $L^p$ 不等式同理: 对 $E_n$ 用定理~\ref{thm:doob-Lp}, 再由单调收敛定理令 $n\to\infty$.
+\end{proof}
+
+\begin{theorem}[连续时间鞅收敛定理]\label{thm:ct-convergence}
+设 $X$ 是轨道右连续的下鞅, 且 $\sup_t\E X_t^+<\infty$. 则 $X_t\to X_\infty$ 几乎必然成立 ($t\to\infty$), 且 $X_\infty\in L^1$.
+\end{theorem}
+
+\begin{proof}
+记 $C=\sup_t\E X_t^+$, $D=\{k2^{-m}: k,m\ge0\}$ 为非负二进有理数全体. 对 $D$ 的有限子集 $F$ 与 $a<b$, 记 $U_F[a,b]$ 为 $(X_s)_{s\in F}$ (按时间排序) 上穿 $[a,b]$ 的次数. 由上穿不等式~\ref{thm:upcrossing} (应用于有限个时刻构成的离散下鞅), $(b-a)\E U_F[a,b]\le C+\abs{a}$. 取有限集 $F_m=\{k2^{-m}: 0\le k\le m2^m\}\uparrow D$, 则 $U_{F_m}[a,b]$ 单调不减, 其极限 $U_D[a,b]$ 满足 (由单调收敛定理) $\E U_D[a,b]\le\frac{C+\abs{a}}{b-a}$, 故几乎必然有限. 与定理~\ref{thm:mart-conv} 的证明相同, 在一个零概率集之外, 对一切有理数 $a<b$, $U_D[a,b]<\infty$, 从而极限 $L=\lim_{s\to\infty,\,s\in D}X_s$ 存在于 $[-\infty,\infty]$.
+
+现在固定这个零概率集之外的 $\omega$. 由轨道在每个 $t$ 处右连续, 可取 $s(t)\in D\cap(t,t+1)$ 使 $\abs{X_{s(t)}(\omega)-X_t(\omega)}<\frac{1}{t}$. 当 $t\to\infty$ 时 $s(t)\to\infty$, 所以 $X_{s(t)}(\omega)\to L(\omega)$, 从而 $X_t(\omega)\to L(\omega)$. 最后与定理~\ref{thm:mart-conv} 相同, 由 Fatou 引理 (沿整数时刻) $\E\abs{L}\le2C-\E X_0<\infty$.
+\end{proof}
+
+与离散时间相同 (证明完全一样), 对轨道右连续的鞅 $M$, 一致可积等价于 $L^1$ 收敛, 也等价于存在 $X\in L^1$ 使 $M_t=\E[X\,|\,\mathcal{F}_t]$; 此时 $M_t=\E[M_\infty\,|\,\mathcal{F}_t]$.
+
+\begin{theorem}[连续时间可选停时定理]\label{thm:ct-ost}
+设 $M$ 是轨道右连续的一致可积鞅, $\sigma\le\tau$ 是停时 (在 $\{\tau=\infty\}$ 上令 $M_\tau=M_\infty$). 则 $M_\tau$ 可积, 且
+\[
+\E[M_\tau\,|\,\mathcal{F}_\sigma]=M_\sigma,\qquad\E M_\tau=\E M_0.
+\]
+\end{theorem}
+
+\begin{proof}
+设 $\sigma_n,\tau_n$ 是引理~\ref{lem:dyadic-approx} 中的离散化. 由于离散化是单调的, $\sigma_n\le\tau_n$.
+
+\emph{离散情形.} 固定 $n$, 考虑离散时间鞅 $(M_{k2^{-n}})_{k\ge0}$ 与信息流 $(\mathcal{F}_{k2^{-n}})_{k\ge0}$. 它是一致可积的 ($M_{k2^{-n}}=\E[M_\infty\,|\,\mathcal{F}_{k2^{-n}}]$), 而 $2^n\sigma_n$, $2^n\tau_n$ 是关于这个离散信息流的停时. 设 $A\in\mathcal{F}_\sigma$. 则 $A$ 也属于离散意义下的 $\mathcal{F}_{\sigma_n}$: 对每个 $k$,
+$A\cap\{\sigma_n\le k2^{-n}\}=A\cap\{\sigma<k2^{-n}\}=\bigcup_m\big(A\cap\{\sigma\le k2^{-n}-\tfrac{1}{m}\}\big)\in\mathcal{F}_{k2^{-n}}$. 由离散的可选停时定理~\ref{thm:ost-ui},
+\[
+\E[M_{\tau_n};A]=\E[M_{\sigma_n};A],\qquad M_{\tau_n}=\E[M_\infty\,|\,\mathcal{F}_{\tau_n}].
+\]
+
+\emph{取极限.} 由引理~\ref{lem:ce-family-ui}, $\{M_{\tau_n}\}_n$ 与 $\{M_{\sigma_n}\}_n$ 都一致可积. 由于 $\tau_n\downarrow\tau$ 且轨道右连续, $M_{\tau_n}\to M_\tau$ (在 $\{\tau=\infty\}$ 上两边都是 $M_\infty$); 同理 $M_{\sigma_n}\to M_\sigma$. 由 Vitali 定理~\ref{thm:vitali}, 收敛也是 $L^1$ 的, 所以 $M_\tau,M_\sigma$ 可积, 且 $\E[M_\tau;A]=\E[M_\sigma;A]$. 由于 $M_\sigma$ 是 $\mathcal{F}_\sigma$-可测的, 这正是 $\E[M_\tau\,|\,\mathcal{F}_\sigma]=M_\sigma$.
+\end{proof}
+
+\begin{corollary}\label{cor:ct-ost-bounded}
+设 $M$ 是轨道右连续的鞅, $\tau$ 是停时.
+\begin{enumerate}
+\item 若 $\sigma\le\tau\le T$ 是有界停时, 则 $\E[M_\tau\,|\,\mathcal{F}_\sigma]=M_\sigma$, $\E M_\tau=\E M_0$.
+\item 停止过程 $M^\tau_t=M_{\tau\wedge t}$ 是鞅.
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}
+(1) 过程 $N_t=M_{t\wedge T}$ 是一致可积鞅: $N_t=\E[M_T\,|\,\mathcal{F}_{t\wedge T}]$ (由鞅性质), 由引理~\ref{lem:ce-family-ui} 一致可积. 对 $N$ 用定理~\ref{thm:ct-ost}, 并注意 $N_\tau=M_\tau$, $N_\sigma=M_\sigma$.
+
+(2) 设 $s\le t$. 把 $M_{\tau\wedge t}$ 拆成两部分. 在 $\{\tau\le s\}$ 上 $M_{\tau\wedge t}=M_{\tau\wedge s}$. 对另一部分, 考虑有界停时 $s\le(\tau\vee s)\wedge t$; 由 (1),
+$\E\big[M_{(\tau\vee s)\wedge t}\,\big|\,\mathcal{F}_s\big]=M_s$. 而 $M_{(\tau\vee s)\wedge t}=M_{\tau\wedge t}\1_{\{\tau>s\}}+M_s\1_{\{\tau\le s\}}$, 其中第二项是 $\mathcal{F}_s$-可测的, 所以
+$\E[M_{\tau\wedge t}\1_{\{\tau>s\}}\,|\,\mathcal{F}_s]=M_s-M_s\1_{\{\tau\le s\}}=M_s\1_{\{\tau>s\}}$. 由于 $M_{\tau\wedge s}\1_{\{\tau\le s\}}$ 是 $\mathcal{F}_s$-可测的 ($\mathcal{F}_{\tau\wedge s}\subseteq\mathcal{F}_s$),
+\[
+\E[M_{\tau\wedge t}\,|\,\mathcal{F}_s]=M_{\tau\wedge s}\1_{\{\tau\le s\}}+M_s\1_{\{\tau>s\}}=M_{\tau\wedge s}.\qedhere
+\]
+\end{proof}
+
+% ---------------------------------------------------------------------
+\subsection{局部鞅}
+
+随机积分 $\int_0^tH_s\dd B_s$ 只在被积过程满足较强的可积条件时才是鞅; 一般情形下它只是 ``局部地'' 是鞅. 这引出了局部鞅的概念, 它是 Itô 积分理论的自然框架 (第~5~章).
+
+\begin{definition}[局部鞅]\label{def:local-martingale}
+设 $M$ 是适应的连续过程. 若存在停时序列 $\tau_n\uparrow\infty$ $\as$, 使得每个停止过程 $M^{\tau_n}-M_0$ 都是鞅, 称 $M$ 为\textbf{连续局部鞅}, 称 $\{\tau_n\}$ 为它的\textbf{局部化序列}.
+\end{definition}
+
+\begin{proposition}\label{prop:local-martingale}
+设 $M$ 是连续局部鞅.
+\begin{enumerate}
+\item 每个连续鞅都是连续局部鞅.
+\item 若 $M_0=0$, 则 $\sigma_n=\inf\{t: \abs{M_t}\ge n\}$ 是局部化序列, 且每个 $M^{\sigma_n}$ 是有界鞅.
+\item 若存在常数 $K$ 使 $\abs{M_t}\le K$ 对一切 $t$ 成立, 则 $M$ 是鞅.
+\item 若 $M\ge0$ 且 $M_0$ 可积, 则 $M$ 是上鞅.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) 取 $\tau_n=n$, 由推论~\ref{cor:ct-ost-bounded} (2).
+
+(2) 由命题~\ref{prop:hitting-continuous} (1), $\sigma_n$ 是停时 (闭集 $\{\abs{x}\ge n\}$ 的首达时); 由轨道连续, 在任意有限区间上 $M$ 有界, 所以 $\sigma_n\uparrow\infty$. 设 $\{\tau_k\}$ 是一个局部化序列. 由推论~\ref{cor:ct-ost-bounded} (2), 鞅 $M^{\tau_k}$ 在 $\sigma_n$ 处停止后仍是鞅, 即 $M^{\sigma_n\wedge\tau_k}$ 是鞅. 由连续性与 $M_0=0$, $\abs{M^{\sigma_n\wedge\tau_k}_t}\le n$. 令 $k\to\infty$, $M^{\sigma_n\wedge\tau_k}_t\to M^{\sigma_n}_t$, 由条件控制收敛定理~\ref{thm:cdct}, 对 $s\le t$, $\E[M^{\sigma_n}_t\,|\,\mathcal{F}_s]=\lim_k\E[M^{\sigma_n\wedge\tau_k}_t\,|\,\mathcal{F}_s]=\lim_kM^{\sigma_n\wedge\tau_k}_s=M^{\sigma_n}_s$.
+
+(3) 与 (2) 的最后一步相同: 对 $s\le t$, $\E[M_{\tau_k\wedge t}\,|\,\mathcal{F}_s]=M_{\tau_k\wedge s}$, 令 $k\to\infty$, 由条件控制收敛定理 (控制函数为常数 $2K$) 得 $\E[M_t\,|\,\mathcal{F}_s]=M_s$.
+
+(4) 设 $\{\tau_k\}$ 是局部化序列, 则 $M^{\tau_k}$ 是鞅 (因为 $M^{\tau_k}-M_0$ 是鞅而 $M_0$ 是 $\mathcal{F}_0$-可测且可积的), 特别地 $M_{\tau_k\wedge t}$ 可积, 且 $M_{\tau_k\wedge t}\to M_t$ ($k\to\infty$).
+
+\emph{第一步: $M_t$ 可积.} 取 $K>0$. 序列 $M_{\tau_k\wedge t}\wedge K$ 非负、有界, 其极限 $M_t\wedge K$ 也有界. 由条件 Fatou 引理~\ref{thm:cfatou} 与鞅性质,
+\[
+\E[M_t\wedge K\,|\,\mathcal{F}_0]\le\liminf_k\E[M_{\tau_k\wedge t}\wedge K\,|\,\mathcal{F}_0]\le\liminf_k\E[M_{\tau_k\wedge t}\,|\,\mathcal{F}_0]=M_0.
+\]
+取期望得 $\E[M_t\wedge K]\le\E M_0$; 令 $K\to\infty$, 由单调收敛定理 $\E M_t\le\E M_0<\infty$.
+
+\emph{第二步: 上鞅性质.} 现在 $M_t=\liminf_kM_{\tau_k\wedge t}$ 可积, 对 $s\le t$ 直接用条件 Fatou 引理,
+\[
+\E[M_t\,|\,\mathcal{F}_s]\le\liminf_k\E[M_{\tau_k\wedge t}\,|\,\mathcal{F}_s]=\liminf_kM_{\tau_k\wedge s}=M_s.
+\]
+\end{proof}
+
+\begin{remark}
+局部鞅未必是鞅, 即使它可积. 经典的例子是: 设 $\rvec{B}$ 是从 $(1,0,0)$ 出发的三维布朗运动, 则 $M_t=1/\abs{\rvec{B}_t}$ 是连续局部鞅, 且 $\sup_t\E M_t^2<\infty$, 但 $\E M_t$ 严格递减, 所以它不是鞅 (见~\cite{revuz} 第 V 章). 这类 ``严格局部鞅'' 在金融数学中对应于资产价格泡沫. 判断一个局部鞅是否为真鞅是第~5~章 Novikov 条件要解决的问题.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\subsection{二次变差}
+
+离散时间中, 平方可积鞅 $M$ 的二次变差 $[M]_n=\sum_k(\Delta M_k)^2$ 是使 $M^2-[M]$ 成为鞅的过程 (命题~\ref{prop:bracket}). 连续时间中, 我们用越来越细的分割上的平方和来定义它. 先看一个关键事实: 非常数的连续鞅不可能有有限的变差.
+
+\begin{definition}[变差]
+函数 $f:[0,t]\to\R$ 的 (全) \textbf{变差}定义为 $V_t(f)=\sup_\Pi\sum_i\abs{f(t_i)-f(t_{i-1})}$, 上确界取遍 $[0,t]$ 的一切分割 $\Pi: 0=t_0<t_1<\cdots<t_m=t$. 若 $V_t(f)<\infty$ 对一切 $t$ 成立, 称 $f$ 有有限变差.
+\end{definition}
+
+单调函数与连续可微函数都有有限变差. 有限变差函数正是可以作 Riemann-Stieltjes 积分 $\int g\dd f$ 的积分器.
+
+\begin{theorem}[连续鞅没有有限变差]\label{thm:no-finite-variation}
+设 $M$ 是连续鞅, $M_0=0$, 且存在常数 $K$ 使 $\abs{M_t}\le K$ 与 $V_t(M)\le K$ 对一切 $t\le T$ 几乎必然成立. 则 $M_t=0$ 对一切 $t\le T$ 几乎必然成立.
+\end{theorem}
+
+\begin{proof}
+固定 $t\le T$ 与分割 $\Pi: 0=t_0<\cdots<t_m=t$, 记 $\Delta_i=M_{t_i}-M_{t_{i-1}}$. 与命题~\ref{prop:bracket} (1) 相同, 鞅增量两两正交, 所以
+\[
+\E[M_t^2]=\E\Big[\Big(\sum_i\Delta_i\Big)^2\Big]=\E\Big[\sum_i\Delta_i^2\Big].
+\]
+而 $\sum_i\Delta_i^2\le\max_i\abs{\Delta_i}\cdot\sum_i\abs{\Delta_i}\le K\max_i\abs{\Delta_i}$. 当分割的步长 $\max_i(t_i-t_{i-1})\to0$ 时, 由轨道在 $[0,t]$ 上一致连续, $\max_i\abs{\Delta_i}\to0$; 又 $K\max_i\abs{\Delta_i}\le2K^2$, 由有界收敛定理, $\E[M_t^2]=\lim\E\big[\sum_i\Delta_i^2\big]=0$. 所以对每个 $t\le T$, $M_t=0$ $\as$; 取 $t$ 为有理数并利用轨道连续, 得 $M_t=0$ 对一切 $t\le T$ 几乎必然成立.
+\end{proof}
+
+通过局部化 (用 $\inf\{t: \abs{M_t}+V_t(M)\ge n\}$ 截断), 这一结论推广到一切连续局部鞅: \emph{有限变差的连续局部鞅是常数} (见~\cite{karatzas} 引理 1.5.10).
+
+\begin{intuition}
+这个定理是随机微积分存在的理由. 布朗运动是连续鞅, 所以它的轨道没有有限变差, Riemann-Stieltjes 积分 $\int H\dd B$ 无法逐条轨道定义. 证明还指出了替代的方向: 变差虽然无穷, 平方和 $\sum_i\Delta_i^2$ 却有有限极限. 下面的定理说这个极限总是存在的.
+\end{intuition}
+
+\begin{theorem}[连续局部鞅的二次变差]\label{thm:quadratic-variation}
+设 $M$ 是连续局部鞅. 则存在唯一的 (在不可区分的意义下) 连续、适应、单调不减的过程 $\ip{M}$, $\ip{M}_0=0$, 使得 $M^2-\ip{M}$ 是连续局部鞅. 并且对任意 $t$ 与 $[0,t]$ 的分割序列 $\Pi_n$, 只要步长趋于零,
+\[
+\sum_{i}\big(M_{t_i}-M_{t_{i-1}}\big)^2\xrightarrow{\P}\ip{M}_t.
+\]
+若 $M$ 是平方可积的连续鞅, 则 $M^2-\ip{M}$ 是鞅, 从而 $\E[M_t^2]=\E[M_0^2]+\E\ip{M}_t$. (证明见~\cite{karatzas} 定理 1.5.8 与定理 1.5.13, 或~\cite{revuz} 第 IV 章.)
+\end{theorem}
+
+$\ip{M}$ 称为 $M$ 的\textbf{二次变差过程}. 它是离散时间中 $\ip{M}$ 与 $[M]$ 的共同推广: 对连续鞅, 可料二次变差与 ``实现的'' 二次变差合而为一. 唯一性部分是定理~\ref{thm:no-finite-variation} 的直接推论: 若 $A,A'$ 都满足要求, 则 $A-A'=(M^2-A')-(M^2-A)$ 是有限变差的连续局部鞅, 因而为常数零.
+
+\begin{intuition}
+$\ip{M}_t$ 是鞅 $M$ 的 ``内在时钟'': 它度量到时刻 $t$ 为止 $M$ 累积了多少随机性. 第~4~章将直接计算出布朗运动的二次变差 $\ip{B}_t=t$ (不依赖于本定理): 布朗运动的内在时钟就是普通的时间. 第~5~章的 L\'evy 刻画定理将说明这一性质完全刻画了布朗运动; 更一般地, 每个连续局部鞅都是一个按其二次变差进行时间变换的布朗运动 (Dambis-Dubins-Schwarz 定理). 在这个意义上, 布朗运动是连续鞅的 ``原子''.
+\end{intuition}
+
+% ---------------------------------------------------------------------
+\subsection*{本章小结}
+\addcontentsline{toc}{subsection}{本章小结}
+
+\begin{center}
+\captionof{table}{鞅论的主要结论}
+\label{tab:ch3-summary}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.26\textwidth} >{\raggedright\arraybackslash}p{0.44\textwidth} >{\raggedright\arraybackslash}p{0.20\textwidth}}
+\toprule
+结论 & 内容 & 后续应用 \\
+\midrule
+鞅变换定理 & 可料有界策略不改变公平性 & Itô 积分是鞅 (第~5~章) \\
+可选停时定理 & 有界停时或一致可积时 $\E M_\tau=\E M_0$ & 布朗运动首达时 (第~4~章) \\
+Doob 分解, $\ip{M}$ & 下鞅 = 鞅 + 可料增过程 & Itô 等距, 二次变差 \\
+Doob 不等式 & $\E\sup_{s\le t}M_s^2\le4\E M_t^2$ & 构造 Itô 积分, SDE 解的存在性 \\
+鞅收敛定理 & $L^1$ 有界 $\Rightarrow$ 几乎必然收敛 & 鞅表示, 测度变换 \\
+一致可积鞅 & $L^1$ 收敛 $\iff$ 闭鞅 & Girsanov 定理 (第~5~章) \\
+连续鞅无有限变差 & 需要二次变差 $\ip{M}$ 代替 & Itô 公式的修正项 \\
+\bottomrule
+\end{tabular}
+\end{center}

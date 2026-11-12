@@ -1,0 +1,281 @@
+% !TEX program = xelatex
+% =====================================================================
+%  基础随机分析  ——  主文件
+%  编译: xelatex -> xelatex (或 latexmk -xelatex stochastic_analysis.tex)
+%  只编译某一章: 取消下方 \includeonly 的注释
+% =====================================================================
+\documentclass[UTF8,a4paper,oneside,zihao=-4,linespread=1.45,fontset=none]{ctexbook}
+
+% \includeonly{chapters/chapter1}
+
+% ---------------------------------------------------------------------
+%  版面
+% ---------------------------------------------------------------------
+\usepackage[a4paper,top=2.6cm,bottom=2.6cm,left=2.7cm,right=2.7cm,headheight=15pt]{geometry}
+
+% ---------------------------------------------------------------------
+%  数学宏包 (须在 unicode-math 之前载入)
+% ---------------------------------------------------------------------
+\usepackage{amsmath,amsthm,mathtools}
+
+% ---------------------------------------------------------------------
+%  字体
+%  西文与数学: TeX Gyre Pagella / Pagella Gyre Math
+%  中文: 宋体; 加粗 -> 黑体; 斜体 -> 楷体
+%  依次尝试 macOS / Windows 字体, 找不到时退回 TeX Live 自带的 Fandol 字体
+% ---------------------------------------------------------------------
+\usepackage{unicode-math}
+% 按文件名载入 (TeX Live / MacTeX 自带), 不依赖系统字体注册
+\setmainfont{texgyrepagella}[Extension=.otf, UprightFont=*-regular,
+  BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\setsansfont{texgyreheros}[Extension=.otf, UprightFont=*-regular,
+  BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\setmonofont{texgyrecursor}[Extension=.otf, UprightFont=*-regular,
+  BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\setmathfont{texgyrepagella-math.otf}
+
+\newcommand\SAsong{FandolSong-Regular.otf}
+\newcommand\SAhei{FandolHei-Regular.otf}
+\newcommand\SAkai{FandolKai-Regular.otf}
+\IfFontExistsTF{SimSun}{\renewcommand\SAsong{SimSun}}{}
+\IfFontExistsTF{Songti SC}{\renewcommand\SAsong{Songti SC}}{}
+\IfFontExistsTF{SimHei}{\renewcommand\SAhei{SimHei}}{}
+\IfFontExistsTF{STHeiti}{\renewcommand\SAhei{STHeiti}}{}
+\IfFontExistsTF{Heiti SC}{\renewcommand\SAhei{Heiti SC}}{}
+\IfFontExistsTF{KaiTi}{\renewcommand\SAkai{KaiTi}}{}
+\IfFontExistsTF{STKaiti}{\renewcommand\SAkai{STKaiti}}{}
+\IfFontExistsTF{Kaiti SC}{\renewcommand\SAkai{Kaiti SC}}{}
+
+\setCJKmainfont{\SAsong}[BoldFont=\SAhei, ItalicFont=\SAkai, BoldItalicFont=\SAhei]
+\setCJKsansfont{\SAhei}
+\setCJKmonofont{\SAsong}
+\setCJKfamilyfont{zhsong}{\SAsong}
+\setCJKfamilyfont{zhhei}{\SAhei}
+\setCJKfamilyfont{zhkai}{\SAkai}
+\providecommand\songti{\CJKfamily{zhsong}}
+\providecommand\heiti{\CJKfamily{zhhei}}
+\providecommand\kaishu{\CJKfamily{zhkai}}
+
+% ---------------------------------------------------------------------
+%  颜色: #ef476f #ffd166 #06d6a0 #118ab2 #073b4c
+% ---------------------------------------------------------------------
+\usepackage{xcolor}
+\definecolor{SARed}{HTML}{EF476F}
+\definecolor{SAYellow}{HTML}{FFD166}
+\definecolor{SAGreen}{HTML}{06D6A0}
+\definecolor{SABlue}{HTML}{118AB2}
+\definecolor{SADark}{HTML}{073B4C}
+\colorlet{SAGreenText}{SAGreen!60!SADark}   % 绿色作文字时加深以保证可读
+\colorlet{SAYellowText}{SAYellow!55!SADark}
+
+% ---------------------------------------------------------------------
+%  绘图
+% ---------------------------------------------------------------------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,positioning,decorations.pathreplacing,
+  patterns,shapes.geometric,intersections,fit,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\tikzset{
+  >={Stealth[length=2.2mm]},
+  every picture/.style={line cap=round,line join=round},
+}
+\pgfplotsset{
+  SAaxis/.style={axis lines=middle, axis line style={->,SADark!80},
+    tick style={SADark!60}, every tick label/.append style={font=\small},
+    label style={font=\small}},
+}
+
+% ---------------------------------------------------------------------
+%  其他常用宏包
+% ---------------------------------------------------------------------
+\usepackage{booktabs,array,multirow}
+\usepackage[shortlabels]{enumitem}
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+\setlist[enumerate,1]{label=(\arabic*)}
+\usepackage{fancyhdr}
+\usepackage{needspace}  % 避免节标题落在页底
+\usepackage{caption}
+\captionsetup{font=small,labelfont={bf,color=SADark},labelsep=space}
+
+% ---------------------------------------------------------------------
+%  章节样式
+% ---------------------------------------------------------------------
+\ctexset{
+  chapter = {
+    name        = {第,章},
+    number      = \arabic{chapter},
+    format      = \raggedright,
+    nameformat  = \large\bfseries\color{SARed},
+    titleformat = \huge\bfseries\color{SADark},
+    aftername   = \par\vspace{0.6em},
+    beforeskip  = 10pt,
+    afterskip   = 28pt,
+    aftertitle  = {\par\vspace{0.5em}{\color{SABlue}\rule{\linewidth}{0.8pt}}},
+  },
+  section = {
+    format     = \Large\bfseries\color{SADark}\raggedright,
+    numberformat = \color{SABlue},
+    beforeskip = 22pt plus 4pt minus 2pt,
+    afterskip  = 12pt,
+    break      = {\Needspace{7\baselineskip}},
+  },
+  subsection = {
+    format     = \large\bfseries\color{SADark}\raggedright,
+    numberformat = \color{SABlue},
+    beforeskip = 16pt plus 3pt minus 2pt,
+    afterskip  = 8pt,
+    break      = {\Needspace{5\baselineskip}},
+  },
+  subsubsection = {
+    format = \normalsize\bfseries\color{SADark}\raggedright,
+    beforeskip = 12pt, afterskip = 6pt,
+  },
+  paragraph = {format = \bfseries\color{SADark}, afterskip = 1em},
+}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{SADark!70}\leftmark}
+\fancyhead[R]{\small\color{SADark!70}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{SABlue!50}\hrule width\headwidth height\headrulewidth}}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\small\color{SADark!70}\thepage}\renewcommand{\headrulewidth}{0pt}}
+\renewcommand{\chaptermark}[1]{\markboth{第\,\thechapter\,章\quad #1}{}}
+
+% ---------------------------------------------------------------------
+%  定理类环境 (amsthm 编号 + tcolorbox 轻量外框)
+%  所有编号环境共用一个计数器, 按章编号: 定义 1.1, 定理 1.2, 例 1.3, ...
+% ---------------------------------------------------------------------
+\usepackage[most]{tcolorbox}
+
+\newtheoremstyle{SAstyle}%
+  {0pt}{0pt}%            上下间距 (由外框控制)
+  {\normalfont}{}%       正文字体, 缩进
+  {\bfseries}{.}%        标题字体, 标题后标点
+  {0.6em}%               标题后空白
+  {\color{SAheadcolor}\thmname{#1}\thmnumber{\ #2}\thmnote{\ (#3)}}
+\colorlet{SAheadcolor}{SADark}
+\theoremstyle{SAstyle}
+
+\newtheorem{theorem}{定理}[chapter]
+\newtheorem{definition}[theorem]{定义}
+\newtheorem{lemma}[theorem]{引理}
+\newtheorem{proposition}[theorem]{命题}
+\newtheorem{corollary}[theorem]{推论}
+\newtheorem{example}[theorem]{例}
+\newtheorem*{remark}{注}
+\newtheorem*{intuition}{直观}
+
+\tcbset{
+  SAbox/.style={
+    enhanced, breakable, sharp corners, frame hidden,
+    colback=#1!5!white,
+    borderline west={2.2pt}{0pt}{#1},
+    left=9pt, right=8pt, top=5pt, bottom=5pt,
+    before skip=10pt plus 2pt, after skip=10pt plus 2pt,
+  },
+  SAplain/.style={
+    enhanced, breakable, sharp corners, frame hidden, colback=white,
+    borderline west={1.4pt}{0pt}{#1},
+    left=9pt, right=0pt, top=2pt, bottom=2pt,
+    before skip=8pt plus 2pt, after skip=8pt plus 2pt,
+  },
+}
+\tcolorboxenvironment{definition} {SAbox=SABlue,  before upper={\colorlet{SAheadcolor}{SABlue}}}
+\tcolorboxenvironment{theorem}    {SAbox=SARed,   before upper={\colorlet{SAheadcolor}{SARed}}}
+\tcolorboxenvironment{lemma}      {SAbox=SADark,  before upper={\colorlet{SAheadcolor}{SADark}}}
+\tcolorboxenvironment{proposition}{SAbox=SADark,  before upper={\colorlet{SAheadcolor}{SADark}}}
+\tcolorboxenvironment{corollary}  {SAbox=SADark,  before upper={\colorlet{SAheadcolor}{SADark}}}
+\tcolorboxenvironment{example}    {SAplain=SAGreen, before upper={\colorlet{SAheadcolor}{SAGreenText}}}
+\tcolorboxenvironment{remark}     {SAplain=SAYellow, before upper={\colorlet{SAheadcolor}{SAYellowText}}}
+\tcolorboxenvironment{intuition}  {SAbox=SAYellow, before upper={\colorlet{SAheadcolor}{SAYellowText}}}
+
+% 证明环境: 黑体标题, 不加框
+\makeatletter
+\renewenvironment{proof}[1][证明]{\par
+  \pushQED{\qed}\normalfont\topsep6pt plus 2pt\relax
+  \trivlist\item[\hskip\labelsep{\bfseries\color{SADark}#1.}]\ignorespaces
+}{\popQED\endtrivlist\@endpefalse}
+\makeatother
+\renewcommand{\qedsymbol}{\tikz[baseline=0pt]\fill[SABlue] (0,0) rectangle (0.55em,0.55em);}
+
+% ---------------------------------------------------------------------
+%  全局行内公式 displaystyle, 并加大行间最小间隙避免高公式互相挤压
+% ---------------------------------------------------------------------
+\AtBeginDocument{\everymath{\displaystyle}}
+\setlength{\emergencystretch}{3em}   % 避免长行内公式导致溢出
+\setlength{\lineskiplimit}{3pt}
+\setlength{\lineskip}{5pt}
+\setlength{\jot}{6pt}
+\setlength{\abovedisplayskip}{8pt plus 2pt minus 2pt}
+\setlength{\belowdisplayskip}{8pt plus 2pt minus 2pt}
+
+% ---------------------------------------------------------------------
+%  符号约定 (详见 "符号约定" 一节)
+%  概率与期望: 空心; σ-代数、集族、信息流: \mathcal;
+%  随机向量: 加粗斜体 \rvec{X}; 矩阵: 加粗正体 \mat{A}
+% ---------------------------------------------------------------------
+\renewcommand{\P}{\mathbb{P}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\1}{\mathbb{1}}                 % 示性函数 \1_A
+\newcommand{\rvec}[1]{\symbfit{#1}}         % 随机向量
+\newcommand{\mat}[1]{\symbf{#1}}            % 矩阵
+\newcommand{\dd}{\mathop{}\!\mathrm{d}}     % 微分号
+\newcommand{\T}{\top}                       % 转置
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\sgn}{sgn}
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\DeclarePairedDelimiter{\ip}{\langle}{\rangle}
+\newcommand{\iid}{\text{i.i.d.}}
+\newcommand{\as}{\text{a.s.}}
+
+% ---------------------------------------------------------------------
+%  超链接 (最后载入)
+% ---------------------------------------------------------------------
+\usepackage[colorlinks=true,linkcolor=SABlue,citecolor=SAGreenText,urlcolor=SABlue,
+  bookmarksnumbered=true]{hyperref}
+
+% =====================================================================
+\title{\color{SADark}\bfseries 基础随机分析}
+\author{}
+\date{}
+
+\begin{document}
+
+\frontmatter
+\begin{titlepage}
+  \centering
+  \vspace*{0.28\textheight}
+  {\color{SABlue}\rule{0.75\textwidth}{1pt}}\par\vspace{1.2em}
+  {\Huge\bfseries\color{SADark} 基础随机分析}\par\vspace{0.8em}
+  {\large\color{SADark!80} 从测度论概率到随机微分方程}\par\vspace{1.0em}
+  {\color{SABlue}\rule{0.75\textwidth}{1pt}}\par
+  \vfill
+  {\large\color{SADark!80}\today}\par
+  \vspace*{0.08\textheight}
+\end{titlepage}
+
+\tableofcontents
+\include{chapters/notation}
+
+\mainmatter
+\include{chapters/chapter1}
+\include{chapters/chapter2}
+\include{chapters/chapter3}
+\include{chapters/chapter4}
+\include{chapters/chapter5}
+\include{chapters/chapter6}
+
+\backmatter
+\include{chapters/references}
+
+\end{document}
