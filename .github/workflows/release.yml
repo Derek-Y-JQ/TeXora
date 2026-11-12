@@ -1,0 +1,41 @@
+﻿name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - run: npm test
+      - name: Build renderer
+        run: npm run build
+      - name: Build Windows installer
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release/TeXora-Setup-*.exe
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($installer.Name)" | Set-Content release/SHA256SUMS.txt -Encoding utf8
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/TeXora-Setup-*.exe
+            release/SHA256SUMS.txt
+          generate_release_notes: true
