@@ -26,7 +26,7 @@
     "test:143": "node tests/test-143.mjs",
     "test:unit": "node scripts/test.cjs",
     "test:integration": "node tests/test-project-preview.cjs && node tests/test-cjk-preview.cjs",
-    "test:electron": "electron tests/electron-security.cjs",
+    "test:electron": "node scripts/test-electron.cjs",
     "test:ui": "node tests/run-ui-preview.mjs"
   },
   "devDependencies": {
