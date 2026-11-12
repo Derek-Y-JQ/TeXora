@@ -17,6 +17,12 @@ Windows x64 安装包保留用户数据。当前发行未签名：项目尚未�
 
 正式测试：`npm test`；渲染构建：`npm run build`；需要本地 TeX 的集成测试：`npm run test:integration`。
 
-验证结果：正式回归测试及渲染构建通过；实际 Windows safeStorage 加密/解密与打包界面桥接测试通过。本次执行环境的 Chromium 沙箱在启动阶段崩溃（空 Electron 的 `--version` 亦失败），桌面实测使用临时 `--no-sandbox` 参数，因此完整沙箱运行仍需在正常 Windows 桌面或 CI 确认；发行配置保持 `sandbox: true`，未添加关闭沙箱的启动参数。
+验证结果：正式回归测试及渲染构建通过；实际 Windows safeStorage 加密/解密与打包界面桥接测试通过。本次执行环境的 Chromium 沙箱在启动阶段崩溃（空 Electron 的 `--version` 亦失败），桌面实测使用临时 `--no-sandbox` 参数，因此完整沙箱运行随后已在 GitHub Windows CI 验证通过；发行配置保持 `sandbox: true`，未添加关闭沙箱的启动参数。
 
 打包预览交互回归通过：鼠标无需点击即可切换公式，移出关闭，静止鼠标下输入保持实时预览，旧异步结果不会重新打开已关闭预览。
+
+## CI 验证补充
+
+Windows CI 已上线，正式回归、实际系统密钥加密及沙箱预加载桥接检查、渲染构建全部通过。桌面检查要求 Electron 正常退出并写出本次完成证据，缺失证据或异常退出会令 CI 失败。
+
+[查看成功运行记录](https://github.com/Derek-Y-JQ/TeXora/actions/runs/43166390682)。发布工作流已补充测试、SHA-256 校验文件及可选证书配置。
