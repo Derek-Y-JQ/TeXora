@@ -1,0 +1,162 @@
+/* TeXora Studio: continuous working surfaces, restrained chrome. */
+:root { --r-xs:4px; --r-sm:5px; --r-md:6px; --r-lg:7px; --r-xl:10px; --ribbon-h:68px; }
+[data-theme="light"] { --bg:#f4f5f7; --surface-1:#fff; --surface-2:#f7f8fa; --surface-3:#eef0f4; --border:#e2e5eb; --border-soft:#edf0f4; --text:#253047; --text-2:#526077; --text-3:#6d788a; --text-4:#7f8999; --editor-bg:#fff; --editor-gutter:#fff; --preview-canvas:#eef0f3; --paper-shadow:0 3px 16px #1a264312; }
+[data-theme="dark"] { --bg:#171b22; --surface-1:#1b2029; --surface-2:#202631; --surface-3:#282f3c; --border:#323a48; --border-soft:#29313d; --text:#e1e6ee; --text-2:#b7c0d0; --text-3:#96a2b6; --text-4:#8591a6; --editor-bg:#1b2029; --editor-gutter:#1b2029; --preview-canvas:#141820; }
+.app { background:var(--bg); }
+.titlebar { height:43px; background:var(--surface-1); border-bottom:1px solid var(--border-soft); }
+.ribbon { margin:0; border-radius:0; box-shadow:none; border:0; border-bottom:1px solid var(--border); background:var(--surface-1); padding:0 12px; }
+.ribbon-group { padding:7px 12px 6px; border-color:var(--border-soft); }
+.ribbon-label { font-size:11px; letter-spacing:0; color:var(--text-3); font-weight:400; }
+.ribbon-row { gap:3px; }
+.ribbon .btn, .ribbon .btn-icon { box-shadow:none; }
+.engine-btn,.editor-theme-btn,.size-btn,.font-btn { background:transparent; border-color:transparent; border-radius:4px; font-size:12px; }
+.ai-btn { background:transparent; border-color:transparent; }
+.engine-dot { box-shadow:none; }
+.workspace { padding:0; }
+.activitybar { width:49px; padding-top:12px; background:var(--surface-2); border-right:1px solid var(--border); gap:8px; }
+.activitybar .act-btn { border-radius:5px; }
+.sidebar,.editor-area,.preview { border:0; border-radius:0; box-shadow:none; }
+.sidebar { background:var(--surface-2); }
+.sidebar-head,.preview-toolbar,.tabstrip { height:42px; background:transparent; border-bottom:1px solid var(--border); }
+.sidebar-title { font-size:12px; font-weight:600; letter-spacing:.2px; color:var(--text-2); }
+.sidebar-body { padding-top:8px; }
+.tree-footer { background:transparent; font-size:11px; }
+.editor-area { background:var(--editor-bg); }
+.tabstrip { padding:0 14px; }
+.tabs { padding-top:0; gap:12px; }
+.tab { border:0; border-radius:0; background:transparent; padding:0 5px; min-height:41px; }
+.tab.active { border:0; background:transparent; box-shadow:inset 0 -2px var(--accent); }
+.tab.active::after { display:none; }
+.preview { background:var(--surface-1); }
+.preview-stage { background:var(--preview-canvas); background-image:none; }
+.pdf-page { border-radius:1px; }
+.statusbar { background:var(--surface-1); border-top:1px solid var(--border); font-size:11px; }
+button:disabled { opacity:.45; }
+button:focus-visible,select:focus-visible,input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.monaco-editor .block-hover .view-line { background:color-mix(in srgb,var(--accent) 4%,transparent); }
+.monaco-editor .block-active .view-line { background:transparent; }
+.block-handle { border:0; background:transparent; box-shadow:none; }
+.block-ai-bar { box-shadow:var(--shadow-sm); border-color:var(--border-soft); }
+.settings-section-title { font-size:24px; font-weight:600; letter-spacing:-.4px; }
+.settings-section-desc { font-size:13px; line-height:1.7; color:var(--text-2); }
+.setting-card { border:0; border-radius:0; background:transparent; box-shadow:none; }
+.setting-row { padding:15px 0; gap:24px; border-bottom:1px solid var(--border-soft); }
+.setting-name { font-size:13px; }
+.setting-desc { font-size:12px; line-height:1.65; max-width:420px; }
+.setting-group { font-size:12px; font-weight:600; color:var(--text-3); letter-spacing:.3px; margin-top:28px; }
+.theme-card { background:transparent; border-color:var(--border); padding:14px; }
+.theme-card.active { box-shadow:none; background:var(--accent-softer); }
+.theme-desc { font-size:12px; line-height:1.5; }
+.input { box-shadow:none; }
+.about-item,.bib-card { border:0; border-radius:0; border-bottom:1px solid var(--border-soft); background:transparent; }
+.preview-placeholder .pv-icon { border:0; background:transparent; }
+.titlebar button,.ribbon button,.activity-btn,.tree-row { transition:background-color 120ms ease,color 120ms ease; }
+.setting-control { max-width:100%; }
+@media(max-width:1100px) { .sidebar { max-width:220px; } .preview { min-width:260px; max-width:40vw; } .ribbon { padding:0 4px; } .ribbon-group { padding-left:7px; padding-right:7px; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
+[data-reduce-motion="1"] *,[data-reduce-motion="1"] *::before,[data-reduce-motion="1"] *::after { animation:none!important; transition:none!important; }
+
+.btn-primary { background:var(--accent); box-shadow:none; }
+.empty-mark { box-shadow:none; }
+
+.act-btn { border-radius:5px; }
+.setting-card { padding:0; }
+.tree-row,.tree-name { font-size:13px; }
+.settings-grid { grid-template-columns:205px minmax(0,1fr); }
+@media(max-width:850px) { .settings-grid { grid-template-columns:155px minmax(0,1fr); } .setting-row { flex-wrap:wrap; gap:10px; } .setting-main { flex-basis:100%; } .theme-cards { grid-template-columns:1fr; } .settings-content { padding:16px; } }
+
+.ribbon-group { border-right:0; }
+.ribbon-tail { border-left:0; }
+
+/* Shared two-row header rhythm across file / source / PDF columns. */
+:root { --pane-header-h:40px; --pane-subheader-h:34px; }
+.sidebar-head,.tabstrip { height:var(--pane-header-h); min-height:var(--pane-header-h); box-sizing:border-box; }
+.tab { min-height:39px; }
+.pdf-document-status { height:var(--pane-header-h); min-height:var(--pane-header-h); display:flex; align-items:center; padding:0 12px; box-sizing:border-box; }
+.pdf-document-status[hidden] { display:flex; visibility:hidden; }
+.breadcrumbs,.preview-toolbar { height:var(--pane-subheader-h); min-height:var(--pane-subheader-h); box-sizing:border-box; padding-top:0; padding-bottom:0; }
+.sidebar-body { padding-top:0; }
+.sidebar [data-panel="files"] > .panel-toolbar { height:var(--pane-subheader-h); min-height:var(--pane-subheader-h); box-sizing:border-box; padding:4px 10px; border-bottom:1px solid var(--border); }
+.sidebar [data-panel="files"] > .panel-toolbar .input { height:26px; min-height:26px; padding-top:2px; padding-bottom:2px; }
+.splitter { width:1px; background:var(--border); z-index:12; }
+.splitter::before { content:''; position:absolute; top:0; bottom:0; left:-4px; right:-4px; }
+.splitter::after { top:0; bottom:0; width:1px; border-radius:0; }
+.tabstrip { padding-left:10px; }
+.ribbon .ico,.ribbon .btn .ico,.ribbon .btn-icon .ico,.ribbon .icon-btn .ico { width: 18px; height: 18px; stroke-width: 1.75; }
+.ribbon .ico-caret { width: 12px; height: 12px; stroke-width: 2.25; }
+.ribbon .icon-btn,.ribbon .btn-icon { min-width:31px; min-height:30px; }
+.titlebar .ico { width: 18px; height: 18px; stroke-width: 1.75; }
+.preview-toolbar .icon-btn .ico,.sidebar-actions .ico { width: 18px; height: 18px; stroke-width: 1.75; }
+
+.ribbon-group { padding-left:8px; padding-right:8px; flex-shrink:0; }
+
+/* ---- UI pass v3: Lucide icons in one colour; sizes 12 / 14 / 16 / 18 with a matched stroke each. ---- */
+.ico { fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; }
+.ico text { font-synthesis:none; }
+.titlebar .win-btn .ico,.titlebar .cmdk .ico { width:14px; height:14px; stroke-width:2.1; }
+.titlebar .project-pill .ico { width:16px; height:16px; stroke-width:1.9; }
+.titlebar .ico-caret,.ribbon .ico-caret { width:12px; height:12px; stroke-width:2.25; }
+.find-btn { display:inline-flex; align-items:center; justify-content:center; }
+.find-btn .ico { width:14px; height:14px; stroke-width:2.1; }
+
+/* Colour carries state only: resting icons follow secondary text, hover follows text, selection uses the accent. */
+.btn-icon,.icon-btn,.act-btn { color:var(--text-2); }
+.btn-icon:hover,.icon-btn:hover,.act-btn:hover { color:var(--text); }
+.btn-icon.active,.icon-btn.active,.act-btn.active,.ribbon .btn.active { color:var(--accent); }
+
+/* Hit areas: 32px in the toolbar and title bar, 28px in the denser pane headers. */
+.btn-icon { width:32px; height:32px; }
+.icon-btn { width:32px; height:32px; border-radius:var(--r-md); }
+.icon-btn.sm { width:28px; height:28px; border-radius:var(--r-sm); }
+.ribbon .icon-btn,.ribbon .btn-icon { min-width:32px; min-height:32px; }
+.ribbon-group { padding-left:6px; padding-right:6px; }
+.split-btn .compile-btn { min-width:92px; }
+.ribbon .btn-ghost { padding:0 8px; gap:6px; height:32px; }
+.ribbon .engine-btn,.ribbon .size-btn,.ribbon .font-btn { height:28px; }
+.pv-group { gap:2px; }
+
+/* Two-way punctuation control */
+.seg { display:inline-flex; align-items:center; height:28px; border:1px solid var(--border); border-radius:var(--r-sm); overflow:hidden; }
+.seg .seg-btn { height:26px; padding:0 7px; border:0; border-radius:0; font-size:12px; color:var(--text-2); }
+.seg .seg-btn + .seg-btn { border-left:1px solid var(--border); }
+.seg .seg-btn:hover { background:var(--hover); color:var(--text); }
+.seg .seg-btn:focus-visible { outline-offset:-2px; }
+
+/* Tooltips (src/js/tooltip.js) */
+.tip { position:absolute; display:flex; align-items:center; gap:8px; max-width:340px; padding:5px 8px; border-radius:var(--r-md); background:var(--text); color:var(--surface-1); font-size:12px; line-height:1.45; box-shadow:var(--shadow-md); white-space:pre-line; animation:tip-fade 100ms ease-out; }
+.tip-keys { display:inline-flex; gap:4px; flex:none; }
+.tip kbd { font:inherit; font-size:11px; padding:0 5px; border:0; border-radius:3px; box-shadow:none; color:inherit; background:color-mix(in srgb,var(--surface-1) 20%,transparent); white-space:nowrap; }
+@keyframes tip-fade { from { opacity:0; } }
+
+/* Light theme: small grey text reaches 4.5:1 on every surface it sits on. */
+[data-theme="light"] { --text-3:#586478; --text-4:#626d7f; }
+
+/* Status bar: quiet by default, colour only when something needs attention. */
+.sb-item .ico { width:14px; height:14px; stroke-width:2.1; }
+#sbProblems.has-error { color:var(--danger); }
+#sbProblems.has-warning { color:var(--warn); }
+.sb-center { gap:6px; }
+
+/* Narrower windows: drop toolbar text before anything scrolls out of reach. */
+@media (max-width:1500px) { .ribbon-group:nth-child(4) .ribbon-row .btn-ghost span { display:none; } }
+@media (max-width:1400px) { .ribbon .ai-btn span,.ribbon .font-btn span,.ribbon-group:nth-child(5) .ribbon-row .btn-ghost span { display:none; } .split-btn .compile-btn { min-width:0; } .ribbon-group { padding-left:4px; padding-right:4px; } }
+
+/* ---- 1.5.1 follow-ups ---- */
+/* Size button: Latin in mono for the \command, CJK in the UI face instead of the serif fallback. */
+.size-btn { font-family:"Cascadia Code","JetBrains Mono",Consolas,"Segoe UI","Microsoft YaHei UI",sans-serif; }
+/* File-type icons carry a quiet identity tint; everything else stays single-colour. */
+:root,[data-theme="light"] { --ft-tex:#2f6fe4; --ft-bib:#b7791f; --ft-sty:#7c5cc4; --ft-md:#0e8f8f; --ft-pdf:#d14343; --ft-image:#2f9e62; --ft-data:#b7791f; --ft-muted:#8a93a3; }
+[data-theme="dark"] { --ft-tex:#6ea3ff; --ft-bib:#e0b252; --ft-sty:#b39df0; --ft-md:#4fc4c4; --ft-pdf:#f07878; --ft-image:#62c990; --ft-data:#e0b252; --ft-muted:#8591a6; }
+[data-style="endfield"] { --ft-tex:currentColor; --ft-bib:currentColor; --ft-sty:currentColor; --ft-md:currentColor; --ft-pdf:currentColor; --ft-image:currentColor; --ft-data:currentColor; --ft-muted:currentColor; }
+/* Welcome screen shows the application icon itself. */
+.empty-mark { width:76px; height:76px; border:0; border-radius:0; background:none; }
+.empty-mark img { width:76px; height:76px; object-fit:contain; display:block; }
+/* While a menu or popover is open the title bar must receive clicks so they can dismiss it. */
+.menu-open .titlebar { -webkit-app-region:no-drag; }
+
+/* English / Japanese labels are wider than the Chinese originals: keep the toolbar on one row. */
+html[data-lang="en"] .ribbon-group:nth-child(4) .ribbon-row .btn-ghost span,
+html[data-lang="ja"] .ribbon-group:nth-child(4) .ribbon-row .btn-ghost span,
+html[data-lang="en"] .ribbon .font-btn span,
+html[data-lang="ja"] .ribbon .font-btn span { display:none; }
+html[data-lang="en"] .ribbon-label,html[data-lang="ja"] .ribbon-label { white-space:nowrap; }

@@ -13,6 +13,9 @@ import {texHealth} from './js/tex-health.js';
 import { Sidebar } from './js/sidebar.js';
 import { createCommands } from './js/commands.js';
 import { createRibbon } from './js/ribbon.js';
+import { setLanguage } from './js/i18n.js';
+import { toggleSize } from './js/format-toggle.js';
+import { initTooltips } from './js/tooltip.js';
 import { createDialogs } from './js/dialogs.js';
 import { createSettingsUI } from './js/settings-ui.js';
 import { createAI } from './js/ai.js';
@@ -20,8 +23,7 @@ import { parseBib } from './js/bib.js';
 import { beautify, normalizePunctuation, applyDisplayStyle, splitLines, ENVIRONMENTS } from './js/latex.js';
 import { renderMarkdown } from './js/markdown.js';
 import {
-  $, $$, el, icon, escapeHtml, toast, baseName, extOf, relPath, debounce, clamp, textStats, formatBytes, copyText, openMenu, openPopover
-} from './js/util.js';
+  $, $$, el, icon, escapeHtml, toast, baseName, extOf, relPath, debounce, clamp, textStats, formatBytes, copyText, openMenu, openPopover, fileIcon } from './js/util.js';
 
 const api = window.texora;
 ctx.api = api;
@@ -44,6 +46,7 @@ async function boot() {
   ctx.state.capture = { ...info.capture, version: info.version };
   ctx.state.theme = resolveTheme(info.settings.appearance.theme);
   applyAppearance({ initial: true });
+  setLanguage(info.settings.general?.language);
 
   // controllers
   ctx.editor = new EditorController();
@@ -57,6 +60,7 @@ async function boot() {
   ctx.commands = createCommands();
   ctx.ribbon = createRibbon();
   ctx.ribbon.init();
+  initTooltips();
   ctx.ai = createAI();
 
   wireWindowControls();
@@ -127,6 +131,9 @@ function applyAppearance({ initial = false } = {}) {
   const theme = resolveTheme(s.appearance.theme);
   ctx.state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.dataset.style = s.appearance.uiStyle === 'endfield' ? 'endfield' : 'studio';
+  document.documentElement.dataset.efVariant = 'standard';
+  document.documentElement.dataset.efAccent = s.appearance.endfieldColor === 'cyan' ? 'cyan' : 'yellow';
   document.documentElement.setAttribute('data-accent', s.appearance.accent || 'blue');
   document.documentElement.toggleAttribute('data-compact', !!s.appearance.compact);
   document.documentElement.setAttribute('data-reduce-motion', s.appearance.reduceMotion ? '1' : '0');
@@ -491,6 +498,7 @@ function wireIpc() {
   api.settings.onChange((next) => {
     const prevAppearance = JSON.stringify(ctx.state.settings.appearance || {});
     ctx.state.settings = next;
+    setLanguage(next.general?.language);
     if (prevAppearance !== JSON.stringify(next.appearance || {})) applyAppearance();
     else {
       ctx.editor?.applySettings();
@@ -1091,7 +1099,7 @@ function renderTabs() {
     .map((doc) => {
       const active = doc.path === ctx.state.activePath;
       return `<div class="tab ${active ? 'active' : ''}" data-path="${escapeHtml(doc.path)}" title="${escapeHtml(doc.path)}">
-        <svg class="ico t-ico"><use href="#i-${doc.icon || iconForPath(doc.path)}"/></svg>
+        <svg aria-hidden="true" class="ico t-ico"><use href="#i-${doc.icon || iconForPath(doc.path)}"/></svg>
         <span class="t-name">${escapeHtml(doc.name)}</span>
         ${doc.dirty ? '<span class="t-dirty"></span>' : ''}
         <button class="t-close" title="关闭">${icon('close')}</button>
@@ -1131,7 +1139,7 @@ function renderTabs() {
 
 function iconForPath(path) {
   const ext = extOf(path);
-  return { tex: 'paper', ltx: 'paper', bib: 'book', md: 'file', sty: 'code', cls: 'code' }[ext] || 'file';
+  return fileIcon(ext);
 }
 
 function renderBreadcrumbs() {
@@ -1371,6 +1379,8 @@ function updateBadges() {
   $('#badgeWarn').textContent = String(warnings);
   const sb = $('#sbProblemsText');
   if (sb) sb.textContent = `${errors} 错误 · ${warnings} 警告`;
+  const sbProblems = $('#sbProblems');
+  if (sbProblems) { sbProblems.classList.toggle('has-error', errors > 0); sbProblems.classList.toggle('has-warning', !errors && warnings > 0); }
 }
 
 function openProblems(open = true) {
@@ -1615,8 +1625,13 @@ function applyFontSize(size) {
   if (!ed.model) return;
   const sel = ed.editor.getSelection();
   if (!sel.isEmpty()) {
-    const text = ed.model.getValueInRange(sel);
-    ed.editor.executeEdits('texora-size', [{ range: sel, text: `{\\${size} ${text}}` }]);
+    // Same size again removes it; a different size replaces it. Never nest size groups.
+    const edit = toggleSize(ed.model.getValue(), ed.model.getOffsetAt(sel.getStartPosition()), ed.model.getOffsetAt(sel.getEndPosition()), size);
+    const a = ed.model.getPositionAt(edit.start), b = ed.model.getPositionAt(edit.end);
+    ed.editor.pushUndoStop();
+    ed.editor.executeEdits('texora-size', [{ range: new monaco.Range(a.lineNumber, a.column, b.lineNumber, b.column), text: edit.text }]);
+    const x = ed.model.getPositionAt(edit.selectionStart), y = ed.model.getPositionAt(edit.selectionEnd);
+    ed.editor.setSelection(new monaco.Selection(x.lineNumber, x.column, y.lineNumber, y.column));
   } else {
     ed.insertText(`{\\${size} }`);
     const pos = ed.editor.getPosition();

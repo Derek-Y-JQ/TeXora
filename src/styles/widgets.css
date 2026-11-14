@@ -19,7 +19,7 @@
 .math-zone img { max-width: 88%; display: block; }
 .synctex-line-flash { background: color-mix(in srgb, var(--accent) 18%, transparent) !important; }
 .ai-sel-label { display: flex; align-items: center; padding: 0 5px; color: var(--accent); }
-.ai-sel-label .ico { width: 12px; height: 12px; }
+.ai-sel-label .ico { width: 12px; height: 12px; stroke-width: 2.25; }
 
 /* ------------------------------------------------------------------- tree */
 .tree-footer {
@@ -28,7 +28,7 @@
   background: var(--surface-2);
 }
 .tf-name { display: flex; align-items: center; gap: 5px; overflow: hidden; }
-.tf-name .ico { width: 12px; height: 12px; }
+.tf-name .ico { width: 12px; height: 12px; stroke-width: 2.25; }
 .tf-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tf-meta { margin-left: auto; }
 
@@ -75,12 +75,12 @@
 .template-detail { overflow: auto; border-left: 1px solid var(--border); padding-left: 16px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .tpl-detail-head { display: flex; gap: 12px; align-items: flex-start; }
 .tpl-badge { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
-.tpl-badge .ico { width: 20px; height: 20px; }
+.tpl-badge .ico { width: 20px; height: 20px; stroke-width: 1.75; }
 .tpl-title { font-size: 14.5px; font-weight: 650; }
 .tpl-sub { font-size: 11.5px; color: var(--text-3); line-height: 1.6; margin-top: 3px; }
 .tpl-files { display: flex; flex-direction: column; gap: 2px; }
 .tpl-file { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 6px; background: var(--surface-2); font-size: 12px; color: var(--text-2); }
-.tpl-file .ico { width: 13px; height: 13px; color: var(--text-3); }
+.tpl-file .ico { width: 14px; height: 14px; color: var(--text-3); stroke-width: 2.1; }
 .tpl-file .muted { margin-left: auto; font-size: 10.5px; }
 .tpl-preview { flex: 1; min-height: 180px; font-size: 10.5px; }
 
@@ -110,7 +110,7 @@
 }
 .img-preview img { max-width: 100%; max-height: 340px; border-radius: 6px; box-shadow: var(--shadow-sm); }
 .img-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text-4); font-size: 12px; text-align: center; }
-.img-empty .ico { width: 30px; height: 30px; stroke-width: 1.4; }
+.img-empty .ico { width: 32px; height: 32px; stroke-width: 1.5; }
 .img-fields { display: flex; flex-direction: column; gap: 10px; }
 
 /* --------------------------------------------------------------- cite list */
@@ -202,7 +202,7 @@
 .theme-swatch.system span:nth-child(2) { background: var(--accent); width: 60%; }
 .theme-swatch.system span:nth-child(3) { background: rgba(120, 130, 160, 0.4); width: 80%; }
 .theme-name { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.theme-name .ico { width: 13px; height: 13px; color: var(--text-3); }
+.theme-name .ico { width: 14px; height: 14px; color: var(--text-3); stroke-width: 2.1; }
 .theme-desc { font-size: 10.5px; color: var(--text-3); }
 .accent-row { display: flex; gap: 10px; padding: 6px 0 2px; }
 .accent-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--dot); border: 2px solid transparent; box-shadow: 0 0 0 1px var(--border-strong) inset; position: relative; }
@@ -228,7 +228,7 @@
 /* --------------------------------------------------------------- AI result */
 .ai-result { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
 .ai-result-note { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--text-2); background: var(--accent-softer); border: 1px solid var(--accent-border); border-radius: 8px; padding: 8px 11px; }
-.ai-result-note .ico { width: 14px; height: 14px; color: var(--accent); margin-top: 2px; flex: none; }
+.ai-result-note .ico { width: 14px; height: 14px; color: var(--accent); margin-top: 2px; flex: none; stroke-width: 2.1; }
 .ai-result .diff-grid { flex: 1; min-height: 0; }
 .ai-result .diff-pane pre { max-height: none; flex: 1; }
 .diff-labels { margin-left: auto; display: flex; gap: 6px; margin-right: 10px; }
@@ -256,7 +256,7 @@
 
 /* --------------------------------------------------------------- polish pass */
 .modal-title { display: flex; align-items: center; gap: 8px; }
-.modal-title .ico { width: 17px; height: 17px; stroke-width: 1.8; color: var(--accent); }
+.modal-title .ico { width: 18px; height: 18px; color: var(--accent); stroke-width: 1.75; }
 .modal-sub { margin-top: 3px; }
 .code-block { color: var(--text); }
 [data-theme="light"] .code-block { background: #f7f9fd; border-color: #e1e6f0; color: #2b3550; }
@@ -323,7 +323,7 @@
 
 .outline-file { display:flex; align-items:center; gap:6px; padding:8px 10px 4px; font-size:10.5px; letter-spacing:.02em; color:var(--text-3); text-transform:none; border-top:1px solid var(--border); margin-top:4px; }
 .outline-file:first-child { border-top:0; margin-top:0; }
-.outline-file .ico { width:12px; height:12px; opacity:.7; }
+.outline-file .ico { width: 12px; height: 12px; opacity:.7; stroke-width: 2.25; }
 .outline-file.active-file { color:var(--accent); }
 .project-outline { max-height:100%; }
 

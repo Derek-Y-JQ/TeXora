@@ -25,7 +25,7 @@ export function el(tag, props = {}, ...children) {
 }
 
 export function icon(name, cls = '') {
-  return `<svg class="ico ${cls}"><use href="#i-${name}"/></svg>`;
+  return `<svg aria-hidden="true" class="ico ${cls}"><use href="#i-${name}"/></svg>`;
 }
 
 export function escapeHtml(str) {
@@ -120,10 +120,13 @@ export function extOf(p) {
 
 export function fileIcon(ext) {
   const map = {
-    tex: 'paper', ltx: 'paper', sty: 'code', cls: 'code', bib: 'book', md: 'file',
-    png: 'image', jpg: 'image', jpeg: 'image', pdf: 'paper', svg: 'image', eps: 'image'
+    tex: 'ft-tex', ltx: 'ft-tex', bib: 'ft-bib', bst: 'ft-bib', sty: 'ft-sty', cls: 'ft-cls', md: 'ft-md', markdown: 'ft-md', pdf: 'ft-pdf',
+    png: 'ft-image', jpg: 'ft-image', jpeg: 'ft-image', gif: 'ft-image', webp: 'ft-image', svg: 'ft-image', eps: 'ft-image', tikz: 'ft-image',
+    json: 'ft-data', yaml: 'ft-data', yml: 'ft-data', csv: 'ft-data', txt: 'ft-text',
+    log: 'ft-log', aux: 'ft-log', out: 'ft-log', toc: 'ft-log', bbl: 'ft-log', blg: 'ft-log', fls: 'ft-log', zip: 'ft-archive', gz: 'ft-archive'
   };
-  return map[ext] || 'file';
+  // The file tree passes Node's path.extname ('.tex'); other callers pass 'tex'.
+  return map[String(ext || '').replace(/^\./, '').toLowerCase()] || 'file';
 }
 
 export async function copyText(text) {
@@ -172,6 +175,8 @@ export function closeMenu() {
   if (!layer) return;
   layer.innerHTML = '';
   layer.classList.remove('open');
+  document.documentElement.classList.remove('menu-open');
+  window.removeEventListener('blur', closeMenu);
   menuOpen = null;
   menuAnchor = null;
 }
@@ -219,6 +224,8 @@ export function openMenu(anchor, items, options = {}) {
   }
   layer.appendChild(menu);
   layer.classList.add('open');
+  document.documentElement.classList.add('menu-open');
+  window.addEventListener('blur', closeMenu);
   menuOpen = menu;
   menuAnchor = anchor;
 
@@ -262,6 +269,8 @@ export function openPopover(anchor, contentNode) {
   wrap.appendChild(contentNode);
   layer.appendChild(wrap);
   layer.classList.add('open');
+  document.documentElement.classList.add('menu-open');
+  window.addEventListener('blur', closeMenu);
   menuOpen = wrap;
   menuAnchor = anchor;
   const rect = anchor.getBoundingClientRect();

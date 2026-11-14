@@ -44,7 +44,7 @@ async function filesIn(dir){
 async function uploadAsset(release,name,bytes,uploadName=name){
  const {execFileSync}=require('node:child_process');
  const config=`url = "${release.upload_url.replace(/\{.*$/,'')+'?name='+encodeURIComponent(uploadName)}"\nheader = "Authorization: Bearer ${token}"\nheader = "Content-Type: application/octet-stream"\nheader = "User-Agent: TeXora-Publisher"\n`;
- const output=execFileSync('curl.exe',['--config','-','--http1.1','--silent','--show-error','--fail-with-body','--connect-timeout','20','--max-time','300','--request','POST','--data-binary','@'+path.resolve('release',name)],{input:config,encoding:'utf8',timeout:310000,windowsHide:true,maxBuffer:1048576});
+ const output=execFileSync('curl.exe',['--config','-','--ssl-revoke-best-effort','--http1.1','--silent','--show-error','--fail-with-body','--connect-timeout','20','--max-time','600','--request','POST','--data-binary','@'+path.resolve('release',name)],{input:config,encoding:'utf8',timeout:610000,windowsHide:true,maxBuffer:1048576});
  const asset=JSON.parse(output);
  if(asset.size!==bytes.length||asset.digest!=='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex'))throw Error('Uploaded asset verification failed: '+name);
  console.log('Uploaded',uploadName,asset.size,'bytes');return asset;
@@ -93,7 +93,7 @@ async function main(){
   entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
  }}));
  const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
- const commit=await request(prefix+'/git/commits','POST',{message:replace?`Fix TeXora ${version} without version bump: TeX distribution diagnostics, package management and Markdown contrast`:`Release TeXora ${version}: encrypted credentials, sandboxed renderer and preview regression tests`,tree:nextTree.sha,parents:[head.object.sha]});
+ const commit=await request(prefix+'/git/commits','POST',{message:replace?`Fix TeXora ${version} without version bump: TeX distribution diagnostics, package management and Markdown contrast`:`Release TeXora ${version}: Lucide interface icons, file-type icons, English and Japanese interface, new app icon`,tree:nextTree.sha,parents:[head.object.sha]});
  if(replace){
   // Upload and verify both replacements before touching the current public downloads.
   const replacements=[];

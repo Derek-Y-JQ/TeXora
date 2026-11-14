@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS = {
     recentLimit: 12
   },
   appearance: {
+    uiStyle: 'studio',
+    endfieldColor: 'yellow',
     theme: 'dark',
     accent: 'blue',
     codeTheme: 'auto',

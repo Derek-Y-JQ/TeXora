@@ -1,4 +1,4 @@
-# TeXora 1.5.0 · 本地优先的 LaTeX 写作工作台
+# TeXora 1.5.1 · 本地优先的 LaTeX 写作工作台
 
 TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
@@ -110,6 +110,10 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 
 ![主题与配色](docs/screenshots/133-theme.png)
 
+## 1.5.1 更新
+
+界面图标整体换为 Lucide 单色线条并统一为四档尺寸；文件树与标签页按 tex / bib / sty / cls / md / pdf / 图片等类型显示不同图标；全新应用图标。新增 English 与日本語界面，在“设置 → 外观与主题 → 界面语言”切换，立即生效。悬停提示改为带快捷键的自绘样式，纯图标按钮补充无障碍名称。修复：对已设字号的选区再次选择同一字号会取消、选择其他字号会替换而不再嵌套；菜单展开时点击标题栏空白处可以收起。详见 [docs/release-1.5.1.md](docs/release-1.5.1.md)。
+
 ## 1.5.0 更新
 
 API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请求头认证。启用渲染器沙箱与 ASAR，抽离预览状态和定位逻辑并增加回归测试。`npm test` 运行正式测试，历史一次性验证脚本移入 `scripts/legacy/`。详见 [1.5.0 更新说明](docs/release-1.5.0.md)。
@@ -176,7 +180,7 @@ API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请�
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-1.5.0.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-1.5.1.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。
@@ -198,11 +202,8 @@ API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请�
 npm install
 npm run build
 npm test
-npm run verify:134
 npm run dist
 ```
-
-`verify:134` 在隔离项目和本地模拟 AI 服务中验证新标签页、跨文件定位、最新消息滚动和改写正文校验，不调用付费模型。`verify:133` 在隔离项目中实际插入 listings、minted 与算法，验证宏包位置、完整 PDF 编译、提示词恢复及主题，并截取功能图片。首次运行可联网补齐代码高亮依赖。更多检查包括 `npm run verify:131`（本地模拟 AI，不调用付费模型）、`node scripts/legacy/verify-preview.cjs` 与 `node scripts/legacy/verify-code-tools.cjs`。
 
 MIT License。依赖许可与致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 

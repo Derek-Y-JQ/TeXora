@@ -308,7 +308,9 @@ export function createSettingsUI() {
     const s = ctx.state.settings;
     return `
       <h2 class="settings-section-title">外观与主题</h2>
-      <p class="settings-section-desc">两套完整主题（Daylight / Midnight），可自定义强调色、界面缩放与 PDF 阅读配色。</p>
+      <p class="settings-section-desc">选择适合长时间写作的界面样式与明暗主题，调整界面缩放和 PDF 阅读配色。</p>
+      ${group('视觉风格')}
+      <div class="setting-card">${selectRow('appearance.uiStyle', '界面样式', '样式与明暗主题独立，可随时切换。', [['studio','TeXora · 精细工作台'],['endfield','Endfield · 工业风格']])}${selectRow('appearance.endfieldColor', 'Endfield 配色', '在 Endfield 样式下生效；选中项使用柔和浅底色。', [['yellow','柔黄色'],['cyan','青蓝色 · #14D0D0']])}</div>
       ${group('主题')}
       <div class="theme-cards">
         <button class="theme-card ${s.appearance.theme === 'light' ? 'active' : ''}" data-theme-choice="light">
@@ -343,6 +345,7 @@ export function createSettingsUI() {
       </div>
       ${group('界面')}
       <div class="setting-card">
+        ${selectRow('general.language', '界面语言', '切换后立即生效；文档内容、模板与 AI 提示词不受影响', [['zh-CN', '简体中文'], ['en', 'English'], ['ja', '日本語']])}
         ${selectRow('appearance.uiScale', '界面缩放', '', [['90', '90%'], ['100', '100%'], ['110', '110%'], ['125', '125%']])}
         ${switchRow('appearance.compact', '紧凑模式', '压缩工具栏与列表间距，单屏显示更多内容')}
         ${switchRow('appearance.reduceMotion', '减少动效', '关闭大部分过渡与动画')}
@@ -612,7 +615,23 @@ export function createSettingsUI() {
     return value;
   }
 
-  function set(path, value) {
+  async function set(path, value) {
+    if (path === 'appearance.uiStyle' || path === 'appearance.endfieldColor') {
+      const key = path.split('.').pop();
+      const previous = ctx.state.settings.appearance[key] || (key === 'uiStyle' ? 'studio' : 'yellow');
+      try {
+        await ctx.api.settings.set(path, value);
+        ctx.state.settings.appearance[key] = value;
+        ctx.app.applyAppearance();
+      } catch (error) {
+        ctx.state.settings.appearance[key] = previous;
+        const select = wrap?.root?.querySelector(`[data-setting="${path}"]`);
+        if (select) select.value = previous;
+        ctx.app.applyAppearance();
+        toast({type:'error', title:'外观设置未保存', body:'请重试。当前外观已保留。'});
+      }
+      return;
+    }
     if (path === 'ai.provider') {
       const preset = PROVIDER_PRESETS[value];
       if (preset) {

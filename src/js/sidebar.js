@@ -244,7 +244,7 @@ export class Sidebar {
         const dirty = ctx.state.docs.get(node.path)?.dirty;
         html.push(`<div class="tree-row ${active ? 'active' : ''}" data-path="${escapeHtml(node.path)}" data-type="${node.type}" draggable="${!isDir}" style="padding-left:${6 + depth * 13}px">
           ${isDir ? `<span class="twisty">${icon(expanded ? 'chevron-down' : 'chevron-right')}</span>` : '<span class="twisty"></span>'}
-          <svg class="ico file-ico"><use href="#i-${isDir ? 'folder' : fileIcon(node.ext)}"/></svg>
+          <svg aria-hidden="true" class="ico file-ico"><use href="#i-${isDir ? 'folder' : fileIcon(node.ext)}"/></svg>
           <span class="tree-name">${escapeHtml(node.name)}</span>
           ${isRoot ? '<span class="tree-tag">主文档</span>' : (!isDir && /\.(tex|ltx)$/i.test(node.name) ? '<span class="tree-tag sub">SUB</span>' : '')}
           ${dirty ? '<span class="tree-dirty"></span>' : ''}

@@ -54,3 +54,11 @@ the user (OpenAI, DeepSeek, Anthropic, Google, Moonshot or a compatible service)
 and are subject to that provider's terms and privacy policy.
 
 KaTeX copyright and license: [docs/licenses/KaTeX-LICENSE.txt](docs/licenses/KaTeX-LICENSE.txt).
+
+## Saira
+
+Saira font: Copyright 2020 The Saira Project Authors. Licensed under the SIL Open Font License 1.1. Bundled font and license: `src/public/fonts/Saira.ttf` and `src/public/fonts/Saira-OFL.txt`. Used in the optional Endfield interface style.
+
+## Lucide
+
+Interface icons are drawn from Lucide 1.72.0 (https://lucide.dev), Copyright (c) Lucide Icons and Contributors, ISC License; portions derived from Feather (MIT). License text: [docs/licenses/Lucide-LICENSE.txt](docs/licenses/Lucide-LICENSE.txt). The `emph`, `tt`, `restore` and punctuation glyphs are original TeXora drawings.

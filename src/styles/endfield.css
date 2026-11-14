@@ -1,0 +1,52 @@
+/* Optional Endfield reading workspace; no game assets. */
+@font-face { font-family:Saira; src:url('/fonts/Saira.ttf') format('truetype'); font-weight:100 900; font-stretch:50% 125%; font-display:swap; }
+[data-style="endfield"] { --ef-signal:#f3e67b; --ef-ink:#161616; --ef-cut:5px; --r-xs:0px; --r-sm:0px; --r-md:0px; --r-lg:0px; --r-xl:0px; --r-pill:0px; --font-display:Saira,"Microsoft YaHei UI",sans-serif; --shadow-sm:none; --shadow-md:none; --shadow-lg:none; --accent:var(--text); --accent-2:var(--text); --accent-ink:var(--bg); --accent-border:var(--text-3); --accent-soft:var(--surface-3); --accent-softer:var(--surface-2); --warn:var(--text); --warn-soft:var(--ef-signal); --success:var(--text-2); --info:var(--text-2); --t-fast:120ms cubic-bezier(.7,0,.2,1); --t-med:200ms cubic-bezier(.7,0,.2,1); }
+[data-style="endfield"][data-theme="light"] { --bg:#f4f4f2; --surface-1:#fff; --surface-2:#f0f0ed; --surface-3:#e4e4e0; --surface-4:#deded8; --inset:#f4f4f2; --border:#d9d9d6; --border-soft:#e4e4e0; --text:#161616; --text-2:#555550; --text-3:#686862; --text-4:#777771; --editor-bg:#fff; --editor-gutter:#fff; --preview-canvas:#e9e9e5; }
+[data-style="endfield"][data-theme="dark"] { --bg:#191919; --surface-1:#222; --surface-2:#1d1d1d; --surface-3:#303030; --surface-4:#383838; --inset:#191919; --border:#3e3e3e; --border-soft:#333; --text:#ededed; --text-2:#bbb; --text-3:#aaa; --text-4:#999; --editor-bg:#222; --editor-gutter:#222; --preview-canvas:#191919; }
+[data-style="endfield"] .titlebar { background:#161616; color:#ededed; border-bottom:0; --text:#ededed; --text-2:#ccc; --text-3:#aaa; --text-4:#aaa; }
+[data-style="endfield"] :is(.btn,.btn-icon,.icon-btn,.input,.modal,.menu,.popover,.theme-card,.theme-swatch,.act-btn,.tab,.switch,.about-mark,.preview-placeholder .pv-icon) { border-radius:0; box-shadow:none; }
+[data-style="endfield"] :is(button.btn,.act-btn,.theme-card) { clip-path:polygon(0 0,100% 0,100% calc(100% - var(--ef-cut)),calc(100% - var(--ef-cut)) 100%,0 100%); }
+[data-style="endfield"] :is(.btn-primary,.act-btn.active) { background:var(--ef-signal); color:#161616; border-color:transparent; }
+[data-style="endfield"] :is(.btn-primary,.act-btn.active):hover { background:#e6e200; color:#161616; }
+[data-style="endfield"] .btn-danger { color:var(--danger); }
+[data-style="endfield"] .switch.on { background:var(--text); border-color:var(--text); }
+[data-style="endfield"] .switch.on::after { background:var(--surface-1); }
+[data-style="endfield"] :is(.settings-section-title,.sidebar-title,.theme-name,.ribbon-label,.statusbar) { font-family:var(--font-display); font-stretch:112%; font-variant-numeric:tabular-nums; }
+[data-style="endfield"] .settings-section-title::before { content:'// SETTINGS'; display:block; font-size:11px; letter-spacing:.14em; font-stretch:125%; margin-bottom:7px; color:var(--text-2); }
+[data-style="endfield"] .setting-group { border-top:1px solid var(--border); padding-top:14px; color:var(--text); }
+[data-style="endfield"] .tab.active { box-shadow:inset 0 -2px var(--text); font-weight:600; }
+[data-style="endfield"] .ribbon,.workspace,.sidebar,.editor-area,.preview,.statusbar { background-image:none; box-shadow:none; }
+[data-style="endfield"] .ai-btn { background:transparent; }
+[data-style="endfield"] .compile-btn.busy { background:var(--ef-signal); color:#161616; }
+[data-style="endfield"] :is(button,input,select,textarea):focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+[data-style="endfield"] .about-mark { background:var(--text); color:var(--bg); }
+[data-style="endfield"] .engine-dot { background:var(--text-2); }
+[data-style="endfield"] .titlebar::before { content:''; position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg,#d76b99 0 16px,var(--ef-signal) 16px 32px,#8ed8b7 32px 48px,transparent 48px); }
+
+[data-style="endfield"] .cmdk { background:#222; color:#ddd; border-color:#444; border-radius:0; box-shadow:none; }
+[data-style="endfield"] .cmdk kbd { background:#333; border-color:#555; color:#ddd; }
+[data-style="endfield"] :is(.settings-nav-item,.tree-row,.tree-item,.act-btn,.accent-dot) { border-radius:0; }
+[data-style="endfield"] .settings-nav-item.active { background:var(--ef-signal); color:#161616; }
+[data-style="endfield"] .theme-card.active { position:relative; background:var(--surface-1); color:var(--text); border:1px solid var(--text); box-shadow:inset 0 3px var(--ef-signal); }
+[data-style="endfield"] .theme-card.active:hover { background:var(--surface-2); color:var(--text); }
+[data-style="endfield"] .theme-card.active .theme-desc { color:var(--text-2); }
+[data-style="endfield"] .theme-swatch { background-image:none; }
+[data-style="endfield"] .theme-swatch span { background:var(--text-3); }
+
+[data-style="endfield"] :is(button.btn,.act-btn,.theme-card):focus-visible { outline-offset:-3px; }
+[data-style="endfield"] .theme-swatch span:nth-child(2) { background:var(--text-2); }
+[data-style="endfield"] .theme-card.active { box-shadow:inset 0 3px var(--text); }
+
+[data-style="endfield"] .modal-backdrop { backdrop-filter:none; }
+[data-style="endfield"] :is(.modal,.menu,.popover) { animation:ef-enter 160ms cubic-bezier(.16,1,.3,1); }
+@keyframes ef-enter { from { opacity:0; translate:0 5px; } to { opacity:1; translate:0 0; } }
+@media(prefers-reduced-motion:reduce) { [data-style="endfield"] :is(.modal,.menu,.popover) { animation:none; } }
+[data-style="endfield"][data-reduce-motion="1"] :is(.modal,.menu,.popover) { animation:none; }
+
+[data-style="endfield"][data-ef-accent="cyan"] { --ef-signal:#14d0d0; }
+[data-style="endfield"] { --ef-selection:color-mix(in srgb,var(--ef-signal) 24%,var(--surface-1)); }
+[data-style="endfield"] :is(.act-btn.active,.settings-nav-item.active) { background:var(--ef-selection); color:var(--text); }
+[data-style="endfield"] :is(.act-btn.active,.settings-nav-item.active):hover { background:color-mix(in srgb,var(--ef-signal) 34%,var(--surface-1)); color:var(--text); }
+[data-style="endfield"] .btn-primary:hover { background:color-mix(in srgb,var(--ef-signal) 84%,white); color:#161616; }
+[data-style="endfield"] .theme-card.active { border-color:var(--text-3); background:var(--ef-selection); box-shadow:inset 0 2px var(--text); }
+[data-style="endfield"] .tree-row.selected,[data-style="endfield"] .tree-row.active { background:var(--ef-selection); }

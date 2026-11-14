@@ -5,7 +5,7 @@
  * TeX toolchain, keeps settings/history/state and supports screenshot capture
  * for automated visual verification.
  */
-const { app, BrowserWindow, ipcMain, protocol, net, shell, dialog, clipboard, Menu, nativeTheme, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, net, shell, dialog: electronDialog, clipboard, Menu, nativeTheme, safeStorage } = require('electron');
 const fs = require('node:fs');
 const fsp = fs.promises;
 const path = require('node:path');
@@ -28,14 +28,27 @@ const PKG = require('../package.json');
 const {launchTargets,resolveOpenTarget}=require('./lib/open-target');
 
 const { registerProtocols } = require('./lib/protocols');
+const i18n = require('./lib/i18n');
+// Electron's own modules are left untouched; dialogs and menus go through these translating wrappers.
+const dialog = i18n.wrapDialog(electronDialog);
 const DIST = path.join(__dirname, '..', 'dist');
 app.setName('TeXora');
 // Packaged builds keep the stable %APPDATA%\\TeXora store (settings survive updates).
 // Development runs use an isolated store, and tests can override it explicitly.
-const USER_DATA =
+function ensureDir(dir) {
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (err) { console.error('[userData]', dir, err.message); }
+  return fs.existsSync(dir);
+}
+let USER_DATA =
   process.env.TEXORA_USER_DATA ||
   (app.isPackaged ? app.getPath('userData') : path.join(app.getPath('appData'), 'TeXora-dev'));
-try { fs.mkdirSync(USER_DATA, { recursive: true }); } catch {}
+// Development runs fall back to a project-local store when the AppData folder cannot be created
+// (seen on machines where security software blocks the unpackaged electron.exe there).
+if (!ensureDir(USER_DATA) && !app.isPackaged && !process.env.TEXORA_USER_DATA) {
+  USER_DATA = path.join(__dirname, '..', '.tmp', 'dev-profile');
+  ensureDir(USER_DATA);
+  console.warn('[userData] using', USER_DATA);
+}
 app.setPath('userData',USER_DATA);
 const cliBuild=process.argv.includes('--build');
 const pendingOpenTargets=launchTargets(process.argv.slice(app.isPackaged?1:2));
@@ -90,6 +103,7 @@ protocol.registerSchemesAsPrivileged([
 
 // -------------------------------------------------------------------- services
 const store = new Store(USER_DATA);
+i18n.setLanguage(store.get('general.language', 'zh-CN'));
 const project = new ProjectService(store, USER_DATA);
 if(cliBuild)project.pushRecent=()=>{};
 const tex = new TexEnv(store, USER_DATA);
@@ -281,7 +295,7 @@ function setupMenu() {
       ]
     }
   ];
-  const menu = Menu.buildFromTemplate(template);
+  const menu = Menu.buildFromTemplate(i18n.menu(template));
   Menu.setApplicationMenu(menu);
   if (win) win.setMenuBarVisibility(false);
 }
@@ -738,7 +752,13 @@ handle('git:init', async () => git.init());
 
 // fs watch → renderer
 project.on('changed', (payload) => send('fs:changed', payload));
-store.on('change', () => broadcastSettings());
+store.on('change', () => {
+  const language = store.get('general.language', 'zh-CN');
+  const before = i18n.language;
+  i18n.setLanguage(language);
+  if (i18n.language !== before && app.isReady()) { try { setupMenu(); } catch (err) { console.warn('[i18n] menu', err.message); } }
+  broadcastSettings();
+});
 
 // ------------------------------------------------------------------- capture
 ipcMain.on('capture:done', () => {});

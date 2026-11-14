@@ -178,6 +178,10 @@ export function createRibbon() {
       return items;
     },
     tools: () => [
+      { label: '删除线 \\sout', icon: 'strike', onClick: () => ctx.cmd('format.strike') },
+      { label: '行内公式 \\displaystyle 化', icon: 'display-math', onClick: () => ctx.cmd('format.displaystyle') },
+      { label: '自动换行', icon: 'wrap', key: 'Alt+Z', checked: check(ctx.state.settings?.editor?.wordWrap), onClick: () => ctx.cmd('view.toggleWordWrap') },
+      { separator: true },
       { label: '模板中心', icon: 'layers', onClick: () => ctx.dialogs.openTemplates() },
       { label: '文献管理器（.bib）', icon: 'book', onClick: () => ctx.dialogs.openBibManager() },
       { label: 'DOI / arXiv 抓取 BibTeX', icon: 'download', onClick: () => ctx.dialogs.openDoiFetch() },

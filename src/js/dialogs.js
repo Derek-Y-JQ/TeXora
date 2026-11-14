@@ -9,8 +9,7 @@ import { PROJECT_HOME, openExternalLink } from './external-links.js';
 import { openCodeDialog } from './code-dialog.js';
 import { monaco } from './editor.js';
 import {
-  $, $$, el, icon, escapeHtml, openMenu, toast, copyText, baseName, extOf, formatBytes, timeAgo, debounce
-} from './util.js';
+  $, $$, el, icon, escapeHtml, openMenu, toast, copyText, baseName, extOf, formatBytes, timeAgo, debounce, fileIcon } from './util.js';
 import { SYMBOL_GROUPS, toSnippet } from './symbols.js';
 import { TEMPLATES, buildWizardDocument, NEW_PROJECT_DEFAULTS } from './templates.js';
 import { parseBib, entryToBibtex, emptyEntry, suggestKey, formatAuthors } from './bib.js';
@@ -264,7 +263,7 @@ export function createDialogs() {
       width: 1060,
       height: 'min(84vh, 760px)',
       body,
-      foot: `${dialogButton('关闭')}<span class="spacer"></span><button class="btn btn-sm" id="tplInsert">${icon('code')}插入到当前文件</button><button class="btn btn-primary btn-sm" id="tplCreate">${icon('folder')}创建项目…</button>`,
+      foot: `${dialogButton('关闭')}<span class="spacer"></span>${!ctx.state.activePath ? '<span class="field-hint">打开文档后可插入模板内容</span>' : ''}<button class="btn btn-sm" id="tplInsert" ${!ctx.state.activePath ? 'disabled' : ''}>${icon('code')}插入到当前文件</button><button class="btn btn-primary btn-sm" id="tplCreate">${icon('folder')}创建项目…</button>`,
       onMount: ({ root, close }) => {
         const renderDetail = () => {
           const d = root.querySelector('#tplDetail');
@@ -292,8 +291,8 @@ export function createDialogs() {
           await createFromTemplate(selected);
         });
         root.querySelector('#tplInsert').addEventListener('click', () => {
-          close();
           if (!ctx.state.activePath) return toast({ type: 'warn', title: '请先打开一个文档' });
+          close();
           const content = selected.files[0].content;
           const begin = content.indexOf('\\begin{document}');
           const end = content.lastIndexOf('\\end{document}');
@@ -307,7 +306,7 @@ export function createDialogs() {
 
   function fileIconFor(name) {
     const ext = extOf(name);
-    return { tex: 'paper', bib: 'book', md: 'file', cls: 'code', sty: 'code' }[ext] || 'file';
+    return fileIcon(ext);
   }
 
   async function createFromTemplate(template) {
