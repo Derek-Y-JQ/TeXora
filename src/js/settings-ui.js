@@ -163,7 +163,7 @@ export function createSettingsUI() {
       </div>
       ${group('过程文件与清理')}
       <div class="setting-card">
-        ${inputRow('build.cacheDir', '隐藏缓存目录', '相对于项目根目录，存放 .aux/.log/.synctex 等过程文件', { mono: true })}
+        ${inputRow('build.cacheDir', '编译缓存目录', '支持项目内相对目录或独立绝对路径；输出目录兼容性错误会自动回退到英文缓存', { mono: true })}
         ${switchRow('build.pdfInRoot', '在项目根目录同步一份 PDF', '便于分享与外部打开')}
         ${switchRow('build.cleanOnExit', '退出时自动清理过程文件', '')}
         <div class="setting-row">

@@ -134,7 +134,7 @@ function createWindow() {
 
   win = new BrowserWindow({
     ...bounds,
-    minWidth: 1100,
+    minWidth: 900,
     minHeight: 680,
     show: false,
     frame: false,

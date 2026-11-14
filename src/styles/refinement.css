@@ -160,3 +160,21 @@ html[data-lang="ja"] .ribbon-group:nth-child(4) .ribbon-row .btn-ghost span,
 html[data-lang="en"] .ribbon .font-btn span,
 html[data-lang="ja"] .ribbon .font-btn span { display:none; }
 html[data-lang="en"] .ribbon-label,html[data-lang="ja"] .ribbon-label { white-space:nowrap; }
+
+/* 2.0: actions remain reachable while formatting groups scroll. */
+.ribbon-scroll { min-width:0; scrollbar-width:thin; scrollbar-color:var(--border-strong) transparent; }
+.ribbon-scroll::-webkit-scrollbar { height:5px; }
+.ribbon-scroll::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:2px; }
+.ribbon-tail { flex:none; gap:2px; padding-left:8px; border-left:1px solid var(--border); }
+.ribbon-tail .ai-btn { flex:none; min-width:38px; }
+.ribbon-tail .ai-btn span { display:inline; }
+.preview { min-width:0; max-width:none; }
+@media(max-width:1100px) { .preview { min-width:0; max-width:none; } .ribbon-tail .ai-btn span { display:none; } }
+
+.preview-toolbar { overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; }
+.preview-toolbar::-webkit-scrollbar { height:3px; }
+.preview-toolbar::-webkit-scrollbar-thumb { background:var(--border-strong); }
+.preview-toolbar .pv-group { padding:0 2px; flex-shrink:0; }
+.preview-toolbar .icon-btn.sm { width:23px; min-width:23px; height:26px; }
+.preview-toolbar .pv-zoom { min-width:34px; }
+.preview-toolbar .pv-pages { min-width:40px; }

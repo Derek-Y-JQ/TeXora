@@ -1,3 +1,4 @@
+import {workspaceWidths} from './js/workspace-layout.js';
 /**
  * TeXora renderer entry: boot, layout, documents, build pipeline, panels.
  */
@@ -137,8 +138,7 @@ function applyAppearance({ initial = false } = {}) {
   document.documentElement.setAttribute('data-accent', s.appearance.accent || 'blue');
   document.documentElement.toggleAttribute('data-compact', !!s.appearance.compact);
   document.documentElement.setAttribute('data-reduce-motion', s.appearance.reduceMotion ? '1' : '0');
-  document.documentElement.style.setProperty('--sidebar-w', (s.ui.sidebarWidth || 292) + 'px');
-  document.documentElement.style.setProperty('--preview-w', (s.ui.previewWidth || 468) + 'px');
+  scheduleWorkspaceLayout();
   let custom = document.getElementById('texora-custom-css');
   if (!custom) {
     custom = document.createElement('style');
@@ -167,6 +167,7 @@ function wireWindowControls() {
   api.window.onState(({ maximized }) => {
     const use = $('#winMax');
     if (use) use.innerHTML = icon(maximized ? 'restore' : 'maximize');
+    scheduleWorkspaceLayout();
   });
   $('.titlebar').addEventListener('dblclick', (e) => {
     if (e.target.closest('button, .cmdk, .project-pill')) return;
@@ -447,7 +448,48 @@ function wireShortcutsExtras() {
   });
 }
 
+let workspaceFrame = 0;
+const savePaneWidths = debounce(() => {
+  if (ctx.state.settings?.ui) api.settings.set({ui: {
+    sidebarWidth: ctx.state.settings.ui.sidebarWidth,
+    previewWidth: ctx.state.settings.ui.previewWidth
+  }}).catch(console.warn);
+}, 180);
+function fitWorkspace() {
+  const workspace = $('.workspace');
+  if (!workspace || workspace.clientWidth < 100 || !ctx.state.settings?.ui) return;
+  const ui = ctx.state.settings.ui;
+  const sizes = workspaceWidths(workspace.clientWidth, {
+    sidebar:ui.sidebarWidth, preview:ui.previewWidth,
+    showSidebar:!$('#sidebar').classList.contains('collapsed'),
+    showPreview:!$('#previewPane').classList.contains('collapsed')
+  });
+  let changed = false;
+  for (const key of ['sidebar','preview']) {
+    if (!sizes[key]) continue;
+    document.documentElement.style.setProperty('--' + key + '-w', sizes[key] + 'px');
+    if (ui[key+'Width'] !== sizes[key]) { ui[key+'Width'] = sizes[key]; changed = true; }
+  }
+  ctx.editor?.resize();
+  ctx.preview?.relayout();
+  if (changed) savePaneWidths();
+}
+function scheduleWorkspaceLayout() {
+  cancelAnimationFrame(workspaceFrame);
+  workspaceFrame = requestAnimationFrame(fitWorkspace);
+}
+
 function wireSplitters() {
+  window.addEventListener('resize', scheduleWorkspaceLayout);
+  const workspace = $('.workspace');
+  if (workspace && typeof ResizeObserver !== 'undefined') new ResizeObserver(scheduleWorkspaceLayout).observe(workspace);
+  const ribbonScroll = $('.ribbon-scroll');
+  ribbonScroll?.addEventListener('wheel', event => {
+    if (ribbonScroll.scrollWidth <= ribbonScroll.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    ribbonScroll.scrollLeft += event.deltaY;
+    event.preventDefault();
+  }, {passive:false});
+  scheduleWorkspaceLayout();
   const setup = (splitterId, side) => {
     const sp = $(splitterId);
     if (!sp) return;
@@ -468,8 +510,7 @@ function wireSplitters() {
           document.documentElement.style.setProperty('--preview-w', width + 'px');
           ctx.state.settings.ui.previewWidth = Math.round(width);
         }
-        ctx.editor?.resize();
-        ctx.preview?.relayout();
+        fitWorkspace();
       };
       const up = () => {
         sp.classList.remove('dragging');
@@ -486,8 +527,7 @@ function wireSplitters() {
       document.documentElement.style.setProperty(side === 'sidebar' ? '--sidebar-w' : '--preview-w', def + 'px');
       ctx.state.settings.ui[side === 'sidebar' ? 'sidebarWidth' : 'previewWidth'] = def;
       api.settings.set(side === 'sidebar' ? 'ui.sidebarWidth' : 'ui.previewWidth', def);
-      ctx.editor?.resize();
-      ctx.preview?.relayout();
+      fitWorkspace();
     });
   };
   setup('#splitterSidebar', 'sidebar');
@@ -1515,7 +1555,7 @@ function toggleSidebar() {
   api.settings.set('ui.showSidebar', !collapsed);
   ctx.ribbon.refresh();
   ctx.sidebar.syncActivityButtons();
-  ctx.editor.resize();
+  scheduleWorkspaceLayout();
 }
 
 function togglePreview() {
@@ -1526,8 +1566,7 @@ function togglePreview() {
   ctx.state.settings.ui.showPreview = !collapsed;
   api.settings.set('ui.showPreview', !collapsed);
   ctx.ribbon.refresh();
-  ctx.editor.resize();
-  if (!collapsed) ctx.preview.relayout();
+  scheduleWorkspaceLayout();
 }
 
 function toggleWordWrap() {

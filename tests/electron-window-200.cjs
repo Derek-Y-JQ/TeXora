@@ -1,0 +1,36 @@
+const {app,BrowserWindow}=require('electron');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const fixture=path.resolve('.tmp/window-200-fixture');fs.mkdirSync(fixture,{recursive:true});
+fs.writeFileSync(path.join(fixture,'main.tex'),'\\documentclass{article}\n\\begin{document}Window regression\\end{document}');
+const content='BT /F1 14 Tf 40 740 Td (Window regression PDF) Tj ET';
+const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',`<< /Length ${content.length} >>\nstream\n${content}\nendstream`];
+let pdf='%PDF-1.4\n',offsets=[0];objects.forEach((o,i)=>{offsets.push(Buffer.byteLength(pdf));pdf+=`${i+1} 0 obj\n${o}\nendobj\n`;});const xref=Buffer.byteLength(pdf);pdf+='xref\n0 6\n0000000000 65535 f \n'+offsets.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;fs.writeFileSync(path.join(fixture,'main.pdf'),pdf);
+process.env.TEXORA_USER_DATA=path.resolve('.tmp/window-200-profile');
+require('../electron/main');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function until(fn){for(let i=0;i<180;i++){try{const v=await fn();if(v)return v;}catch{}await sleep(80);}throw Error('Window regression timed out');}
+app.whenReady().then(async()=>{
+ const win=await until(()=>BrowserWindow.getAllWindows().find(w=>!w.isDestroyed()));
+ const js=s=>win.webContents.executeJavaScript(s,true);
+ await until(()=>js('!!window.__texora?.editor?.editor'));win.webContents.setZoomFactor(1);
+ await js(`window.__texora.app.openProject(${JSON.stringify(fixture)})`);
+ await until(()=>js('window.__texora.preview.pageEls.length>0'));
+ win.unmaximize();win.setSize(1440,900);await until(()=>js('innerWidth>1400'));
+ win.maximize();await until(()=>win.isMaximized());
+ await js('window.__texora.state.settings.ui.previewWidth=900;window.__texora.app.applyAppearance()');
+ await until(()=>js('document.querySelector(".preview").clientWidth<=innerWidth*.4+1'));
+ const wide=await js('({view:innerWidth,pane:document.querySelector(".preview").clientWidth,page:window.__texora.preview.pageEls[0].clientWidth})');
+ win.unmaximize();await until(()=>!win.isMaximized());win.setSize(900,800);await until(()=>js('innerWidth>=880 && innerWidth<=910'));
+ await until(()=>js('document.querySelector(".preview").clientWidth<=innerWidth*.4+1 && window.__texora.preview.pageEls[0].clientWidth<'+wide.page));
+ const narrow=await js('({view:innerWidth,pane:document.querySelector(".preview").clientWidth,page:window.__texora.preview.pageEls[0].clientWidth,workspace:document.querySelector(".workspace").scrollWidth})');
+ assert.ok(narrow.pane<wide.pane);assert.ok(narrow.page<wide.page);assert.ok(narrow.workspace<=narrow.view+1);
+ assert.ok(await js(`(()=>{const b=document.querySelector('.ribbon-tail [data-cmd="ai.assistant"]'),r=b.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth})()`));
+ assert.ok(await js('document.querySelector(".ribbon-scroll").scrollWidth>document.querySelector(".ribbon-scroll").clientWidth'));
+ await js(`document.querySelector('.ribbon-scroll').dispatchEvent(new WheelEvent('wheel',{deltaY:150,bubbles:true,cancelable:true}))`);
+ assert.ok(await js('document.querySelector(".ribbon-scroll").scrollLeft>0'));
+ fs.mkdirSync('.capture',{recursive:true});fs.writeFileSync('.capture/200-window-narrow.png',(await win.webContents.capturePage()).toPNG());
+ await js(`document.querySelector('.ribbon-tail [data-cmd="ai.assistant"]').click()`);await until(()=>js('window.__texora.sidebar.panel==="ai"'));
+ win.setSize(1440,900);await until(()=>js('innerWidth>1400'));await until(()=>js('document.querySelector(".preview").clientWidth<=innerWidth*.4+1'));
+ fs.writeFileSync('.tmp/electron-window-200-result.json',JSON.stringify({ok:true,wide,narrow,noSandboxOverride:process.argv.includes('--no-sandbox')}));
+ console.log('PASS native maximize/restore, PDF resize, reachable AI and horizontal toolbar:',JSON.stringify({wide,narrow}));app.exit(0);
+}).catch(e=>{console.error(e);app.exit(1)});

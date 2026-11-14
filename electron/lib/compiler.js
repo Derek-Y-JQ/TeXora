@@ -182,7 +182,8 @@ function parseLatexLog(text, opts = {}) {
 }
 
 class Compiler {
-  constructor({ store, project, tex, history, send, fallbackCacheRoot }) {
+  constructor({ store, project, tex, history, send, fallbackCacheRoot, execute = run }) {
+    this.execute = execute;
     this.store = store;
     this.project = project;
     this.tex = tex;
@@ -205,7 +206,7 @@ class Compiler {
   cacheDir() {
     if (this.activeCache && this.activeCacheRoot === this.root) return this.activeCache;
     const name = this.store.get('build.cacheDir', '.latex_cache') || '.latex_cache';
-    return path.join(this.root, name);
+    return path.isAbsolute(name) ? path.normalize(name) : path.join(this.root, name);
   }
 
   /**
@@ -215,7 +216,8 @@ class Compiler {
    */
   async resolveCacheDir(root = this.root) {
     const name = this.store.get('build.cacheDir', '.latex_cache') || '.latex_cache';
-    const primary = path.join(root, name);
+    const primary = path.isAbsolute(name) ? path.normalize(name) : path.join(root, name);
+    if (this._asciiProjects?.has(root) && !path.isAbsolute(name)) return this.resolveAsciiCacheDir(root);
     const probe = async (dir) => {
       try {
         await fsp.mkdir(dir, { recursive: true });
@@ -238,6 +240,26 @@ class Compiler {
     }
     if (this.root === root) { this.activeCache = target; this.activeCacheRoot = root; }
     return target;
+  }
+
+  asciiCacheCandidates(root = this.root) {
+    const hash = crypto.createHash('sha1').update(root || '').digest('hex').slice(0, 12);
+    return [...new Set([this.fallbackCacheRoot, require('node:os').tmpdir()])]
+      .filter(dir => dir && /^[\x20-\x7e]+$/.test(dir))
+      .map(dir => path.join(dir, 'build-cache', hash));
+  }
+
+  async resolveAsciiCacheDir(root = this.root) {
+    for (const dir of this.asciiCacheCandidates(root)) {
+      try {
+        await fsp.mkdir(dir, {recursive:true, mode:0o700});
+        const probe = path.join(dir, '.probe-' + crypto.randomBytes(8).toString('hex'));
+        await fsp.writeFile(probe, 'ok'); await fsp.unlink(probe);
+        if (this.root === root) { this.activeCache = dir; this.activeCacheRoot = root; }
+        return dir;
+      } catch {}
+    }
+    throw Error('无法创建纯英文编译缓存目录，请在编译设置中指定可写的英文绝对路径。');
   }
 
   jobnameFor(rootFile) {
@@ -272,9 +294,9 @@ class Compiler {
     };
     this._preCache = null;
     this._snippetTier = null;
-    const cache = await this.resolveCacheDir();
+    let cache = await this.resolveCacheDir();
     await fsp.mkdir(cache, { recursive: true });
-    const previewDir = path.join(cache, 'preview');
+    let previewDir = path.join(cache, 'preview');
     await fsp.mkdir(previewDir, { recursive: true });
     const jobname = this.jobnameFor(rootFile);
     const rootDir = path.dirname(rootFile);
@@ -285,12 +307,11 @@ class Compiler {
     // projects whose main.tex lives in a subdirectory (samples/demo) work.
     const docArg = path.basename(rootFile);
     const runCwd = rootDir;
-    const pdfPath = path.join(cache, jobname + '.pdf');
+    let pdfPath = path.join(cache, jobname + '.pdf');
     const started = Date.now();
     if (token.cancelled) return { ok: false, cancelled: true };
     this.running = true;
     this.startedAt = started;
-    const before = fs.existsSync(pdfPath) ? fs.statSync(pdfPath).mtimeMs : 0;
 
     send('build:status', { state: 'running', engine, rootFile, jobname, pass: 0 });
     send('build:log', { chunk: `\n€ TeXora 编译开始 · ${engine} · ${path.basename(rootFile)}\n`, reset: true });
@@ -309,10 +330,12 @@ class Compiler {
     let timedOut = false;
     let transcript = '';
 
+    let cacheRetried = false;
     const exec = async (exe, args, cwd = this.root, passLabel = '') => {
       checkCancelled();
+      args = args.map(arg => /^(?:-output-directory=|-outdir=)/.test(arg) ? arg.slice(0,arg.indexOf('=')+1) + cache : arg);
       const outFile = path.join(cache, 'compile-console.log');
-      const res = await run(exe, args, {
+      const res = await this.execute(exe, args, {
         cwd,
         env,
         timeout,
@@ -323,9 +346,22 @@ class Compiler {
       transcript += res.output;
       code = res.code;
       timedOut = res.timedOut;
-      results.push({ exe: path.basename(exe), args, code: res.code, pass: passLabel });
+      const step = { exe: path.basename(exe), args, code: res.code, pass: passLabel };
+      results.push(step);
       this.childPid = 0;
       checkCancelled();
+      if (!cacheRetried && /putenv\(\s*TEXMF_OUTPUT_DIRECTORY\s*=/i.test(res.output || '')) {
+        cacheRetried = true;
+        const next = await this.resolveAsciiCacheDir(projectRoot);
+        if (path.resolve(next) === path.resolve(cache)) throw Error('TeX 引擎在英文缓存目录仍发生 putenv 错误，请检查 TeX 发行版。');
+        this._asciiProjects ||= new Set(); this._asciiProjects.add(projectRoot);
+        cache = next; pdfPath = path.join(cache, jobname + '.pdf');
+        previewDir = path.join(cache, 'preview'); await fsp.mkdir(previewDir, {recursive:true});
+        send('build:log', {chunk:`\n[cache] 检测到输出目录 putenv 错误，已切换到英文缓存目录重试：${cache}\n`});
+        const retry = await exec(exe, args, cwd, passLabel + ':ascii-retry');
+        if (retry.code === 0 && !retry.timedOut) step.recovered = true;
+        return retry;
+      }
       return res;
     };
 
@@ -354,7 +390,8 @@ class Compiler {
         for (let pass = 1; pass <= runs; pass++) {
           send('build:status', { state: 'running', engine: engineName, rootFile, jobname, pass, total: runs, runs });
           send('build:log', { chunk: `\n— 第 ${pass}/${runs} 遍（${engineName}）—\n` });
-          await exec(exe, baseArgs, runCwd, `pass${pass}`);
+          const passResult = await exec(exe, baseArgs, runCwd, `pass${pass}`);
+          if (/putenv\(\s*TEXMF_OUTPUT_DIRECTORY\s*=/i.test(passResult.output || '')) break;
           const auxPath = path.join(cache, jobname + '.aux');
           const bcfPath = path.join(cache, jobname + '.bcf');
           if (pass === 1) {
@@ -397,7 +434,7 @@ class Compiler {
         });
       }
       const errors = problems.filter((p) => p.severity === 'error');
-      const failedStep=results.find(r=>r.code!==0);
+      const failedStep=results.find(r=>r.code!==0 && !r.recovered);
       const ok = !!(pdfFresh && pdfStat && pdfStat.size > 0 && !timedOut && !failedStep && code === 0 && errors.length===0);
       if(!ok&&!errors.length){
         const problem={severity:'error',file:rootFile,line:0,source:'texora',message:timedOut?'编译超时，已停止排版':failedStep?`编译进程退出异常（退出码 ${failedStep.code}）`:'编译未生成新的有效 PDF',detail:(transcript||logText||'排版程序未返回日志，请检查引擎路径与文件写入权限。').slice(-6000)};
@@ -445,7 +482,7 @@ class Compiler {
         errorCount: errors.length,
         warningCount: problems.filter((p) => p.severity === 'warning').length,
         transcriptTail: (transcript||logText).slice(-6000),
-        autoInstalled
+        autoInstalled, cacheDirectory:cache, cacheFallback:cacheRetried
       };
       checkCancelled();
       this.lastResult = result;
@@ -541,9 +578,10 @@ class Compiler {
     if (!projectRoot || !rootFile) return { ok: false, noPdf: true };
     const jobname = this.jobnameFor(rootFile);
     const rootDir = path.dirname(rootFile);
-    const primary = path.join(projectRoot, this.store.get('build.cacheDir', '.latex_cache'));
+    const configured = this.store.get('build.cacheDir', '.latex_cache') || '.latex_cache';
+    const primary = path.isAbsolute(configured) ? path.normalize(configured) : path.join(projectRoot, configured);
     const fallback = path.join(this.fallbackCacheRoot, 'build-cache', crypto.createHash('sha1').update(projectRoot).digest('hex').slice(0, 12));
-    const dirs = [...new Set([primary, fallback, rootDir, projectRoot, path.join(rootDir, 'build'), path.join(rootDir, 'out')])];
+    const dirs = [...new Set([primary, fallback, ...this.asciiCacheCandidates(projectRoot), rootDir, projectRoot, path.join(rootDir, 'build'), path.join(rootDir, 'out')])];
     const candidates = await Promise.all(dirs.map(async dir => {
       const file = path.join(dir, jobname + '.pdf');
       const stat = await fsp.stat(file).catch(() => null);
@@ -566,6 +604,12 @@ class Compiler {
       }
     }
     if (tracePdf && tracePdf !== pdfPath) { pdfPath = tracePdf; stat = await fsp.stat(pdfPath); }
+    if (tracePdf && path.dirname(tracePdf) !== rootDir && path.dirname(tracePdf) !== projectRoot) {
+      this.activeCache = path.dirname(tracePdf); this.activeCacheRoot = projectRoot;
+      if (this.asciiCacheCandidates(projectRoot).includes(this.activeCache) && this.activeCache !== primary) {
+        this._asciiProjects ||= new Set(); this._asciiProjects.add(projectRoot);
+      }
+    }
     const previewPdf=await this.snapshotPdf(pdfPath);
     const pages = [];
     if (!current()) return { ok: false, cancelled: true };

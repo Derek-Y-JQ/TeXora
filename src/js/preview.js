@@ -30,6 +30,10 @@ export class PreviewController {
     this.stage.addEventListener('scroll', () => this.onScroll(), { passive: true });
     this.stage.addEventListener('dblclick', (e) => this.onDoubleClick(e));
     window.addEventListener('resize', () => this.relayout());
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => { cancelAnimationFrame(this.resizeFrame); this.resizeFrame = requestAnimationFrame(() => this.relayout()); });
+      this.resizeObserver.observe(this.stage);
+    }
 
     ctx.on('settings:changed', () => {
       const next = this.defaultInvert();
