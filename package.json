@@ -126,7 +126,7 @@
     "type": "git",
     "url": "https://github.com/Derek-Y-JQ/TeXora.git"
   },
-  "homepage": "https://github.com/Derek-Y-JQ/TeXora",
+  "homepage": "https://derek-y-jq.github.io/TeXora/",
   "dependencies": {
     "adm-zip": "0.6.1"
   }

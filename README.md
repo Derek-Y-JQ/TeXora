@@ -15,7 +15,7 @@ TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结
 - **全文字体一键应用**：读取本机中英文字体，自动写入主文档字体配置，减少手工维护导言区。
 - **适合长时间写作的外观**：默认夜间与蓝色，另有茶绿、晴空、日晷（Solarized 配套色）等强调色；编辑器高亮主题可独立切换。
 
-[下载 Windows 安装包](https://github.com/Derek-Y-JQ/TeXora/releases/latest) · [项目主页](https://github.com/Derek-Y-JQ/TeXora)
+[下载 Windows 安装包](https://github.com/Derek-Y-JQ/TeXora/releases/latest) · [项目主页](https://derek-y-jq.github.io/TeXora/)
 
 > 文档编辑、编译与版本管理在本机完成。使用 AI 时，所选内容及已选 Skills 会发送至配置的模型服务商。软件不内置模型额度。
 
