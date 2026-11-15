@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
+import { endfieldEditorChrome } from './endfield-editor.js';
 function cssVar(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
@@ -6,7 +7,24 @@ function cssVar(name, fallback) {
 
 export function defineThemes() {
   const accent = cssVar('--accent', '#8b7cf8');
-  monaco.editor.defineTheme('texora-dark', {
+  const chrome = endfieldEditorChrome();
+  const defineTheme = (name, theme) => {
+    if (chrome) {
+      const automatic = name === 'texora-light' || name === 'texora-dark';
+      theme = { ...theme, colors: { ...theme.colors, ...chrome.colors,
+        'editorCursor.foreground': theme.base === 'vs-dark' ? cssVar('--ef-signal') : '#161616',
+        ...(automatic ? {
+          'editor.background': chrome.panel, 'editor.foreground': chrome.ink,
+          'editorGutter.background': chrome.panel, 'editorStickyScroll.background': chrome.panel,
+          'editorLineNumber.foreground': chrome.muted, 'editorLineNumber.activeForeground': chrome.ink,
+          'editor.lineHighlightBackground': chrome.inset,
+          'editorIndentGuide.background1': chrome.border, 'editorIndentGuide.activeBackground1': chrome.muted
+        } : {})
+      } };
+    }
+    monaco.editor.defineTheme(name, theme);
+  };
+  defineTheme('texora-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -64,7 +82,7 @@ export function defineThemes() {
       'editorStickyScroll.background': '#0d1018'
     }
   });
-  monaco.editor.defineTheme('texora-light', {
+  defineTheme('texora-light', {
     base: 'vs',
     inherit: true,
     rules: [
@@ -120,7 +138,7 @@ export function defineThemes() {
       'editorBracketMatch.border': '#6a56f060'
     }
   });
-  monaco.editor.defineTheme('texora-one-dark', {
+  defineTheme('texora-one-dark', {
     base: 'vs-dark', inherit: true,
     rules: [
       { token: '', foreground: 'abb2bf' }, { token: 'comment', foreground: '5c6370', fontStyle: 'italic' },
@@ -131,7 +149,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#282c34', 'editor.foreground': '#abb2bf', 'editorLineNumber.foreground': '#4b5263', 'editorLineNumber.activeForeground': '#61afef', 'editor.lineHighlightBackground': '#2c313c', 'editor.selectionBackground': '#3e4451', 'editorCursor.foreground': '#528bff', 'editorHoverWidget.background': '#21252b', 'editorHoverWidget.border': '#181a1f', 'editorSuggestWidget.background': '#21252b', 'editorSuggestWidget.selectedBackground': '#2c313a', 'editorWidget.background': '#21252b', 'editorWidget.border': '#181a1f' }
   });
-  monaco.editor.defineTheme('texora-github', {
+  defineTheme('texora-github', {
     base: 'vs-dark', inherit: true,
     rules: [
       { token: '', foreground: 'c9d1d9' }, { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
@@ -142,7 +160,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#0d1117', 'editor.foreground': '#c9d1d9', 'editorLineNumber.foreground': '#484f58', 'editorLineNumber.activeForeground': '#c9d1d9', 'editor.lineHighlightBackground': '#161b22', 'editor.selectionBackground': '#264f78', 'editorCursor.foreground': '#58a6ff', 'editorHoverWidget.background': '#161b22', 'editorHoverWidget.border': '#30363d', 'editorSuggestWidget.background': '#161b22', 'editorSuggestWidget.selectedBackground': '#1f6feb33', 'editorWidget.background': '#161b22', 'editorWidget.border': '#30363d' }
   });
-  monaco.editor.defineTheme('texora-solarized', {
+  defineTheme('texora-solarized', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '657b83' }, { token: 'comment', foreground: '93a1a1', fontStyle: 'italic' },
@@ -153,7 +171,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#fdf6e3', 'editor.foreground': '#657b83', 'editorLineNumber.foreground': '#b3ad9e', 'editorLineNumber.activeForeground': '#268bd2', 'editor.lineHighlightBackground': '#eee8d5', 'editor.selectionBackground': '#d9e2e2', 'editorCursor.foreground': '#268bd2', 'editorHoverWidget.background': '#fdf6e3', 'editorHoverWidget.border': '#d9d2c2', 'editorSuggestWidget.background': '#fdf6e3', 'editorSuggestWidget.selectedBackground': '#eee8d5', 'editorWidget.background': '#fdf6e3', 'editorWidget.border': '#d9d2c2' }
   });
-  monaco.editor.defineTheme('texora-monokai', {
+  defineTheme('texora-monokai', {
     base: 'vs-dark', inherit: true,
     rules: [
       { token: '', foreground: 'f8f8f2' }, { token: 'comment', foreground: '75715e', fontStyle: 'italic' },
@@ -164,7 +182,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#272822', 'editor.foreground': '#f8f8f2', 'editorLineNumber.foreground': '#75715e', 'editorLineNumber.activeForeground': '#f8f8f2', 'editor.lineHighlightBackground': '#3e3d32', 'editor.selectionBackground': '#49483e', 'editorCursor.foreground': '#f8f8f0', 'editorHoverWidget.background': '#1e1f1c', 'editorHoverWidget.border': '#34352f', 'editorSuggestWidget.background': '#1e1f1c', 'editorSuggestWidget.selectedBackground': '#414339', 'editorWidget.background': '#1e1f1c', 'editorWidget.border': '#34352f' }
   });
-  monaco.editor.defineTheme('texora-github-light', {
+  defineTheme('texora-github-light', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '24292f' }, { token: 'comment', foreground: '6e7781', fontStyle: 'italic' },
@@ -175,7 +193,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#ffffff', 'editor.foreground': '#24292f', 'editorLineNumber.foreground': '#8c959f', 'editorLineNumber.activeForeground': '#24292f', 'editor.lineHighlightBackground': '#f6f8fa', 'editor.selectionBackground': '#b6d7ff', 'editorCursor.foreground': '#0969da', 'editorHoverWidget.background': '#ffffff', 'editorHoverWidget.border': '#d0d7de', 'editorSuggestWidget.background': '#ffffff', 'editorSuggestWidget.selectedBackground': '#ddf4ff', 'editorWidget.background': '#ffffff', 'editorWidget.border': '#d0d7de' }
   });
-  monaco.editor.defineTheme('texora-one-light', {
+  defineTheme('texora-one-light', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '383a42' }, { token: 'comment', foreground: 'a0a1a7', fontStyle: 'italic' },
@@ -186,7 +204,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#fafafa', 'editor.foreground': '#383a42', 'editorLineNumber.foreground': '#9d9d9f', 'editorLineNumber.activeForeground': '#383a42', 'editor.lineHighlightBackground': '#f0f0f1', 'editor.selectionBackground': '#d7e6ff', 'editorCursor.foreground': '#526fff', 'editorHoverWidget.background': '#ffffff', 'editorHoverWidget.border': '#dbdbdc', 'editorSuggestWidget.background': '#ffffff', 'editorSuggestWidget.selectedBackground': '#e5e5e6', 'editorWidget.background': '#ffffff', 'editorWidget.border': '#dbdbdc' }
   });
-  monaco.editor.defineTheme('texora-quiet-light', {
+  defineTheme('texora-quiet-light', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '2f3b52' }, { token: 'comment', foreground: '8a94a6', fontStyle: 'italic' },
@@ -199,7 +217,7 @@ export function defineThemes() {
   });
   // Refined light palettes: dark gray / deep blue body text, muted accents.
   const lightBg = { github: '#ffffff', one: '#fafafa', quiet: '#f7f9fc', solar: '#fdf6e3' };
-  monaco.editor.defineTheme('texora-github-light', {
+  defineTheme('texora-github-light', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '24292f' }, { token: 'comment', foreground: '6e7781', fontStyle: 'italic' },
@@ -214,7 +232,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#ffffff', 'editor.foreground': '#24292f', 'editorLineNumber.foreground': '#8c959f', 'editorLineNumber.activeForeground': '#24292f', 'editor.lineHighlightBackground': '#f6f8fa', 'editor.selectionBackground': '#b6d7ff', 'editor.inactiveSelectionBackground': '#eaeef2', 'editorCursor.foreground': '#0969da', 'editorIndentGuide.background1': '#eaeef2', 'editorHoverWidget.background': '#ffffff', 'editorHoverWidget.border': '#d0d7de', 'editorSuggestWidget.background': '#ffffff', 'editorSuggestWidget.border': '#d0d7de', 'editorSuggestWidget.selectedBackground': '#ddf4ff', 'editorWidget.background': '#ffffff', 'editorWidget.border': '#d0d7de' }
   });
-  monaco.editor.defineTheme('texora-one-light', {
+  defineTheme('texora-one-light', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '383a42' }, { token: 'comment', foreground: 'a0a1a7', fontStyle: 'italic' },
@@ -229,7 +247,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#fafafa', 'editor.foreground': '#383a42', 'editorLineNumber.foreground': '#9d9d9f', 'editorLineNumber.activeForeground': '#383a42', 'editor.lineHighlightBackground': '#f0f0f1', 'editor.selectionBackground': '#d7e6ff', 'editor.inactiveSelectionBackground': '#ececec', 'editorCursor.foreground': '#526fff', 'editorIndentGuide.background1': '#ececec', 'editorHoverWidget.background': '#ffffff', 'editorHoverWidget.border': '#dbdbdc', 'editorSuggestWidget.background': '#ffffff', 'editorSuggestWidget.selectedBackground': '#e5e5e6', 'editorWidget.background': '#ffffff', 'editorWidget.border': '#dbdbdc' }
   });
-  monaco.editor.defineTheme('texora-quiet-light', {
+  defineTheme('texora-quiet-light', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '1f2d3d' }, { token: 'comment', foreground: '7b8794', fontStyle: 'italic' },
@@ -244,7 +262,7 @@ export function defineThemes() {
     ],
     colors: { 'editor.background': '#f7f9fc', 'editor.foreground': '#1f2d3d', 'editorLineNumber.foreground': '#a6b0c3', 'editorLineNumber.activeForeground': '#1f2d3d', 'editor.lineHighlightBackground': '#eef2f8', 'editor.selectionBackground': '#dbe7ff', 'editor.inactiveSelectionBackground': '#e7edf5', 'editorCursor.foreground': '#4f46e5', 'editorIndentGuide.background1': '#e7edf5', 'editorHoverWidget.background': '#ffffff', 'editorHoverWidget.border': '#dbe1ee', 'editorSuggestWidget.background': '#ffffff', 'editorSuggestWidget.selectedBackground': '#e8edf7', 'editorWidget.background': '#ffffff', 'editorWidget.border': '#dbe1ee' }
   });
-  monaco.editor.defineTheme('texora-solarized', {
+  defineTheme('texora-solarized', {
     base: 'vs', inherit: true,
     rules: [
       { token: '', foreground: '3f4d55' }, { token: 'comment', foreground: '93a1a1', fontStyle: 'italic' },

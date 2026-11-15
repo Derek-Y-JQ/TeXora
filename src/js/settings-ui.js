@@ -38,6 +38,7 @@ const SECTIONS = [
 export function createSettingsUI() {
   let currentSection = 'editor';
   let wrap = null;
+  let returnFocus = null;
 
   function settingValue(path) {
     return path.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), ctx.state.settings);
@@ -335,14 +336,14 @@ export function createSettingsUI() {
         ${selectRow('appearance.codeTheme', '代码高亮主题', '也可在编辑区右上角直接切换；跟随日夜会自动切换', CODE_THEMES.map(([id, label]) => [id, label]))}
         ${textAreaRow('appearance.customCss', '自定义 CSS', '高级：覆盖界面或编辑器样式，保存后立即生效', 6)}
       </div>
-      ${group('强调色')}
+      <div class="studio-accent-settings">${group('强调色')}
       <div class="accent-row">
         ${[['violet', '#8b7cf8'], ['blue', '#3b82f6'], ['emerald', '#10b981'], ['amber', '#f59e0b'], ['rose', '#f43f5e'], ['tea', '#8cae78'], ['sky', '#38bdf8'], ['solar', '#b58900']]
           .map(
             ([id, color]) => `<button class="accent-dot ${s.appearance.accent === id ? 'active' : ''}" data-accent-choice="${id}" style="--dot:${color}" title="${({tea:'茶绿',sky:'晴空',solar:'日晷 · Solarized',blue:'蓝色',violet:'紫罗兰',emerald:'翡翠',amber:'琥珀',rose:'玫瑰'})[id]}"></button>`
           )
           .join('')}
-      </div>
+      </div></div>
       ${group('界面')}
       <div class="setting-card">
         ${selectRow('general.language', '界面语言', '切换后立即生效；文档内容、模板与 AI 提示词不受影响', [['zh-CN', '简体中文'], ['en', 'English'], ['ja', '日本語']])}
@@ -478,7 +479,7 @@ export function createSettingsUI() {
     nav.innerHTML =
       `<div class="settings-nav-label">设置</div>` +
       SECTIONS.map(
-        (s) => `<button class="settings-nav-item ${s.id === currentSection ? 'active' : ''}" data-section="${s.id}">${icon(s.icon)}<span>${s.title}</span></button>`
+        (s) => `<button class="settings-nav-item ${s.id === currentSection ? 'active' : ''}" data-section="${s.id}" ${s.id === currentSection ? 'aria-current="page"' : ''}>${icon(s.icon)}<span>${s.title}</span></button>`
       ).join('');
     for (const btn of $$('.settings-nav-item', nav)) {
       btn.addEventListener('click', () => {
@@ -488,6 +489,8 @@ export function createSettingsUI() {
     }
     const map = { editor: renderEditor, build: renderBuild, tex: renderTex, ai: renderAi, appearance: renderAppearance, keys: renderKeys, files: renderFiles, about: renderAbout };
     body.innerHTML = (map[currentSection] || renderEditor)();
+    const title = body.querySelector('.settings-section-title');
+    if (title) title.dataset.efLabel = '// ' + ({ editor:'EDITOR',build:'BUILD & PREVIEW',tex:'TEX ENVIRONMENT',ai:'AI ASSISTANT',appearance:'APPEARANCE',keys:'KEYBOARD SHORTCUTS',files:'FILES & BACKUPS',about:'ABOUT' }[currentSection] || 'SETTINGS');
     body.scrollTop = 0;
     bind(body);
   }
@@ -802,10 +805,11 @@ export function createSettingsUI() {
 
   function open(section) {
     if (section) currentSection = section;
+    if (!wrap?.root?.isConnected) returnFocus = document.activeElement;
     const layer = $('#modalLayer');
     layer.innerHTML = `
       <div class="modal-backdrop"></div>
-      <div class="modal settings-modal">
+      <div class="modal settings-modal" role="dialog" aria-modal="true" aria-label="设置" tabindex="-1">
         <div class="modal-head">
           <div>
             <div class="modal-title">${icon('sliders')} 设置</div>
@@ -833,10 +837,20 @@ export function createSettingsUI() {
     layer.querySelector('.modal-backdrop').addEventListener('click', closeSettings);
     document.addEventListener('keydown', escHandler);
     render();
+    root.querySelector('.modal-close').focus({ preventScroll: true });
   }
 
   function escHandler(e) {
-    if (e.key === 'Escape') closeSettings();
+    const root = wrap?.root;
+    if (!root?.isConnected) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeSettings(); }
+    if (e.key === 'Tab') {
+      const items = [...root.querySelectorAll('button,input,textarea,select,a[href],[tabindex]')].filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+      const first = items[0], last = items.at(-1);
+      if (!first) { e.preventDefault(); root.focus(); }
+      else if (e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    }
   }
 
   function closeSettings() {
@@ -846,6 +860,8 @@ export function createSettingsUI() {
     layer.classList.remove('open');
     wrap = null;
     document.removeEventListener('keydown', escHandler);
+    if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+    returnFocus = null;
   }
 
   async function resetAll() {

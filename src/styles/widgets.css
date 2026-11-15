@@ -296,7 +296,8 @@
 .pdf-link:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: 0 0 0 1px var(--accent-border); }
 [data-pdf-invert="1"] .pdf-link:hover { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 
-.monaco-editor .suggest-widget { min-width: 260px !important; }
+/* Monaco sizes the list separately from the widget's outer border. */
+.monaco-editor .suggest-widget { min-width: 260px !important; box-sizing: content-box; }
 .monaco-editor .suggest-widget .monaco-list-row { min-width: 220px; }
 .monaco-editor .suggest-widget .details-label { white-space: nowrap; }
 

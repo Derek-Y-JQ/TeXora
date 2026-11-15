@@ -588,7 +588,7 @@ export const COMMANDS = [
   ['\\footnote', '\\footnote{${1}}', '脚注'],
   ['\\includegraphics', '\\includegraphics[width=${1:0.8}\\linewidth]{${2}}', '插入图片'],
   ['\\caption', '\\caption{${1}}', '图题'],
-  ['\\begin', '\\begin{${1:equation}}', '环境开始'],
+  ['\\begin', '\\begin{${1}}', '环境开始'],
   ['\\end', '\\end{${1:equation}}', '环境结束'],
   ['\\item', '\\item ', '列表项'],
   ['\\input', '\\input{${1}}', '引入文件'],

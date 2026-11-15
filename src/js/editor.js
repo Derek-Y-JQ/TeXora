@@ -416,7 +416,10 @@ function registerCompletions() {
             detail,
             range: cmdRange,
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            sortText: '0' + label
+            sortText: '0' + label,
+            ...(label === '\\begin' ? {
+              command: { id: 'editor.action.triggerSuggest', title: '选择环境' }
+            } : {})
           });
         }
         for (const [tex, name] of MATH_HINTS) {
@@ -1237,6 +1240,7 @@ export class EditorController {
       }
       if (/\\begin\s*$/.test(beforeCursor)) {
         e.preventDefault();
+        e.stopPropagation();
         this.insertBeginBraces();
         return;
       }

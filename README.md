@@ -1,4 +1,4 @@
-# TeXora 2.0.0 · 本地优先的 LaTeX 写作工作台
+# TeXora 2.0.1 · 本地优先的 LaTeX 写作工作台
 
 TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
@@ -180,7 +180,7 @@ API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请�
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.0.0.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.0.1.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。
@@ -219,6 +219,10 @@ MIT License。依赖许可与致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTI
 ![Overleaf 下载进度界面示例（测试数据）](docs/screenshots/136-overleaf-progress.png)
 
 接口依据：[Overleaf 项目列表](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Project/ProjectController.mjs)、[文件上传](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Uploads/ProjectUploadController.mjs)、[项目连接](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/ide-react/connection/connection-manager.ts)。此接入不要求用户提供 Overleaf 密码给 TeXora，也不依赖付费项目的 Git 接入。
+
+## 2.0.1 修复
+
+Endfield 的明暗主题与默认强调色彻底隔离；青蓝、柔黄的编译悬浮态和浅选中态统一，设置、菜单、弹窗、编辑器候选栏采用直角与细线。修复 `\\begin` 短前缀补全默认填入公式环境及候选末项被裁切的问题。详见 [2.0.1 更新说明](docs/release-2.0.1.md)。
 
 ## 2.0.0 修复
 

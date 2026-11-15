@@ -135,7 +135,10 @@ function applyAppearance({ initial = false } = {}) {
   document.documentElement.dataset.style = s.appearance.uiStyle === 'endfield' ? 'endfield' : 'studio';
   document.documentElement.dataset.efVariant = 'standard';
   document.documentElement.dataset.efAccent = s.appearance.endfieldColor === 'cyan' ? 'cyan' : 'yellow';
-  document.documentElement.setAttribute('data-accent', s.appearance.accent || 'blue');
+  // Studio presets include whole palettes; preserve the saved choice outside
+  // Endfield's cascade, then restore it when switching back to Studio.
+  if (s.appearance.uiStyle === 'endfield') document.documentElement.removeAttribute('data-accent');
+  else document.documentElement.setAttribute('data-accent', s.appearance.accent || 'blue');
   document.documentElement.toggleAttribute('data-compact', !!s.appearance.compact);
   document.documentElement.setAttribute('data-reduce-motion', s.appearance.reduceMotion ? '1' : '0');
   scheduleWorkspaceLayout();
