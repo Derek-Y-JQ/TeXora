@@ -34,6 +34,8 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
     };
   })()`);
   const assertGeometry = async () => {
+    const headers=await evalJs('({source:document.querySelector(".tabstrip").getBoundingClientRect().bottom,pdf:document.querySelector(".preview-toolbar").getBoundingClientRect().bottom})');
+    assert.ok(Math.abs(headers.source-headers.pdf)<=1,'PDF toolbar rule aligns with the source tabstrip rule');
     const a = await audit();
     assert.deepEqual(a.rounded, [], 'Endfield visible UI has square corners');
     assert.deepEqual(a.shadows, [], 'Endfield has no soft shadows');

@@ -80,6 +80,7 @@ export default async function ({evalJs,sleep,send,press,shot}) {
   assert.ok(status.inFooter&&!status.old&&!status.top);
   assert.match(status.text,/09:34$/);assert.doesNotMatch(status.text,/09:34:56/);
   assert.ok(status.right<=status.view&&status.bottom>=status.height-30,'PDF status is at bottom right');
+  assert.ok(await evalJs('Math.abs(document.querySelector(".tabstrip").getBoundingClientRect().bottom-document.querySelector(".preview-toolbar").getBoundingClientRect().bottom)<=1'),'PDF toolbar rule aligns with the upper source rule');
   await shot('.capture/202-workspace.png');
   await send('Emulation.setDeviceMetricsOverride',{width:900,height:800,deviceScaleFactor:1,mobile:false});await sleep(250);
   assert.ok(await evalJs('document.querySelector(".statusbar").scrollWidth<=innerWidth'),'narrow footer fits');

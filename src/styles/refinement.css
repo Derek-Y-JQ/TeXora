@@ -75,7 +75,7 @@ button:focus-visible,select:focus-visible,input:focus-visible { outline:2px soli
 .pdf-document-status { max-width:min(44vw,360px); min-width:0; overflow:hidden; text-overflow:ellipsis; display:block; line-height:21px; font-variant-numeric:tabular-nums; }
 .pdf-document-status[hidden] { display:none; }
 .breadcrumbs { height:var(--pane-subheader-h); min-height:var(--pane-subheader-h); box-sizing:border-box; padding-top:0; padding-bottom:0; }
-.preview-toolbar { height:calc(var(--pane-header-h) + var(--pane-subheader-h)); min-height:calc(var(--pane-header-h) + var(--pane-subheader-h)); box-sizing:border-box; padding-top:0; padding-bottom:0; }
+.preview-toolbar { height:var(--pane-header-h); min-height:var(--pane-header-h); box-sizing:border-box; padding-top:0; padding-bottom:0; }
 .sb-left,.sb-right { min-width:0; }
 @media(max-width:1300px) { #sbStats { display:none; } }
 @media(max-width:1100px) { #sbRootFile,#sbWrap,#sbSpaces,.sb-encoding,.sb-eol { display:none; } }
