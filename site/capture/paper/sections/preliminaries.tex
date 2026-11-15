@@ -1,0 +1,38 @@
+\section{预备知识}\label{sec:prelim}
+
+\begin{assumption}[A]
+以下 $X$ 恒为复 Banach 空间, $H$ 恒为可分复 Hilbert 空间, $\BX$ 为 $X$ 上有界线性算子全体.
+\end{assumption}
+
+\begin{definition}\label{def:compact}
+设 $T\in\BX$. 若 $T$ 将 $X$ 中的有界集映为相对紧集, 则称 $T$ 为\textbf{紧算子}. 紧算子全体记为 $\KX$.
+\end{definition}
+
+\begin{definition}\label{def:spectrum}
+设 $T\in\BX$. 称
+\begin{equation}\label{eq:resolvent-set}
+  \rho(T)=\{\lambda\in\C : \lambda I-T \text{ 为双射}\}
+\end{equation}
+为 $T$ 的\textbf{预解集}, 称 $\sigma(T)=\C\setminus\rho(T)$ 为 $T$ 的\textbf{谱}. 若 $\Ker(\lambda I-T)\neq\{0\}$, 则称 $\lambda$ 为 $T$ 的\textbf{特征值}, $\dim\Ker(\lambda I-T)$ 为其\textbf{重数}.
+\end{definition}
+
+\begin{lemma}\label{lem:ideal}
+$\KX$ 是 $\BX$ 中按算子范数闭的双边理想.
+\end{lemma}
+
+证明见 \cref{app:proofs}.
+
+\begin{lemma}[Riesz 引理]\label{lem:riesz}
+设 $Y$ 为 $X$ 的真闭子空间, $0<\theta<1$, 则存在 $x\in X$, 使得 $\norm{x}=1$, 且
+\begin{equation}\label{eq:riesz}
+  \operatorname{dist}(x,Y)\ge\theta.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+任取 $x_0\in X\setminus Y$, 记 $d=\operatorname{dist}(x_0,Y)$. 由 $Y$ 闭知 $d>0$. 因 $d/\theta>d$, 存在 $y_0\in Y$, 使得 $\norm{x_0-y_0}<d/\theta$. 令 $x=(x_0-y_0)/\norm{x_0-y_0}$, 则对任意 $y\in Y$,
+\begin{equation*}
+  \norm{x-y}=\frac{\norm{x_0-(y_0+\norm{x_0-y_0}\,y)}}{\norm{x_0-y_0}}\ge\frac{d}{\norm{x_0-y_0}}>\theta.
+\end{equation*}
+即得 \cref{eq:riesz}.
+\end{proof}

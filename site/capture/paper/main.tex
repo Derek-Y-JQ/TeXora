@@ -1,0 +1,32 @@
+% !TeX program = xelatex
+% TeXora 主页截图用示例项目: 紧算子的谱理论
+% 编译: latexmk -xelatex main.tex
+\documentclass[11pt,a4paper]{ctexart}
+\input{macros.tex}
+
+\title{紧算子的谱理论及其数值逼近}
+\author{TeXora 示例项目}
+\date{2026 年 11 月}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文回顾 Banach 空间上紧算子的 Riesz--Schauder 理论, 给出紧自伴算子的谱分解, 并以核函数 $K(s,t)=\min\{s,t\}$ 的积分算子为例, 比较 Nyström 离散化所得特征值与精确值. 数值结果显示, 前五个特征值的相对误差随网格加密按 $O(N^{-2})$ 衰减.
+\end{abstract}
+
+\tableofcontents
+
+\input{sections/introduction.tex}
+\input{sections/preliminaries.tex}
+\input{sections/spectral.tex}
+\input{sections/numerics.tex}
+\input{sections/remarks.tex}
+
+\appendix
+\input{appendix/proofs.tex}
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

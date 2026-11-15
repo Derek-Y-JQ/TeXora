@@ -7,3 +7,4 @@ release/
 *.log
 .DS_Store
 Thumbs.db
+site/assets/shots/*.png

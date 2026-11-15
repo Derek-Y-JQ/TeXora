@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeXora：现代化LaTeX本地工作台新方案</title>
+<meta name="description" content="TeXora 是面向 Windows 的本地 LaTeX 写作工作台：懂数学结构的编辑器、双向 SyncTeX、受控 AI、与 Overleaf 互通。免费开源。">
+<meta property="og:title" content="TeXora：现代化LaTeX本地工作台新方案">
+<meta property="og:description" content="写数学，不被打断。本地优先的 LaTeX 工作台，免费开源。">
+<meta property="og:image" content="assets/img/a1-workspace.webp">
+<link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<div class="strip" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="TeXora 首页"><img src="assets/img/icon.svg" alt="" width="28" height="28"><span>TeXora</span></a>
+    <nav aria-label="主导航">
+      <a href="#features">功能</a>
+      <a href="#compare">对比</a>
+      <a href="#start">开始使用</a>
+      <a href="#faq">常见问题</a>
+      <a href="https://github.com/Derek-Y-JQ/TeXora">GitHub</a>
+    </nav>
+    <a class="btn btn-ink btn-sm" href="https://github.com/Derek-Y-JQ/TeXora/releases/latest">下载</a>
+  </div>
+</header>
+
+<main id="main">
+<!-- 首屏 -->
+<section class="hero" id="top">
+  <div class="wrap hero-in">
+    <p class="label">// LOCAL-FIRST LATEX WORKBENCH</p>
+    <h1>TeXora：现代化LaTeX本地工作台新方案</h1>
+    <p class="lead">写数学，不被打断。源码、PDF、数学结构和可控的 AI 放在同一个工作台里，那些反复打断思路的小事，交给它。</p>
+    <div class="cta">
+      <a class="btn btn-ink" href="https://github.com/Derek-Y-JQ/TeXora/releases/latest">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>下载 Windows 版 2.0.3</a>
+      <a class="btn btn-line" href="https://github.com/Derek-Y-JQ/TeXora">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2-6-2.5m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.6 11.6 0 0 0-6 0C6.8 2.3 5.8 2.6 5.8 2.6a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4.4 9c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>在 GitHub 查看</a>
+    </div>
+    <p class="meta">免费开源 · MIT 许可 · Windows x64 · 需本机 TeX 发行版</p>
+  </div>
+  <figure class="wrap shot hero-shot">
+    <img src="assets/img/a1-workspace.webp" srcset="assets/img/a1-workspace.webp 1600w, assets/img/a1-workspace-2400.webp 2400w" sizes="(min-width: 1240px) 1200px, 100vw"
+      width="1600" height="1000" alt="TeXora 工作台：左侧数学环境面板列出定理与证明，中间是 LaTeX 源码，右侧是编译后的 PDF">
+  </figure>
+</section>
+
+<!-- 痛点 -->
+<section class="pains" aria-labelledby="pains-h">
+  <div class="wrap">
+    <h2 id="pains-h" class="sr">写作被打断的时刻</h2>
+    <ol class="pain-list">
+      <li><strong>在 PDF 里找刚写的那一行</strong><span>双击源码行号，PDF 直接跳过去；双击 PDF，再跳回来。</span></li>
+      <li><strong>为一张表手敲 &amp; 和 \\</strong><span>从 Excel 复制，粘贴成三线表，LaTeX 实时生成。</span></li>
+      <li><strong>代码块缺宏包、缺 Pygments</strong><span>插入前检测依赖、按需安装，并实际试编译一次。</span></li>
+      <li><strong>AI 把文稿改得面目全非</strong><span>改写先给逐处 Diff，你确认之后才写入。</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 五大支柱 -->
+<section id="features" class="pillars" aria-label="核心功能">
+
+  <article class="pillar">
+    <div class="wrap pillar-in">
+      <div class="copy">
+        <p class="label">// 01 受控 AI</p>
+        <h2>AI 提建议，你做决定</h2>
+        <p>上下文、Skills、写入与否，每一步都由你选择。TeXora 不会自动把整个项目发出去，也不会在你看到差异之前改动文稿。</p>
+        <ul class="points">
+          <li>四个上下文入口：选中内容、当前文件、Skills、其他文件，读取范围受设置约束</li>
+          <li>润色与翻译给出逐处 Diff，确认后才替换；检查与解释只作为回答展示</li>
+          <li>模型回复里夹带说明、无法可靠分离时，直接拒绝进入 Diff，不把杂质混进正文</li>
+          <li>自带密钥，支持 DeepSeek、OpenAI、Claude、Gemini、Kimi 与任意 OpenAI 兼容接口；密钥由系统加密保存</li>
+          <li>导入期刊规范、个人宏习惯等 Skills，按需启用</li>
+        </ul>
+      </div>
+      <div class="media">
+        <figure class="shot"><video data-auto muted loop playsinline preload="none" poster="assets/img/b1-ai-polish.webp" width="1600" height="1000" aria-label="演示：选中段落，AI 润色，查看逐处差异后替换">
+          <source src="assets/shots/b1-ai-polish.mp4" type="video/mp4"></video></figure>
+        <div class="thumbs">
+          <figure class="shot"><img loading="lazy" src="assets/img/b2-ai-context.webp" width="1600" height="1000" alt="AI 侧栏中选择本次调用的 Skills"><figcaption>按次选择 Skills</figcaption></figure>
+          <figure class="shot"><img loading="lazy" src="assets/img/b3-ai-check.webp" width="1600" height="1000" alt="AI 检查结果以独立回答展示，没有覆盖正文的按钮"><figcaption>检查只给回答，不改正文</figcaption></figure>
+        </div>
+        <p class="note">画面中的 AI 回答为演示示例。使用 AI 时，所选内容会发送至你配置的模型服务商。</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="pillar alt">
+    <div class="wrap pillar-in">
+      <div class="copy">
+        <p class="label">// 02 数学结构</p>
+        <h2>它知道你在写定理和证明</h2>
+        <p>不只是一堆文本。定理、引理、证明、公式与交叉引用都被单独识别，可以一览、可以跳转，也能在你输入时就看到排版结果。</p>
+        <ul class="points">
+          <li>公式悬浮卡片随输入实时更新：本地 KaTeX 即时渲染，复杂内容停顿后交给本机 TeX，无需联网</li>
+          <li>数学面板按"本文件 / 整个项目"列出定理与公式，未保存的编辑也纳入索引</li>
+          <li>自定义环境同样能补全：<code>\newtheorem</code>、<code>\NewDocumentEnvironment</code> 等定义都能识别</li>
+          <li><code>\[</code> 与 <code>$$</code> 回车自动闭合；行内 <code>$</code> 以浅灰色提示结束符，按 Tab 接受</li>
+          <li>大纲按 <code>\input</code> / <code>\include</code> 的实际顺序展开，跨文件引用按项目范围检查</li>
+        </ul>
+      </div>
+      <div class="media">
+        <figure class="shot"><video data-auto muted loop playsinline preload="none" poster="assets/img/a2-live-math.webp" width="1600" height="1000" aria-label="演示：输入行间公式，悬浮卡片随输入实时更新">
+          <source src="assets/shots/a2-live-math.mp4" type="video/mp4"></video></figure>
+        <div class="thumbs">
+          <figure class="shot"><img loading="lazy" src="assets/img/c1-math-project.webp" width="1600" height="1000" alt="数学面板的整个项目视图，按文件列出假设、定义、引理和定理"><figcaption>整个项目的数学环境</figcaption></figure>
+          <figure class="shot"><video data-auto muted loop playsinline preload="none" poster="assets/img/c2-env-complete.webp" width="1600" height="1000" aria-label="演示：自定义环境 assumption 的补全与回车闭合">
+            <source src="assets/shots/c2-env-complete.mp4" type="video/mp4"></video><figcaption>自定义环境回车补全</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="pillar">
+    <div class="wrap pillar-in">
+      <div class="copy">
+        <p class="label">// 03 源码与 PDF</p>
+        <h2>双击就能来回，重编译也不丢位置</h2>
+        <p>源码与 PDF 通过 SyncTeX 双向定位。PDF 由 PDF.js 按当前缩放重绘，文字可以选择复制，重新编译后停在原来的页码和位置。</p>
+        <ul class="points">
+          <li>重开项目自动匹配已有 PDF 与 SyncTeX，不用重新编译就能定位</li>
+          <li>编译失败时保留上一份成功的 PDF 并明确标记，同时展开日志末尾</li>
+          <li>全屏阅读（Shift+F11）与演示模式（Shift+F5），Beamer 报告可以直接在 TeXora 里讲</li>
+        </ul>
+      </div>
+      <div class="media">
+        <figure class="shot"><video data-auto muted loop playsinline preload="none" poster="assets/img/d1-synctex.webp" width="1600" height="1000" aria-label="演示：从源码定位到 PDF，再双击 PDF 返回源码">
+          <source src="assets/shots/d1-synctex.mp4" type="video/mp4"></video></figure>
+        <div class="thumbs one">
+          <figure class="shot"><img loading="lazy" src="assets/img/d2-present.webp" width="1600" height="1000" alt="Beamer 幻灯片在演示模式下全屏显示"><figcaption>演示模式</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="pillar alt">
+    <div class="wrap pillar-in">
+      <div class="copy">
+        <p class="label">// 04 杂事交给它</p>
+        <h2>插入、依赖、宏包、格式，不再手工处理</h2>
+        <p>重复劳动有固定做法，就不该占用写作的注意力。</p>
+        <ul class="points">
+          <li>表格：可视网格，直接粘贴 Excel / CSV，支持三线表、longtable、Tabularray</li>
+          <li>代码块：listings 或 minted，插入前检测依赖、按需安装并试编译；伪代码点选组件插入</li>
+          <li>宏包只在缺少时补入<strong>主文档</strong>导言区，在子文件里操作也不会写进正文</li>
+          <li>中间文件集中到 <code>.latex_cache/</code>，项目目录保持干净</li>
+          <li>一键整理缩进、段内硬回车与空行，保护公式、代码和注释，先看 Diff 再应用</li>
+          <li>中英文标点修复，重点处理公式里误输的中文标点</li>
+        </ul>
+      </div>
+      <div class="media">
+        <figure class="shot"><video data-auto muted loop playsinline preload="none" poster="assets/img/e1-table-paste.webp" width="1600" height="1000" aria-label="演示：把 CSV 数据粘贴进表格向导，生成三线表">
+          <source src="assets/shots/e1-table-paste.mp4" type="video/mp4"></video></figure>
+        <div class="thumbs">
+          <figure class="shot"><img loading="lazy" src="assets/img/e2-minted.webp" width="1600" height="1000" alt="代码块弹窗选择 minted，显示已检测到所需依赖"><figcaption>minted 依赖检测</figcaption></figure>
+          <figure class="shot"><img loading="lazy" src="assets/img/e3-format.webp" width="1600" height="1000" alt="格式整理的差异预览"><figcaption>整理前先看差异</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="pillar">
+    <div class="wrap pillar-in">
+      <div class="copy">
+        <p class="label">// 05 本地优先</p>
+        <h2>文稿在你的电脑上，需要时再连接外部</h2>
+        <p>编辑、编译、版本管理都在本机完成，可以完全离线。需要协作或自动化时，TeXora 也能接上。</p>
+        <ul class="points">
+          <li><strong>Overleaf：</strong>在官方网页登录后加载到本地编辑；回传前逐项列出上传、下载和删除，两端都改过同一文件时阻止同步并先备份。不需要把密码交给 TeXora，也不依赖付费的 Git 接入</li>
+          <li><strong>本地快照与 Git：</strong>保存和编译后自动记录快照，可比较与恢复；Git 面板查看变更、提交历史并提交</li>
+          <li><strong>为 Agent 准备：</strong>外部工具可直接修改项目文件，TeXora 检测磁盘变更且不覆盖未保存内容；命令行编译输出 JSON</li>
+        </ul>
+      </div>
+      <div class="media">
+        <figure class="code" aria-label="命令行编译示例">
+          <div class="code-head"><span>PowerShell</span></div>
+<pre><code><span class="c"># 不打开窗口，直接编译并输出 JSON</span>
+&amp; 'C:\Program Files\TeXora\TeXora.exe' `
+  --build --project='D:\论文\main.tex' --engine=xelatex
+
+<span class="c"># 输出包含 ok、PDF 路径、问题与日志末尾</span>
+<span class="c"># 退出码：0 成功，1 失败，2 缺少项目参数</span></code></pre>
+        </figure>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- 细节墙 -->
+<section class="details" aria-labelledby="details-h">
+  <div class="wrap">
+    <p class="label">// 更多细节</p>
+    <h2 id="details-h">那些看不见的地方，也做过了</h2>
+    <ul class="grid">
+      <li>中、英、日三语界面，即时切换</li>
+      <li>双击 .tex 打开，文件夹右键"用 TeXora 打开"</li>
+      <li>引用选择器与 .bib 卡片管理</li>
+      <li>Markdown 预览并转换为 .tex</li>
+      <li>嵌套列表编号样式，自动补 enumitem</li>
+      <li>缺宏包时询问安装，区分 tlmgr 与 mpm</li>
+      <li>本机字体一键写入 fontspec / xeCJK</li>
+      <li>latexdiff 生成返修对比 PDF</li>
+      <li>列表中回车自动续写 \item</li>
+      <li>内置 demo、paper、book 示例项目</li>
+      <li>检查更新只提示，不静默安装</li>
+      <li>"减少动效"下关闭全部动画</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 对比 -->
+<section class="compare" id="compare" aria-labelledby="compare-h">
+  <div class="wrap">
+    <p class="label">// 适用场景</p>
+    <h2 id="compare-h">什么场景选什么工具</h2>
+    <p class="sub">各有所长。如果你主要在 Windows 上独立写数学文章，想要本地、开箱即用、又能掌控 AI，TeXora 是为这种场景做的。</p>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="工具对比表">
+    <table>
+      <thead><tr><th scope="col"></th><th scope="col" class="me">TeXora</th><th scope="col">Overleaf</th><th scope="col">TeXstudio</th><th scope="col">VS Code + LaTeX Workshop</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">运行方式</th><td class="me">Windows 桌面应用，本机编译</td><td>浏览器，云端编译</td><td>跨平台桌面应用，本机编译</td><td>通用编辑器 + 扩展，本机编译</td></tr>
+        <tr><th scope="row">离线写作</th><td class="me">可以</td><td>需联网；可借 Git 等方式离线后同步</td><td>可以</td><td>可以</td></tr>
+        <tr><th scope="row">上手</th><td class="me">安装后即用，需本机 TeX</td><td>注册即用</td><td>安装后即用，需本机 TeX</td><td>需安装扩展并配置编译方案</td></tr>
+        <tr><th scope="row">AI</th><td class="me">自带密钥、任选服务商；改写须逐处确认 Diff</td><td>内置 Overleaf AI，额度随套餐</td><td>4.8 起提供 AI 对话助手</td><td>依赖 Copilot 等扩展</td></tr>
+        <tr><th scope="row">实时多人协作</th><td class="me">不支持；可同步 Overleaf 项目或用 Git</td><td>支持</td><td>不支持</td><td>需借助 Live Share 等扩展</td></tr>
+        <tr><th scope="row">数学结构导航</th><td class="me">定理、引理、证明、公式按项目一览并跳转</td><td colspan="3" class="na">以章节大纲为主（各工具做法不同）</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="note">整理于 2026 年 11 月，依据各产品公开资料；功能会随版本变化，以官方说明为准。</p>
+  </div>
+</section>
+
+<!-- 信任 -->
+<section class="trust" aria-labelledby="trust-h">
+  <div class="wrap trust-in">
+    <div>
+      <p class="label">// 隐私与可靠性</p>
+      <h2 id="trust-h">写清楚它做什么，也写清楚不做什么</h2>
+    </div>
+    <ul class="trust-list">
+      <li><strong>开源</strong>MIT 许可，代码公开在 GitHub。</li>
+      <li><strong>本地</strong>文档编辑、编译与版本管理在本机完成；只有你使用 AI 时，所选内容和已选 Skills 才会发送给你配置的服务商。</li>
+      <li><strong>安全</strong>渲染进程沙箱与 contextIsolation，禁用 Node 集成；API Key 由系统加密保存，不写明文。</li>
+      <li><strong>测试</strong>每次提交在 Windows CI 上运行回归测试，覆盖预览、补全、安全与 Overleaf 会话。</li>
+      <li><strong>不夸大</strong>AI 检查结果需要自行核实；软件不声称完成了模型并未实际执行的编译、计算或证明。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 外观 -->
+<section class="looks" aria-labelledby="looks-h">
+  <div class="wrap">
+    <p class="label">// 外观</p>
+    <h2 id="looks-h">适合长时间写作的外观</h2>
+    <p class="sub">Endfield 界面：直角、细线、四种主题色，明暗随系统切换。</p>
+    <div class="switch" role="group" aria-label="切换预览的主题">
+      <div class="seg" data-group="theme">
+        <button type="button" data-v="light" aria-pressed="true">白天</button>
+        <button type="button" data-v="dark" aria-pressed="false">夜间</button>
+      </div>
+      <div class="seg" data-group="color">
+        <button type="button" data-v="ice" aria-pressed="true"><i style="--c:#7DE6FF"></i>冰蓝</button>
+        <button type="button" data-v="yellow" aria-pressed="false"><i style="--c:#FFFA00"></i>标准黄</button>
+        <button type="button" data-v="lime" aria-pressed="false"><i style="--c:#B8FF3D"></i>青柠</button>
+        <button type="button" data-v="amber" aria-pressed="false"><i style="--c:#FFB31F"></i>琥珀</button>
+      </div>
+    </div>
+    <figure class="shot look-shot"><img id="lookImg" loading="lazy" src="assets/img/g1-light-ice.webp" width="1600" height="1000" alt="TeXora 白天主题，冰蓝主题色"></figure>
+  </div>
+</section>
+
+<!-- 开始使用 -->
+<section class="start" id="start" aria-labelledby="start-h">
+  <div class="wrap">
+    <p class="label">// 开始使用</p>
+    <h2 id="start-h">三步开始</h2>
+    <ol class="steps">
+      <li><span>01</span><div><strong>下载安装</strong><p>从 <a href="https://github.com/Derek-Y-JQ/TeXora/releases/latest">Releases</a> 下载 <code>TeXora-Setup-2.0.3.exe</code>。可选择安装目录，升级时保留用户数据。</p></div></li>
+      <li><span>02</span><div><strong>准备 TeX 环境</strong><p>安装 MiKTeX 或 TeX Live，在"设置 → 宏包与 TeX 环境"中检查编译工具。</p></div></li>
+      <li><span>03</span><div><strong>打开项目</strong><p>打开你的论文文件夹，或先试试内置的 demo、paper、book 示例。需要 AI 时，在设置里填入自己的服务商和密钥。</p></div></li>
+    </ol>
+    <div class="cta center"><a class="btn btn-ink" href="https://github.com/Derek-Y-JQ/TeXora/releases/latest">下载 Windows 版 2.0.3</a></div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq" aria-labelledby="faq-h">
+  <div class="wrap narrow">
+    <p class="label">// 常见问题</p>
+    <h2 id="faq-h">常见问题</h2>
+    <details><summary>需要自己安装 TeX 吗？</summary><p>需要。TeXora 调用本机的 MiKTeX 或 TeX Live 编译，宏包能否自动安装取决于本机权限、网络和发行版状态。公式即时预览使用随应用打包的 KaTeX，不需要联网。</p></details>
+    <details><summary>收费吗？</summary><p>TeXora 免费开源，采用 MIT 许可。</p></details>
+    <details><summary>AI 需要另外付费吗？</summary><p>TeXora 不内置模型额度。使用 AI 时，在设置中填写你自己的服务商、模型、Base URL 与 API Key，费用由该服务商收取。不用 AI 也不影响其他功能。</p></details>
+    <details><summary>支持 macOS 或 Linux 吗？</summary><p>目前只提供 Windows x64 安装包。</p></details>
+    <details><summary>安装时 Windows 提示"未知发布者"怎么办？</summary><p>当前发行版尚未配置代码签名证书，Windows SmartScreen 可能给出提示。可以在 Releases 页面核对安装包的 SHA-256 校验值后，选择"仍要运行"。</p></details>
+    <details><summary>能和 Overleaf 上的合作者一起用吗？</summary><p>可以把 Overleaf 项目加载到本地编辑，再检查并同步回去。这是手动文件同步，不提供实时合并；回传期间请暂停对相同文件的在线编辑。</p></details>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="brand"><img src="assets/img/icon.svg" alt="" width="22" height="22"><span>TeXora</span></div>
+    <nav aria-label="页脚">
+      <a href="https://github.com/Derek-Y-JQ/TeXora">GitHub</a>
+      <a href="https://github.com/Derek-Y-JQ/TeXora/releases">更新记录</a>
+      <a href="https://github.com/Derek-Y-JQ/TeXora/issues">问题反馈</a>
+      <a href="https://github.com/Derek-Y-JQ/TeXora/blob/main/THIRD_PARTY_NOTICES.md">第三方声明</a>
+    </nav>
+    <p>MIT License</p>
+  </div>
+</footer>
+<script src="main.js" defer></script>
+</body>
+</html>

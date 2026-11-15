@@ -1,0 +1,19 @@
+\section{证明细节}\label{app:proofs}
+
+\begin{proof}[\cref{lem:ideal} 的证明]
+设 $S,T\in\KX$, $A\in\BX$. $S+T$ 与 $AT$, $TA$ 紧, 由定义直接验证. 下证闭性. 设 $T_n\in\KX$, $\norm{T_n-T}\to0$. 任取 $\varepsilon>0$, 取 $n$ 使 $\norm{T_n-T}<\varepsilon/3$. 因 $T_n(B_X)$ 完全有界, 存在有限个点 $y_1,\dots,y_m$, 使得 $T_n(B_X)\subset\bigcup_k B(y_k,\varepsilon/3)$. 于是对任意 $x\in B_X$, 存在 $k$,
+\begin{equation*}
+  \norm{Tx-y_k}\le\norm{Tx-T_nx}+\norm{T_nx-y_k}<\frac{\varepsilon}{3}+\frac{\varepsilon}{3}<\varepsilon .
+\end{equation*}
+故 $T(B_X)$ 完全有界, 即 $T$ 紧. 证毕.
+\end{proof}
+
+\begin{lemma}[Fredholm 择一性]\label{lem:fredholm}
+设 $T\in\KX$, $\lambda\neq0$, 则 $\lambda I-T$ 为单射当且仅当其为满射.
+\end{lemma}
+
+\begin{proof}
+(必要性) 设 $\lambda I-T$ 单射而非满射. 记 $X_k=\Ran(\lambda I-T)^k$, 则 $X_{k+1}\subsetneq X_k$, 且各 $X_k$ 闭. 由 \cref{lem:riesz} 取 $x_k\in X_k$, $\norm{x_k}=1$, $\operatorname{dist}(x_k,X_{k+1})\ge1/2$. 仿 \cref{eq:separation} 之推导, 得 $\norm{Tx_k-Tx_l}\ge\abs{\lambda}/2$ $(k<l)$, 与 $T$ 紧矛盾.
+
+(充分性) 反之, 设 $\lambda I-T$ 满射. 对伴随算子 $T^{*}$ 用必要性, 再由 $\Ker(\lambda I-T)=\bigl(\Ran(\bar\lambda I-T^{*})\bigr)_{\perp}$ 即得. 证毕.
+\end{proof}

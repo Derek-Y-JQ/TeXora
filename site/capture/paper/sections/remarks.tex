@@ -1,0 +1,26 @@
+\section{讨论}\label{sec:remarks}
+% 本节是"一键整理格式"与"标点修复"的演示原稿:
+% 缩进混乱, 段内硬回车, 空行过多, 公式里误输了中文标点. 请勿手动整理.
+        紧性条件不可略去.
+例如, $\ell^2$ 上的右移算子 $S$
+满足 $\norm{S}=1$, 但 $\sigma(S)$ 为闭单位圆盘,
+其中没有任何特征值.
+
+
+
+   \begin{remark}
+         \Cref{thm:spectral} 中的自伴条件亦不可略去. Volterra 算子
+   $(Vf)(s)=\int_0^s f(t)\,\mathrm{d}t$ 紧, 但 $\sigma(V)=\{0\}$，
+     且 $0$ 不是特征值.
+\end{remark}
+
+    对一般的紧算子, 特征值未必能完全刻画算子:
+设 $\lambda_n$ 为 $T$ 的非零特征值，
+则 $\sum_n\abs{\lambda_n}^2\le\norm{T}_{\mathrm{HS}}^2$,
+等号成立当且仅当 $T$ 正规（见 \cite{gohberg1969}）。
+
+
+
+       \begin{equation}\label{eq:schur}
+   \sum_{n\ge1}\abs{\lambda_n}^2\le\sum_{i，j}\abs{\inner{Te_i,e_j}}^2 .
+        \end{equation}

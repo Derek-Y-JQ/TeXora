@@ -1,0 +1,56 @@
+\section{紧算子的谱}\label{sec:spectral}
+
+\subsection{Riesz--Schauder 理论}
+
+\begin{proposition}\label{prop:finite-kernel}
+设 $T\in\KX$, $\lambda\neq0$, 则 $\dim\Ker(\lambda I-T)<\infty$.
+\end{proposition}
+
+\begin{proof}
+记 $N=\Ker(\lambda I-T)$. 在 $N$ 上 $T=\lambda I$, 故 $N$ 的单位球 $B_N$ 满足 $B_N=\lambda^{-1}T(B_N)$. 由 $T$ 紧知 $B_N$ 相对紧. 假若 $\dim N=\infty$, 由 \cref{lem:riesz} 可逐次取 $x_n\in B_N$, 使得 $\norm{x_n-x_m}\ge1/2$ $(n\neq m)$, 此与 $B_N$ 相对紧矛盾. 证毕.
+\end{proof}
+
+\begin{theorem}[Riesz--Schauder]\label{thm:riesz-schauder}
+设 $X$ 为无穷维 Banach 空间, $T\in\KX$, 则
+\begin{enumerate}
+  \item $0\in\sigma(T)$;
+  \item $\sigma(T)\setminus\{0\}$ 中每一点都是 $T$ 的特征值, 且重数有限;
+  \item $\sigma(T)$ 至多可数, 且除 $0$ 外无其他聚点.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) 若 $0\in\rho(T)$, 则 $I=T^{-1}T$ 为紧算子 (\cref{lem:ideal}), 从而 $X$ 的单位球紧, 与 $\dim X=\infty$ 矛盾.
+
+(2) 设 $\lambda\neq0$ 且 $\lambda$ 不是特征值, 下证 $\lambda\in\rho(T)$. 由 Fredholm 择一性 (\cref{lem:fredholm}), $\lambda I-T$ 单射蕴含满射, 故 $\lambda\in\rho(T)$. 重数有限由 \cref{prop:finite-kernel} 立得.
+
+(3) 仅需证: 对任意 $\varepsilon>0$, 集合 $\{\lambda\in\sigma(T):\abs{\lambda}\ge\varepsilon\}$ 有限. 反证之. 设有互异特征值 $\lambda_n$, $\abs{\lambda_n}\ge\varepsilon$, 对应特征向量 $x_n$. 记 $M_n=\spn\{x_1,\dots,x_n\}$, 则 $M_{n-1}\subsetneq M_n$, 且 $(\lambda_nI-T)M_n\subset M_{n-1}$. 由 \cref{lem:riesz} 取 $y_n\in M_n$, $\norm{y_n}=1$, $\operatorname{dist}(y_n,M_{n-1})\ge1/2$. 于是当 $m<n$ 时,
+\begin{equation}\label{eq:separation}
+  \norm{Ty_n-Ty_m}=\norm{\lambda_ny_n-\bigl[(\lambda_nI-T)y_n+Ty_m\bigr]}\ge\frac{\abs{\lambda_n}}{2}\ge\frac{\varepsilon}{2},
+\end{equation}
+其中方括号内的向量属于 $M_{n-1}$. 故 $\{Ty_n\}$ 无收敛子列, 与 $T$ 紧矛盾. 证毕.
+\end{proof}
+
+\subsection{紧自伴算子的谱分解}
+
+\begin{theorem}[谱定理]\label{thm:spectral}
+设 $T\in\mathcal{K}(H)$ 自伴, 则存在实数列 $\abs{\lambda_1}\ge\abs{\lambda_2}\ge\cdots\to0$ 及标准正交系 $\{e_n\}$, 使得对任意 $x\in H$,
+\begin{equation}\label{eq:spectral-decomposition}
+  Tx=\sum_{n\ge1}\lambda_n\inner{x,e_n}e_n .
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+由自伴性, $\norm{T}=\sup_{\norm{x}=1}\abs{\inner{Tx,x}}$. 取 $\norm{x_k}=1$, 使 $\inner{Tx_k,x_k}\to\lambda_1$, $\abs{\lambda_1}=\norm{T}$. 由 $T$ 紧, 不妨设 $Tx_k\to y$. 又
+\begin{equation*}
+  \norm{Tx_k-\lambda_1x_k}^2=\norm{Tx_k}^2-2\lambda_1\inner{Tx_k,x_k}+\lambda_1^2\le2\lambda_1^2-2\lambda_1\inner{Tx_k,x_k}\to0,
+\end{equation*}
+故 $x_k\to y/\lambda_1=:e_1$, 且 $Te_1=\lambda_1e_1$. 在 $\{e_1\}^{\perp}$ 上重复上述论证, 即得 $\lambda_2,e_2,\dots$. 由 \cref{thm:riesz-schauder} 知 $\lambda_n\to0$, 从而余项趋于 $0$, 得 \cref{eq:spectral-decomposition}. 证毕.
+\end{proof}
+
+\begin{corollary}\label{cor:minmax}
+在 \cref{thm:spectral} 的条件下, 若 $T\ge0$, 则
+\begin{equation}\label{eq:minmax}
+  \lambda_n=\min_{\dim V=n-1}\ \max_{x\perp V,\ \norm{x}=1}\inner{Tx,x}.
+\end{equation}
+\end{corollary}

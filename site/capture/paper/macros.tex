@@ -1,0 +1,63 @@
+% ---------------------------------------------------------------
+%  宏包与记号
+% ---------------------------------------------------------------
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=teal!60!black,urlcolor=blue!50!black}
+
+\lstset{basicstyle=\ttfamily\small,keywordstyle=\color{blue!60!black},commentstyle=\color{gray},
+  numbers=left,numberstyle=\tiny\color{gray},frame=lines,columns=fullflexible}
+
+% 定理类环境
+\theoremstyle{plain}
+\newtheorem{theorem}{定理}[section]
+\newtheorem{lemma}[theorem]{引理}
+\newtheorem{proposition}[theorem]{命题}
+\newtheorem{corollary}[theorem]{推论}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{定义}
+\newtheorem{example}[theorem]{例}
+\theoremstyle{remark}
+\newtheorem*{remark}{注}
+
+% 自定义环境: 全文统一的基本假设
+\NewDocumentEnvironment{assumption}{o}
+  {\par\medskip\noindent\textbf{基本假设\IfValueT{#1}{ (#1)}.}\itshape\ }
+  {\par\medskip}
+
+\crefname{theorem}{定理}{定理}
+\crefname{lemma}{引理}{引理}
+\crefname{proposition}{命题}{命题}
+\crefname{corollary}{推论}{推论}
+\crefname{definition}{定义}{定义}
+\crefname{equation}{式}{式}
+\crefname{table}{表}{表}
+\crefname{figure}{图}{图}
+\crefname{algorithm}{算法}{算法}
+\crefformat{section}{第~#2#1#3~节}
+\Crefformat{section}{第~#2#1#3~节}
+\crefformat{appendix}{附录~#2#1#3}
+\Crefformat{appendix}{附录~#2#1#3}
+
+% 记号
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\DeclarePairedDelimiter{\inner}{\langle}{\rangle}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\BX}{\mathcal{B}(X)}
+\newcommand{\KX}{\mathcal{K}(X)}
+\DeclareMathOperator{\Ker}{Ker}
+\DeclareMathOperator{\Ran}{Ran}
+\DeclareMathOperator{\spn}{span}

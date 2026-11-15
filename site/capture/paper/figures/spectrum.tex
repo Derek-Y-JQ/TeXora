@@ -1,0 +1,11 @@
+\begin{tikzpicture}[x=2.4cm,y=1cm,>=Stealth]
+  % 横轴: log10(lambda), 取值 -2.6 .. 0
+  \draw[->] (-3.1,0) -- (0.4,0) node[right] {$\log_{10}\lambda$};
+  \foreach \t in {-3,-2,-1,0} \draw (\t,0.08) -- (\t,-0.08) node[below] {\small $\t$};
+  \foreach \n/\v in {1/-0.3922,2/-1.3465,3/-1.7902,4/-2.0824,5/-2.3007,6/-2.4750,7/-2.6201,8/-2.7444,9/-2.8531,10/-2.9497}
+    \fill[blue!60!black] (\v,0) circle (2pt);
+  \node[above] at (-0.3922,0.15) {\small $\lambda_1$};
+  \node[above] at (-1.3465,0.15) {\small $\lambda_2$};
+  \node[above] at (-1.7902,0.15) {\small $\lambda_3$};
+  \draw[<-,gray] (-3.05,0.25) -- (-3.05,0.9) node[above,align=center] {\small 聚点 $0$\\[-2pt]\small ($\log\lambda\to-\infty$)};
+\end{tikzpicture}
