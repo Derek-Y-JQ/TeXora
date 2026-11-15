@@ -7,6 +7,9 @@ const luminance = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03
 const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
 
 export default async function ({ evalJs, sleep, send, press, shot }) {
+  // CI hosts can disable system animations. Exercise motion explicitly here;
+  // the reduced-motion branch is tested separately below.
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
   for (let i = 0; i < 100 && !await evalJs('!!window.__texora?.editor?.editor'); i++) await sleep(50);
   assert.ok(await evalJs('!!window.__texora?.editor?.editor'));
   await evalJs('Promise.all([window.__texora.api.settings.set("editor.autosave",false),window.__texora.api.settings.set("build.livePreview",false)])');
