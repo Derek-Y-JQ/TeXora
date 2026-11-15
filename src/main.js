@@ -1,4 +1,5 @@
 import {workspaceWidths} from './js/workspace-layout.js';
+import { definedEnvironmentNames } from './js/environment-input.js';
 /**
  * TeXora renderer entry: boot, layout, documents, build pipeline, panels.
  */
@@ -95,7 +96,6 @@ async function boot() {
     setEmptyState(true);
   }
   updateStats();
-  updateThemeLabel();
 
   // background environment discovery
   refreshTexInfo();
@@ -134,7 +134,9 @@ function applyAppearance({ initial = false } = {}) {
   document.documentElement.setAttribute('data-theme', theme);
   document.documentElement.dataset.style = s.appearance.uiStyle === 'endfield' ? 'endfield' : 'studio';
   document.documentElement.dataset.efVariant = 'standard';
-  document.documentElement.dataset.efAccent = s.appearance.endfieldColor === 'cyan' ? 'cyan' : 'yellow';
+  // 2.0.1 stored 'cyan'; its nearest accent in the current set is ice.
+  const efAccent = s.appearance.endfieldColor === 'cyan' ? 'ice' : s.appearance.endfieldColor;
+  document.documentElement.dataset.efAccent = ['yellow', 'lime', 'ice', 'amber'].includes(efAccent) ? efAccent : 'yellow';
   // Studio presets include whole palettes; preserve the saved choice outside
   // Endfield's cascade, then restore it when switching back to Studio.
   if (s.appearance.uiStyle === 'endfield') document.documentElement.removeAttribute('data-accent');
@@ -154,12 +156,6 @@ function applyAppearance({ initial = false } = {}) {
   else api.window.setZoom?.((s.appearance.uiScale || 100) / 100);
   ctx.editor?.applySettings();
   ctx.preview?.applyInvert();
-  updateThemeLabel();
-}
-
-function updateThemeLabel() {
-  const elx = $('#sbTheme');
-  if (elx) elx.textContent = ctx.state.theme === 'light' ? '白天' : '夜晚';
 }
 
 /* ---------------------------------------------------------------- window ui */
@@ -219,7 +215,6 @@ function wireStatusbar() {
   sb.addEventListener('click', () => (ctx.state.build.running ? ctx.cmd('build.stop') : ctx.cmd('build.run')));
   $('#sbProblems').addEventListener('click', () => ctx.cmd('build.toggleProblems'));
   $('#sbLive').addEventListener('click', () => ctx.cmd('view.livePreview'));
-  $('#sbTheme').addEventListener('click', () => ctx.cmd('view.toggleTheme'));
   $('#sbWrap').addEventListener('click', () => ctx.cmd('view.toggleWordWrap'));
 }
 
@@ -665,9 +660,7 @@ async function refreshEnvDefs() {
     for (const mm of joined.matchAll(/\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/g)) {
       for (const p of mm[1].split(',')) if (p.trim() && !packages.includes(p.trim())) packages.push(p.trim());
     }
-    for (const mm of joined.matchAll(/\\(?:newenvironment|NewDocumentEnvironment|DeclareDocumentEnvironment|newtheorem|newsiamremark)\*?\{([^}]+)\}/g)) {
-      local[mm[1].trim()] = '本文档';
-    }
+    for (const name of definedEnvironmentNames(joined)) local[name] = '本文档';
     const out = await api.tex.envDefs({ cls, packages });
     ctx.state.envDefs = { ...local, ...(out?.defs || {}) };
     window.__envDefsDebug = { cls, packages: packages.length, local: Object.keys(local).length, defs: Object.keys(ctx.state.envDefs).length };

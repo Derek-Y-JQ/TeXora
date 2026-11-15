@@ -82,6 +82,9 @@ export function createSettingsUI() {
     </div>`;
   }
 
+  // Endfield accents: fills only, ink text on top (10:1 or better on each).
+  const EF_ACCENTS = [['yellow', '#FFFA00', '标准黄'], ['lime', '#B8FF3D', '青柠'], ['ice', '#7DE6FF', '冰蓝'], ['amber', '#FFB31F', '琥珀']];
+  const efAccent = (s) => { const c = s.appearance.endfieldColor === 'cyan' ? 'ice' : s.appearance.endfieldColor; return EF_ACCENTS.some(([id]) => id === c) ? c : 'yellow'; };
   const group = (title) => `<div class="setting-group">${escapeHtml(title)}</div>`;
 
   function renderEditor() {
@@ -311,7 +314,12 @@ export function createSettingsUI() {
       <h2 class="settings-section-title">外观与主题</h2>
       <p class="settings-section-desc">选择适合长时间写作的界面样式与明暗主题，调整界面缩放和 PDF 阅读配色。</p>
       ${group('视觉风格')}
-      <div class="setting-card">${selectRow('appearance.uiStyle', '界面样式', '样式与明暗主题独立，可随时切换。', [['studio','TeXora · 精细工作台'],['endfield','Endfield · 工业风格']])}${selectRow('appearance.endfieldColor', 'Endfield 配色', '在 Endfield 样式下生效；选中项使用柔和浅底色。', [['yellow','柔黄色'],['cyan','青蓝色 · #14D0D0']])}</div>
+      <div class="setting-card">${selectRow('appearance.uiStyle', '界面样式', '样式与明暗主题独立，可随时切换。', [['studio','TeXora · 精细工作台'],['endfield','Endfield · 工业风格']])}</div>
+      <div class="ef-accent-settings">${group('主题色')}
+      <p class="setting-desc">只用于当前位置、主要操作和需要留意的提示，其余界面保持黑白灰。</p>
+      <div class="ef-accent-row" role="group" aria-label="主题色">
+        ${EF_ACCENTS.map(([id, hex, name]) => `<button class="ef-accent ${efAccent(s) === id ? 'active' : ''}" data-ef-accent-choice="${id}" aria-pressed="${efAccent(s) === id}" style="--sw:${hex}"><span class="ef-accent-swatch"></span><span class="ef-accent-text"><span class="ef-accent-hex">${hex}</span><span class="ef-accent-name">${name}</span></span></button>`).join('')}
+      </div></div>
       ${group('主题')}
       <div class="theme-cards">
         <button class="theme-card ${s.appearance.theme === 'light' ? 'active' : ''}" data-theme-choice="light">
@@ -525,6 +533,16 @@ export function createSettingsUI() {
       card.addEventListener('click', () => {
         ctx.app.setTheme(card.dataset.themeChoice);
         for (const c of $$('[data-theme-choice]', body)) c.classList.toggle('active', c === card);
+      });
+    }
+    for (const block of $$('[data-ef-accent-choice]', body)) {
+      block.addEventListener('click', async () => {
+        await set('appearance.endfieldColor', block.dataset.efAccentChoice);
+        const current = efAccent(ctx.state.settings);
+        for (const b of $$('[data-ef-accent-choice]', body)) {
+          b.classList.toggle('active', b.dataset.efAccentChoice === current);
+          b.setAttribute('aria-pressed', String(b.dataset.efAccentChoice === current));
+        }
       });
     }
     for (const dot of $$('[data-accent-choice]', body)) {

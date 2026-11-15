@@ -201,6 +201,11 @@ class Store extends EventEmitter {
       this.data.migrations = { ...this.data.migrations, deepseekFlash131: true };
       migrated = true;
     }
+    // 2.0.2: the Endfield accents are yellow / lime / ice / amber; the earlier cyan maps to ice.
+    if (this.data.appearance?.endfieldColor === 'cyan') {
+      this.data.appearance.endfieldColor = 'ice';
+      migrated = true;
+    }
     if (Array.isArray(actions)) {
       for (const a of actions) if (a.id === 'ask' && a.label === '提问') a.label = '解释';
     }

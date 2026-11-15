@@ -285,7 +285,8 @@ export class PreviewController {
   updateDocumentStatus(text,at){
     const status=$('#pdfDocumentStatus');if(!status)return;
     if(at!==undefined)this.documentAt=at;
-    status.textContent=text+(this.documentAt?' · '+new Date(this.documentAt).toLocaleTimeString(): '');status.title=this.pdfFile||'';status.hidden=!text;
+    const time = this.documentAt ? new Date(this.documentAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+    status.textContent=text+(time?' · '+time:'');status.title=this.pdfFile||'';status.hidden=!text;
   }
 
   /** Point the preview at an arbitrary PDF (kept for future pdf.js integration). */

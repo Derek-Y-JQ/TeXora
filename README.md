@@ -1,4 +1,6 @@
-# TeXora 2.0.1 · 本地优先的 LaTeX 写作工作台
+# TeXora 2.0.2 · 本地优先的 LaTeX 写作工作台
+
+2.0.2：修复环境补全后的撤销/重做与自定义环境闭合；PDF 状态移至右下角，时间显示到分钟；更新 Endfield 样式，提供标准黄、青柠、冰蓝、琥珀四种配色。详见 [更新说明](docs/release-2.0.2.md)。
 
 TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
@@ -180,7 +182,7 @@ API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请�
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.0.1.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.0.2.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。

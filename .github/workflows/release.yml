@@ -23,6 +23,7 @@ jobs:
         run: npm run build
       - run: npm run test:window
       - run: npm run test:appearance
+      - run: npm run test:editing
       - name: Build Windows installer
         env:
           CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}

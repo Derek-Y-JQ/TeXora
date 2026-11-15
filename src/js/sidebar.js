@@ -9,14 +9,14 @@ import {renderMarkdown} from './markdown.js';
 import { buildStructureIndex, readStructureDocuments, sameSource } from './structure-index.js';
 
 const PANEL_META = {
-  files: { title: '文件', icon: 'files' },
-  outline: { title: '大纲', icon: 'outline' },
-  math: { title: '数学环境', icon: 'functions' },
-  labels: { title: '标签与引用', icon: 'tags' },
-  search: { title: '全局查找', icon: 'search' },
-  history: { title: '本地历史', icon: 'history' },
-  git: { title: 'Git', icon: 'git' },
-  ai: { title: 'AI 助手', icon: 'sparkles' }
+  files: { title: '文件', en: 'FILES', icon: 'files' },
+  outline: { title: '大纲', en: 'OUTLINE', icon: 'outline' },
+  math: { title: '数学环境', en: 'MATH', icon: 'functions' },
+  labels: { title: '标签与引用', en: 'LABELS', icon: 'tags' },
+  search: { title: '全局查找', en: 'SEARCH', icon: 'search' },
+  history: { title: '本地历史', en: 'HISTORY', icon: 'history' },
+  git: { title: 'Git', en: 'VERSION CONTROL', icon: 'git' },
+  ai: { title: 'AI 助手', en: 'ASSISTANT', icon: 'sparkles' }
 };
 
 export class Sidebar {
@@ -75,6 +75,7 @@ export class Sidebar {
     for (const [key, node] of Object.entries(this.panels)) node.classList.toggle('active', key === id);
     this.syncActivityButtons();
     this.titleEl.textContent = PANEL_META[id].title;
+    this.titleEl.dataset.efLabel = '// ' + PANEL_META[id].en;
     if (changed && !silent) ctx.api.settings.set('ui.sidebarTab', id);
     if (!silent) {
       const sidebar = $('#sidebar');

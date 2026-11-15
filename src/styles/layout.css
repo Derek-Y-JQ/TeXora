@@ -464,7 +464,7 @@
 [data-pdf-invert="1"] .pdf-page img { filter: invert(0.92) hue-rotate(180deg) contrast(0.94) brightness(1.02); }
 [data-pdf-invert="1"] .pdf-page canvas { filter: invert(0.92) hue-rotate(180deg) contrast(0.94) brightness(1.02); }
 .vector-page canvas { display:block; max-width:100%; }
-.pdf-document-status { padding:6px 12px; color:var(--text-3); font-size:11px; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pdf-document-status { color:var(--text-3); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pdf-document-status[hidden] { display:none; }
 [data-pdf-invert="1"] .pdf-page { background: #15181f; }
 .pdf-page.synctex-target { box-shadow: 0 0 0 2px var(--accent), var(--paper-shadow); }
@@ -508,7 +508,6 @@
 .sb-build.err .sb-dot { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
 .sb-live.off { color: var(--text-4); }
 @keyframes pulse { 50% { opacity: 0.45; } }
-.sb-theme { color: var(--text-4); }
 
 /* --------------------------------------------------------- editor internals */
 .monaco-editor .margin { background: var(--editor-gutter) !important; }

@@ -6,6 +6,7 @@ import { PreviewState, hoverPlacement, formulaPlacement } from './preview-state.
  * folding, inline math zones and editor commands.
  */
 import { displayMathEnter, inlineDollarGhost } from './math-input.js';
+import { definedEnvironmentNames, environmentOpening, matchingEnvironmentEnd } from './environment-input.js';
 import { renderLiveFormula } from './live-formula.js';
 import 'katex/dist/katex.min.css';
 import { mathAtOffset, mathDefinitions, previewEnvironmentAt } from './live-math.js';
@@ -280,27 +281,29 @@ function registerCompletions() {
       const ins = (txt) => (nextChar === '}' ? txt : txt + '}');
 
       // \begin{ | \end{
-      let m = before.match(/\\begin\{([a-zA-Z*]*)$/);
+      let m = before.match(/\\begin\s*\{([^{}\s]*)$/);
       if (m) {
         const prefix = m[1].toLowerCase();
-        for (const env of ENVIRONMENTS) {
+        for (const env of ctx.editor?.knownEnvironmentNames() || ENVIRONMENTS) {
           if (prefix && !env.toLowerCase().startsWith(prefix)) continue;
           items.push(mk(env, ins(env), monaco.languages.CompletionItemKind.Class, ENV_INFO[env] || '环境', {
+            range: new monaco.Range(position.lineNumber, position.column - m[1].length, position.lineNumber, position.column),
             sortText: (ENV_INFO[env] ? '0' : '1') + env,
             documentation: { value: '自动补全 \\begin{' + env + '} … \\end{' + env + '}' }
           }));
         }
         return { suggestions: items };
       }
-      m = before.match(/\\end\{([a-zA-Z*]*)$/);
+      m = before.match(/\\end\s*\{([^{}\s]*)$/);
       if (m) {
         const prefix = m[1].toLowerCase();
         const openStack = ctx.editor?.envStackAt(position.lineNumber, position.column) || [];
         const openEnv = openStack[openStack.length - 1] || '';
-        const envs = Array.from(new Set([...(openEnv ? [openEnv] : []), ...(ctx.state.parsed?.environments?.map((e) => e.env) || []), ...ENVIRONMENTS]));
+        const envs = Array.from(new Set([...(openEnv ? [openEnv] : []), ...(ctx.state.parsed?.environments?.map((e) => e.env) || []), ...(ctx.editor?.knownEnvironmentNames() || ENVIRONMENTS)]));
         for (const env of envs) {
           if (prefix && !env.toLowerCase().startsWith(prefix)) continue;
           items.push(mk(env, ins(env), monaco.languages.CompletionItemKind.Class, env === openEnv ? '当前打开的环境' : '环境结束', {
+            range: new monaco.Range(position.lineNumber, position.column - m[1].length, position.lineNumber, position.column),
             sortText: (env === openEnv ? '0' : '1') + env
           }));
         }
@@ -1056,6 +1059,7 @@ export class EditorController {
   }
 
   attach(doc, viewState) {
+    clearTimeout(this._autoCloseTimer);
     this.hideHover(true);
     this.dollarGhost=null;this.dollarGhostDecoration?.clear();
     if (!this.editor) return;
@@ -1096,55 +1100,60 @@ export class EditorController {
   }
 
   scheduleAutoClose(e) {
+    clearTimeout(this._autoCloseTimer);
     const ed = ctx.state.settings?.editor || {};
-    if (ed.autoCloseEnd === false) return;
+    // Replaying history must never create a fresh edit or destroy the redo stack.
+    if (ed.autoCloseEnd === false || e?.isUndoing || e?.isRedoing || e?.isFlush || this._insertingEndEnv) return;
     const change = e?.changes?.[0];
     if (!change) return;
     // A completion acceptance inserts the whole name at once; typed input
     // arrives character by character, so wait for the user to finish the word.
     const accepted = (change.text || '').length > 1;
-    clearTimeout(this._autoCloseTimer);
-    this._autoCloseTimer = setTimeout(() => this.autoInsertEndEnv(), accepted ? 20 : 700);
+    const model = this.model, version = model.getVersionId();
+    this._autoCloseTimer = setTimeout(() => {
+      if (this.model === model && model.getVersionId() === version && this.editor.getPosition()?.lineNumber === change.range.startLineNumber) {
+        this.autoInsertEndEnv({ joinPrevious: true });
+      }
+    }, accepted ? 20 : 700);
+  }
+
+  knownEnvironmentNames() {
+    const known = new Set([...ENVIRONMENTS, ...Object.keys(ctx.state.envDefs || {})]);
+    const models = new Set([this.model, ...[...ctx.state.docs.values()].map(doc => doc.model)]);
+    for (const model of models) if (model && !model.isDisposed()) {
+      for (const name of definedEnvironmentNames(model.getValue())) known.add(name);
+    }
+    return [...known];
   }
 
   /** Insert a matching \end{env} after a freshly completed \begin{env}. */
-  autoInsertEndEnv() {
+  autoInsertEndEnv({ explicit = false, joinPrevious = false } = {}) {
     if (!this.model) return;
     const pos = this.editor.getPosition();
     if (!pos) return;
     const line = this.model.getLineContent(pos.lineNumber);
-    const m = line.match(/^(\s*)\\begin\{([a-zA-Z*]+)\}\s*$/);
-    if (!m) return;
-    const env = m[2];
-    const indent = m[1];
-    // Only auto-close known / defined environments. Otherwise typing
-    // "\begin{equation}" would close "equ", "equa", ... prematurely and
-    // dismiss the completion list.
-    const known = new Set(ENVIRONMENTS);
-    const docLines = this.model.getValue().split(/\r?\n/);
-    for (const line of docLines) {
-      const def = line.match(/\\(?:newtheorem|newenvironment)\*?\{([^}]+)\}/);
-      if (def) known.add(def[1]);
-    }
-    docLines.forEach((line, idx) => {
-      if (idx === pos.lineNumber - 1) return; // ignore the environment currently being typed
-      for (const mm of line.matchAll(/\\(?:begin|end)\{([a-zA-Z*]+)\}/g)) known.add(mm[1]);
-    });
-    if (!known.has(env)) return;
-    const key = pos.lineNumber + ':' + env;
-    if (this._lastAutoEnv && this._lastAutoEnv.key === key && Date.now() - this._lastAutoEnv.at < 1500) return;
-    const total = this.model.getLineCount();
-    for (let ln = pos.lineNumber + 1; ln <= Math.min(total, pos.lineNumber + 80); ln++) {
-      if (this.model.getLineContent(ln).includes('\\end{' + env + '}')) return;
-    }
+    const opening = environmentOpening(line, pos.column);
+    if (!opening) return false;
+    const { env, indent } = opening;
+    if (!explicit && !this.knownEnvironmentNames().includes(env)) return false;
+    const hasEnd = !!matchingEnvironmentEnd(splitLines(this.model.getValue()), pos.lineNumber, env);
+    if (hasEnd && !explicit) return false;
     const inner = indent + (ctx.state.settings?.editor?.indentSize === 4 ? '    ' : '  ');
-    const text = '\n' + inner + '\n' + indent + '\\end{' + env + '}';
-    this.editor.executeEdits('texora-autoenv', [
-      { range: new monaco.Range(pos.lineNumber, line.length + 1, pos.lineNumber, line.length + 1), text }
-    ]);
-    this.editor.setPosition({ lineNumber: pos.lineNumber + 1, column: inner.length + 1 });
-    this._lastAutoEnv = { key, at: Date.now() };
+    const item = ['itemize', 'enumerate'].includes(env) ? '\\item ' : '';
+    const text = '\n' + inner + item + (hasEnd ? '' : '\n' + indent + '\\end{' + env + '}');
+    clearTimeout(this._autoCloseTimer);
+    if (joinPrevious) this.model.popStackElement();
+    else this.editor.pushUndoStop();
+    this._insertingEndEnv = true;
+    try {
+      const col = inner.length + item.length + 1;
+      this.editor.executeEdits('texora-autoenv', [
+        { range: new monaco.Range(pos.lineNumber, line.length + 1, pos.lineNumber, line.length + 1), text }
+      ], [new monaco.Selection(pos.lineNumber + 1, col, pos.lineNumber + 1, col)]);
+    } finally { this._insertingEndEnv = false; }
+    this.editor.pushUndoStop();
     this.editor.focus();
+    return true;
   }
 
   /** \begin + Enter → braces + suggestion list; \end + Enter → matching env. */
@@ -1249,8 +1258,19 @@ export class EditorController {
         this.insertEndBraces();
         return;
       }
-      // Let the suggestion widget own Enter for \\begin{env}| completions.
-      if (document.querySelector('.suggest-widget.visible')) return;
+      const suggestion = document.querySelector('.suggest-widget.visible');
+      const opening = environmentOpening(line, pos.column);
+      const suggestedName = suggestion?.querySelector('.monaco-list-row.focused .label-name')?.textContent;
+      // An exact-name suggestion makes no text edit, so Monaco's "smart" Enter
+      // would insert a bare newline. Confirm it ourselves; partial names still
+      // belong to the suggestion widget.
+      if (!e.ctrlKey && !e.metaKey && ed.autoCloseEnd !== false && this.editor.getSelection()?.isEmpty() && this.editor.getSelections().length === 1 && opening && (!suggestion || suggestedName === opening.env)) {
+        e.preventDefault();e.stopPropagation();
+        this.editor.trigger('texora', 'hideSuggestWidget', {});
+        this.autoInsertEndEnv({ explicit: true });
+        return;
+      }
+      if (suggestion) return;
       const envStack = this.envStackAt(pos.lineNumber, pos.column);
       const inList = envStack.some((env) => env === 'enumerate' || env === 'itemize' || env === 'description');
       if (inList && ed.listItemAuto !== false) {
@@ -1407,13 +1427,8 @@ export class EditorController {
       return;
     }
     const lines = splitLines(text);
-    const defined = new Set();
-    for (const line of lines) {
-      const m = line.match(/\\(?:newtheorem|newenvironment|DeclareDocumentEnvironment|NewDocumentEnvironment)\*?\{([^}]+)\}/);
-      if (m) defined.add(m[1].trim());
-    }
-    const known = new Set(ENVIRONMENTS);
-    for (const name of Object.keys(ctx.state.envDefs || {})) known.add(name);
+    const defined = new Set(definedEnvironmentNames(text));
+    const known = new Set(this.knownEnvironmentNames());
     const ignoreWarnings = !!ctx.state.settings?.editor?.ignoreWarnings;
     const markers = [];
     // unmatched begin environments: no \end{env} after the begin line

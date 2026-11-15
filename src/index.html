@@ -324,7 +324,6 @@
         <div class="splitter" id="splitterPreview" data-split="preview"></div>
 
         <section class="preview" id="previewPane">
-          <div id="pdfDocumentStatus" class="pdf-document-status" role="status" hidden></div>
           <div class="preview-toolbar">
             <div class="pv-group">
               <button class="icon-btn sm" data-cmd="preview.prev" title="上一页" aria-label="上一页"><svg aria-hidden="true" class="ico"><use href="#i-chevron-left" /></svg></button>
@@ -372,12 +371,11 @@
         </div>
         <div class="sb-right">
           <span class="sb-item" id="sbCursor">Ln 1, Col 1</span>
-          <span class="sb-item">UTF-8</span>
-          <span class="sb-item">CRLF</span>
+          <span class="sb-item sb-encoding">UTF-8</span>
+          <span class="sb-item sb-eol">CRLF</span>
           <span class="sb-item" id="sbWrap" data-cmd="view.toggleWordWrap" title="切换自动换行 (Alt+Z)">换行: 关</span>
           <span class="sb-item" id="sbSpaces">空格: 2</span>
-          <span class="sb-item sb-git" id="sbGit"><svg aria-hidden="true" class="ico"><use href="#i-branch" /></svg><span id="sbGitText">–</span></span>
-          <span class="sb-item sb-theme" id="sbTheme">夜晚</span>
+          <span id="pdfDocumentStatus" class="sb-item pdf-document-status" role="status" hidden></span>
         </div>
       </footer>
     </div>
