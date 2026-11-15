@@ -14,7 +14,7 @@ const SKIP = [
   'textarea', 'pre', 'code', '[contenteditable="true"]', '[data-i18n-skip]', 'script', 'style',
   '.tree-name', '.tab .t-name', '.bc-item', '.l-name', '.s-text', '.search-hit', '.outline-row', '.o-title',
   '.cite-title', '.cite-meta', '.bib-title', '.bib-meta', '.math-env-snippet', '.structure-content', '.structure-source',
-  '.ai-msg-body', '.md-preview', '.hc-snippet', '.git-log-row', '.git-change', '.f-name', '.tf-name', '.empty-recent-item'
+  '.ai-msg-body', '.md-preview', '.hc-snippet', '.git-log-row', '.git-change', '.f-name', '.tf-name', '.empty-recent-item', '.katex', '.sr-tex'
 ].join(',');
 
 let lang = 'zh';

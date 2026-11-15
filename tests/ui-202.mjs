@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import features from './ui-202-features.mjs';
 
-export default async function ({evalJs,sleep,send,press,shot}) {
+export default async function (helpers) {
+  const {evalJs,sleep,send,press,shot}=helpers;
   async function until(expr) { for(let i=0;i<120;i++){if(await evalJs(expr))return;await sleep(40);}throw Error('Timed out: '+expr); }
   await until('!!window.__texora?.editor?.model');
   await evalJs('Promise.all([window.__texora.api.settings.set("editor.autosave",false),window.__texora.api.settings.set("editor.autoCloseEnd",true),window.__texora.api.settings.set("build.livePreview",false)])');
@@ -32,6 +34,18 @@ export default async function ({evalJs,sleep,send,press,shot}) {
   assert.equal(await value(),completed,'body typing is a separate undo step');
   await shortcut('z','KeyZ',90);
   assert.equal(await value(),before,'a second undo still reverts environment creation');
+  // Without Enter nothing is closed: a fully typed name, or a suggestion taken with Tab.
+  await reset('\\begin{}',7);
+  for(const char of 'equation') await send('Input.insertText',{text:char});
+  await sleep(950);
+  assert.equal(await value(),'\\begin{equation}','a typed environment name is not closed until Enter');
+  await reset('\\begin{}',7);
+  await send('Input.insertText',{text:'ali'});
+  await evalJs('window.__texora.editor.editor.trigger("test","editor.action.triggerSuggest",{})');
+  await until('!!document.querySelector(".suggest-widget.visible .monaco-list-row")');
+  await press('Tab','Tab',9);
+  await sleep(500);
+  assert.ok(!(await value()).includes('\\end{'),'a suggestion taken with Tab is not closed');
   await reset('');
   await evalJs('window.__texora.editor.editor.trigger("test","type",{text:"\\\\begin{equation}"});window.__texora.editor.editor.trigger("test","undo",{})');
   await sleep(950);assert.equal(await value(),'','undo cancels a pending closure');
@@ -87,5 +101,6 @@ export default async function ({evalJs,sleep,send,press,shot}) {
   await shot('.capture/202-narrow-footer.png');
   await evalJs('window.__texora.preview.updateDocumentStatus("")');
   assert.equal(await evalJs('getComputedStyle(document.querySelector("#pdfDocumentStatus")).display'),'none');
-  console.log('PASS environment completion/Enter undo and redo, pending undo, custom definitions/suggestions, existing end, footer PDF timestamp and removed status controls');
+  await features(helpers);
+  console.log('PASS environment completion/Enter undo and redo, Enter-only closing, pending undo, custom definitions/suggestions, existing end, footer PDF timestamp and removed status controls');
 }

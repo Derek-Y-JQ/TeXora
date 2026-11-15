@@ -90,7 +90,7 @@ async function main(){
   entries.push({path:file,mode:'100644',type:'blob',sha:blob.sha});
  }}));
  const nextTree=await request(prefix+'/git/trees','POST',{base_tree:parent.tree.sha,tree:entries});
- const commit=await request(prefix+'/git/commits','POST',{message:replace?`Fix TeXora ${version} without version bump`:`Release TeXora ${version}: Endfield palette isolation, consistent controls and completion fixes`,tree:nextTree.sha,parents:[head.object.sha]});
+ const commit=await request(prefix+'/git/commits','POST',{message:replace?`Fix TeXora ${version} without version bump`:`Release TeXora ${version}: editor fixes, PDF reading tools and UI refinements`,tree:nextTree.sha,parents:[head.object.sha]});
  if(replace){
   // Upload and verify both replacements before touching the current public downloads.
   const replacements=[];

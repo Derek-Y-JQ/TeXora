@@ -59,6 +59,14 @@ class ProjectService extends EventEmitter {
     this.store.set('ui.lastProject', root);
   }
 
+  /** Forget one recent project. The folder itself is not touched. */
+  removeRecent(root) {
+    const list = this.recent().filter((r) => r.path !== root);
+    this.store.set('ui.recent', list);
+    if (this.store.get('ui.lastProject', '') === root) this.store.set('ui.lastProject', '');
+    return list;
+  }
+
   async open(rootPath) {
     const revision = this.revision = (this.revision || 0) + 1;
     rootPath = path.resolve(rootPath);

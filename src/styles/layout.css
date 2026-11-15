@@ -381,7 +381,14 @@
 .empty-actions { display: flex; gap: 8px; justify-content: center; }
 .empty-recent { margin-top: 22px; display: flex; flex-direction: column; gap: 3px; text-align: left; }
 .empty-recent-title { font-size: 10.5px; letter-spacing: 0.6px; color: var(--text-4); text-transform: uppercase; margin-bottom: 4px; }
-.empty-recent-item { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 7px; cursor: pointer; color: var(--text-2); font-size: 12px; }
+.empty-recent-row { display: flex; align-items: stretch; gap: 2px; }
+.empty-recent-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 9px; border: 0; background: transparent; text-align: left; border-radius: 7px; cursor: pointer; color: var(--text-2); font-size: 12px; font: inherit; font-size: 12px; }
+.empty-recent-item .er-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty-recent-row .er-remove { flex: none; width: 30px; display: grid; place-items: center; border: 0; background: transparent; color: var(--text-4); border-radius: 7px; opacity: 0; cursor: pointer; }
+.empty-recent-row:hover .er-remove, .empty-recent-row .er-remove:focus-visible { opacity: 1; }
+.empty-recent-row .er-remove:hover { background: var(--hover); color: var(--text); }
+.empty-recent-row .er-remove .ico { width: 14px; height: 14px; }
+@media (hover: none) { .empty-recent-row .er-remove { opacity: 1; } }
 .empty-recent-item:hover { background: var(--hover); }
 .empty-recent-item .ico { width: 14px; height: 14px; color: var(--text-4); stroke-width: 2.1; }
 .empty-recent-item .er-path { margin-left: auto; font-size: 10.5px; color: var(--text-4); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

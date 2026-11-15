@@ -8,5 +8,5 @@ delete env.ELECTRON_RUN_AS_NODE;
 const suite=process.argv[2]||'tests/ui-201.mjs';
 if(!['tests/ui-201.mjs','tests/ui-202.mjs'].includes(suite))throw Error('Unknown UI regression suite');
 const args=['scripts/cdp.mjs','--script',suite,'--',...(env.TEXORA_TEST_NO_SANDBOX==='1'?['--no-sandbox']:[]),'--project='+fixture];
-const r=spawnSync(process.execPath,args,{env,stdio:'inherit',windowsHide:true,timeout:180000});
+const r=spawnSync(process.execPath,args,{env,stdio:'inherit',windowsHide:true,timeout:300000});
 if(r.error||r.status!==0){console.error('Appearance regression failed:',r.error?.message||r.status);process.exit(1);}

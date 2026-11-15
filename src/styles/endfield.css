@@ -79,7 +79,7 @@ html[data-style="endfield"] .monaco-editor :is(.suggest-widget,.parameter-hints-
 html[data-style="endfield"] :is(.app,.ribbon,.workspace,.sidebar,.editor-area,.preview,.statusbar,.ai-btn,.about-mark,.empty-mark,.find-bar,.menu,.popover,.theme-swatch,.preview-stage) { background-image:none; backdrop-filter:none; }
 
 /* A cut corner = it can be pressed. Window controls and switches keep their own shape. */
-html[data-style="endfield"] :is(button:not(.monaco-button,.win-btn,.switch),.btn,.template-card,.env-card) {
+html[data-style="endfield"] :is(button:not(.monaco-button,.win-btn,.switch,.symbol-btn,.empty-recent-item,.er-remove),.btn,.template-card,.env-card) {
   --cut:var(--ef-cut);
   clip-path:polygon(0 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%);
 }
@@ -98,39 +98,51 @@ html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn) {
   background:var(--surface-3); color:var(--text);
   transition:color 120ms 60ms,translate 100ms;
 }
+/* The wipe covers the 1px border too, so no grey or ink frame is left around it,
+   and at rest it is parked 2px clear of the left edge so no sliver of colour shows. */
 html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn)::before {
-  content:''; position:absolute; inset:0; z-index:-1; background:var(--wipe);
-  transform:translateX(-101%); transition:transform 280ms var(--ef-mech);
+  content:''; position:absolute; inset:-1px; z-index:-1; background:var(--wipe);
+  transform:translateX(calc(-100% - 2px)); transition:transform 280ms var(--ef-mech);
 }
 html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):hover:not(:disabled) { color:var(--ef-on-signal); filter:none; }
 html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):hover:not(:disabled)::before { transform:none; }
-/* Keyboard focus: a ring drawn inside the block, in a colour that shows on its fill. */
-html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):focus-visible { outline-offset:-3px; }
-html[data-style="endfield"] .btn.btn-primary:focus-visible { outline-color:var(--surface-1); outline-offset:-4px; }
-html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):hover:focus-visible { outline-color:var(--ef-on-signal); }
+/* Keyboard focus on a filled block: a 3px bar along its bottom edge, not a frame. */
+html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):focus-visible { outline:0; }
+html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):focus-visible::after {
+  content:''; position:absolute; left:-1px; right:-1px; bottom:-1px; height:3px; background:var(--ef-trace); pointer-events:none;
+}
+html[data-style="endfield"] .btn.btn-primary:focus-visible::after { background:var(--ef-signal); }
+html[data-style="endfield"] .btn:not(.btn-ghost,.btn-icon,.btn-tiny,.seg-btn):hover:focus-visible::after { background:var(--ef-on-signal); }
 html[data-style="endfield"] .btn:active:not(:disabled) { transform:none; translate:0 1px; }
 html[data-style="endfield"] .btn.btn-primary { background:var(--text); color:var(--surface-1); font-weight:700; }
 html[data-style="endfield"] .btn.btn-danger { --wipe:var(--danger); background:var(--surface-3); color:var(--danger); }
 html[data-style="endfield"] .btn.btn-danger:hover:not(:disabled) { color:var(--surface-1); background:var(--surface-3); }
-html[data-style="endfield"] .btn.btn-danger:hover:focus-visible { outline-color:var(--surface-1); }
+html[data-style="endfield"] .btn.btn-danger:hover:focus-visible::after { background:var(--surface-1); }
 html[data-style="endfield"] .menu-item.danger { color:var(--danger); }
 html[data-style="endfield"] .btn:disabled { opacity:1; color:var(--text-4); background-color:var(--surface-2); }
 /* Toolbar and icon buttons stay quiet: a grey block on hover, ink when switched on. */
 html[data-style="endfield"] :is(.btn-ghost,.btn-icon,.icon-btn,.btn-tiny,.editor-theme-btn):hover { background:var(--surface-3); color:var(--text); border-color:transparent; }
 html[data-style="endfield"] :is(.icon-btn,.btn-icon,.ribbon .btn).active { background:var(--surface-3); color:var(--text); border-bottom:2px solid var(--ef-trace); }
-html[data-style="endfield"] .split-btn .btn-caret { border-left:1px solid var(--surface-1); padding:0 6px; }
+html[data-style="endfield"] .split-btn { gap:6px; }
+html[data-style="endfield"] .split-btn .btn-caret { border-left:0; padding:0 7px; }
 /* Compiling: the accent, hatched, until the run ends. */
 html[data-style="endfield"] .compile-btn.busy,html[data-style="endfield"] .compile-btn.busy:hover {
   background-color:var(--ef-signal); color:var(--ef-on-signal); filter:none;
-  background-image:repeating-linear-gradient(-45deg,transparent 0 5px,color-mix(in srgb,var(--ef-on-signal) 22%,transparent) 5px 6.5px);
+  background-image:repeating-linear-gradient(-45deg,transparent 0 4.24px,color-mix(in srgb,var(--ef-on-signal) 24%,transparent) 4.24px 5.66px);
+  background-size:16px 16px; animation:ef-hatch-run 640ms linear infinite;
 }
+@keyframes ef-hatch-run { from { background-position:0 0; } to { background-position:16px 0; } }
 html[data-style="endfield"] .compile-btn.busy::before { display:none; }
 @media(hover:none) { html[data-style="endfield"] .btn-primary { background:var(--ef-signal); color:var(--ef-on-signal); } }
 
 /* ------------------------------------------------------------ command bar */
-/* Dark in both modes; the three-colour strip marks the top of the window. */
+/* Paper in the day theme, near-black at night. The three-colour strip marks the
+   top of the window and draws in from the left once when the app opens. */
 html[data-style="endfield"] .titlebar {
-  background:var(--ef-bar); color:var(--ef-bar-ink); border-bottom:0; padding-top:3px; height:46px; box-sizing:border-box;
+  background:var(--surface-1); color:var(--text); border-bottom:1px solid var(--border); padding-top:3px; height:46px; box-sizing:border-box;
+}
+html[data-style="endfield"][data-theme="dark"] .titlebar {
+  background:var(--ef-bar); color:var(--ef-bar-ink); border-bottom:0;
   --text:#ededed; --text-2:#c4c4c4; --text-3:#a3a3a3; --text-4:#a3a3a3;
   --surface-1:#161616; --surface-2:#222; --surface-3:#2e2e2e;
   --border:#3a3a3a; --border-strong:#6e6e6e; --hover:#2e2e2e; --accent:#ededed; --ef-trace:var(--ef-signal);
@@ -138,14 +150,17 @@ html[data-style="endfield"] .titlebar {
 html[data-style="endfield"] .titlebar::before {
   content:''; position:absolute; left:0; right:0; top:0; height:3px;
   background:linear-gradient(90deg,var(--ef-tri-a) 0 33.333%,var(--ef-signal) 33.333% 66.666%,var(--ef-tri-c) 66.666% 100%);
+  transform-origin:left center; animation:ef-strip 900ms var(--ef-mech) 120ms both;
 }
+@keyframes ef-strip { from { transform:scaleX(0); } to { transform:scaleX(1); } }
 html[data-style="endfield"] .brand-name { font-family:var(--font-display); font-stretch:var(--ef-wider); font-weight:800; font-size:15px; letter-spacing:.02em; }
-html[data-style="endfield"] .brand-beta { background:#3a3a3a; color:#ededed; border:0; font-family:var(--font-display); font-stretch:var(--ef-wider); font-weight:700; letter-spacing:.14em; padding:3px 4px 3px 6px; }
-html[data-style="endfield"] .cmdk { background:#222; color:#c4c4c4; border-color:#3a3a3a; }
-html[data-style="endfield"] .cmdk:hover { background:#2e2e2e; border-color:#6e6e6e; color:#ededed; }
-html[data-style="endfield"] .cmdk kbd { background:#3a3a3a; border-color:#555; color:#ededed; font-family:var(--font-display); font-stretch:var(--ef-wide); }
-html[data-style="endfield"] .titlebar :is(.icon-btn,.project-pill,.win-btn):hover { background:#2e2e2e; color:#ededed; border-color:transparent; }
-html[data-style="endfield"] .win-close:hover { background:#2e2e2e; color:#ededed; }
+html[data-style="endfield"] .brand-beta { background:var(--ef-tag-bg); color:var(--ef-tag-fg); border:0; font-family:var(--font-display); font-stretch:var(--ef-wider); font-weight:700; letter-spacing:.14em; padding:3px 4px 3px 6px; }
+html[data-style="endfield"] .cmdk { background:var(--surface-2); color:var(--text-2); border-color:var(--border); }
+html[data-style="endfield"] .cmdk:hover { background:var(--surface-3); border-color:var(--border-strong); color:var(--text); }
+html[data-style="endfield"] .cmdk kbd { background:var(--surface-3); border-color:var(--border-strong); color:var(--text); font-family:var(--font-display); font-stretch:var(--ef-wide); }
+html[data-style="endfield"] .titlebar :is(.icon-btn,.project-pill,.win-btn):hover { background:var(--surface-3); color:var(--text); border-color:transparent; }
+html[data-style="endfield"] .win-close:hover { background:var(--surface-3); color:var(--text); }
+html[data-style="endfield"][data-theme="dark"] .brand-beta { background:#3a3a3a; color:#ededed; }
 
 /* ------------------------------------------------------------------ ribbon */
 html[data-style="endfield"] .ribbon { background:var(--surface-1); border-bottom:1px solid var(--border); }
@@ -169,12 +184,11 @@ html[data-style="endfield"] .act-btn.active::before { left:0; top:0; bottom:0; w
 html[data-style="endfield"] .act-btn.active:focus-visible { outline-color:var(--ef-on-signal); }
 
 /* ------------------------------------------------------------ pane headers */
-/* Each pane starts with a short ink tab on its top edge. */
+/* The side pane starts with a short ink tab on its top edge. */
 html[data-style="endfield"] .sidebar-head { position:relative; border-bottom:1px solid var(--border); }
-html[data-style="endfield"] .sidebar-head::before,
-html[data-style="endfield"] .preview::before { content:''; position:absolute; left:0; top:0; width:44px; height:4px; background:var(--text); z-index:3; pointer-events:none; }
+html[data-style="endfield"] .sidebar-head::before { content:''; position:absolute; left:0; top:0; width:44px; height:4px; background:var(--text); z-index:3; pointer-events:none; }
 html[data-style="endfield"] .sidebar-title { display:flex; flex-direction:column; justify-content:center; gap:1px; font-family:var(--font-display); font-size:13px; font-weight:700; line-height:1.25; letter-spacing:0; text-transform:none; color:var(--text); }
-html[data-style="endfield"] .sidebar-title[data-ef-label]::before { content:attr(data-ef-label); font-size:10px; font-weight:600; font-stretch:var(--ef-wider); letter-spacing:.14em; color:var(--text-3); }
+html[data-style="endfield"] .sidebar-title[data-ef-label]::before { content:attr(data-ef-label); white-space:nowrap; font-size:10px; font-weight:600; font-stretch:var(--ef-wider); letter-spacing:.14em; color:var(--text-3); }
 html[data-style="endfield"][data-lang="en"] .sidebar-title[data-ef-label]::before { display:none; }
 html[data-style="endfield"] .sidebar [data-panel="files"] > .panel-toolbar,
 html[data-style="endfield"] .panel-toolbar { border-bottom-color:var(--border); }
@@ -310,6 +324,11 @@ html[data-style="endfield"] .theme-swatch span:nth-child(2) { background:var(--e
 .ef-accent.active .ef-accent-name { font-weight:700; }
 html[data-style="endfield"] .ef-accent.active::after { background:#161616; }
 @media(max-width:850px) { .ef-accent-row { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Symbol palette: rendered math on a flat sheet. */
+html[data-style="endfield"] .symbol-math .symbol-btn:hover,html[data-style="endfield"] .symbol-math .symbol-btn:focus-visible { background:var(--surface-3); outline-offset:-2px; }
+html[data-style="endfield"] .symbol-readout .sr-tex { background:var(--surface-3); }
+html[data-style="endfield"] .empty-recent-row .er-remove:hover { background:var(--surface-3); }
 
 /* --------------------------------------------------------------- PDF pane */
 html[data-style="endfield"] .preview-toolbar { background:var(--surface-1); border-bottom:1px solid var(--border); }

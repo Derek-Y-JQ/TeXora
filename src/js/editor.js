@@ -1106,15 +1106,20 @@ export class EditorController {
     if (ed.autoCloseEnd === false || e?.isUndoing || e?.isRedoing || e?.isFlush || this._insertingEndEnv) return;
     const change = e?.changes?.[0];
     if (!change) return;
-    // A completion acceptance inserts the whole name at once; typed input
-    // arrives character by character, so wait for the user to finish the word.
+    // \end{env} is only added on Enter. Typing a full name, or accepting a
+    // suggestion with Tab or the mouse, leaves the line as it is. An Enter that
+    // accepts a suggestion is noted in onKeyDown; the accepted name then
+    // arrives here as one multi-character edit.
     const accepted = (change.text || '').length > 1;
+    const byEnter = performance.now() - (this._enterAcceptedAt || 0) < 400;
+    this._enterAcceptedAt = 0;
+    if (!accepted || !byEnter) return;
     const model = this.model, version = model.getVersionId();
     this._autoCloseTimer = setTimeout(() => {
       if (this.model === model && model.getVersionId() === version && this.editor.getPosition()?.lineNumber === change.range.startLineNumber) {
         this.autoInsertEndEnv({ joinPrevious: true });
       }
-    }, accepted ? 20 : 700);
+    }, 20);
   }
 
   knownEnvironmentNames() {
@@ -1233,6 +1238,7 @@ export class EditorController {
     const model = this.model;
     if (!model) return;
     if (e.keyCode === monaco.KeyCode.Enter && !e.shiftKey && !e.altKey) {
+      if (!e.ctrlKey && !e.metaKey && document.querySelector('.suggest-widget.visible')) this._enterAcceptedAt = performance.now();
       const pos = this.editor.getPosition();
       const line = model.getLineContent(pos.lineNumber);
       const beforeCursor = line.slice(0, pos.column - 1);

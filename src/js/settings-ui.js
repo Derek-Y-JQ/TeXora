@@ -428,7 +428,7 @@ export function createSettingsUI() {
           <div class="setting-control"><button class="btn btn-sm" id="openDefaultApps">${icon('external')}打开系统设置</button></div>
         </div>
         <div class="setting-row">
-          <div class="setting-main"><div class="setting-name">启动时恢复上次项目</div><div class="setting-desc">重新打开应用时自动载入最近的文件夹</div></div>
+          <div class="setting-main"><div class="setting-name">启动时恢复上次项目</div><div class="setting-desc">关闭时打开应用会显示欢迎页；开启后自动载入最近的文件夹</div></div>
           <div class="setting-control"><button class="switch ${ctx.state.settings.general.reopenLastProject ? 'on' : ''}" data-setting="general.reopenLastProject" data-type="bool"></button></div>
         </div>
         <div class="setting-row">

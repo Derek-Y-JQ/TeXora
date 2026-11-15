@@ -10,7 +10,7 @@ import { openCodeDialog } from './code-dialog.js';
 import { monaco } from './editor.js';
 import {
   $, $$, el, icon, escapeHtml, openMenu, toast, copyText, baseName, extOf, formatBytes, timeAgo, debounce, fileIcon } from './util.js';
-import { SYMBOL_GROUPS, toSnippet } from './symbols.js';
+import { SYMBOL_GROUPS, toSnippet, symbolPreviewHtml } from './symbols.js';
 import { TEMPLATES, buildWizardDocument, NEW_PROJECT_DEFAULTS } from './templates.js';
 import { parseBib, entryToBibtex, emptyEntry, suggestKey, formatAuthors } from './bib.js';
 import { renderMarkdown, mdToLatex } from './markdown.js';
@@ -792,11 +792,14 @@ export function createDialogs() {
           ${SYMBOL_GROUPS.map((g) => `<button data-group="${g.id}" class="${g.id === active ? 'active' : ''}">${escapeHtml(g.title)}</button>`).join('')}
           <button data-group="recent" class="${active === 'recent' ? 'active' : ''}">最近使用</button>
         </div>
-        <div class="symbol-content" id="symbolContent"></div>
+        <div class="symbol-main">
+          <div class="symbol-content" id="symbolContent"></div>
+          <div class="symbol-readout" id="symbolReadout" aria-live="polite"><span class="sr-glyph"></span><code class="sr-tex"></code><span class="sr-hint">悬停查看 LaTeX 代码 · 点击插入</span></div>
+        </div>
       </div>`;
     modal({
       title: '数学符号面板',
-      subtitle: '点击插入到光标位置 · 最近使用会自动记录',
+      subtitle: '点击插入到光标位置 · 悬停查看 LaTeX 代码',
       iconName: 'sigma',
       width: 760,
       height: 'min(70vh, 620px)',
@@ -812,10 +815,21 @@ export function createDialogs() {
           } else {
             items = SYMBOL_GROUPS.find((g) => g.id === id)?.items || [];
           }
-          content.innerHTML = `<div class="symbol-buttons">${items
-            .map(([tex, glyph]) => `<button class="symbol-btn" data-tex="${escapeHtml(tex)}" title="${escapeHtml(tex)}">${escapeHtml(glyph)}</button>`)
-            .join('')}</div>`;
+          content.innerHTML = items.length
+            ? `<div class="symbol-buttons symbol-math">${items
+              .map(([tex, glyph]) => `<button class="symbol-btn" data-tex="${escapeHtml(tex)}" title="${escapeHtml(tex.replace(/\$\d+/g, ''))}" aria-label="${escapeHtml(tex.replace(/\$\d+/g, ''))}">${symbolPreviewHtml(tex, glyph)}</button>`)
+              .join('')}</div>`
+            : '<p class="symbol-empty">还没有最近使用的符号</p>';
+          const readout = root.querySelector('#symbolReadout');
+          const showCode = (btn) => {
+            readout.classList.toggle('on', !!btn);
+            readout.querySelector('.sr-glyph').innerHTML = btn ? btn.innerHTML : '';
+            readout.querySelector('.sr-tex').textContent = btn ? btn.dataset.tex.replace(/\$\d+/g, '') : '';
+          };
+          showCode(null);
           for (const btn of $$('.symbol-btn', content)) {
+            btn.addEventListener('mouseenter', () => showCode(btn));
+            btn.addEventListener('focus', () => showCode(btn));
             btn.addEventListener('click', () => {
               const tex = btn.dataset.tex;
               insertSymbol(tex);

@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS = {
     language: 'zh-CN',
     autoCheckUpdates: true,
     lastUpdateCheck: 0,
-    reopenLastProject: true,
+    reopenLastProject: false,
     confirmExit: true,
     recentLimit: 12
   },
@@ -199,6 +199,12 @@ class Store extends EventEmitter {
     if (!this.data.migrations?.deepseekFlash131) {
       if (this.data.ai?.provider === 'deepseek' && this.data.ai.model === 'deepseek-chat' && /^https:\/\/api\.deepseek\.com\/?(?:v1\/?)?$/.test(this.data.ai.baseUrl || 'https://api.deepseek.com/v1')) this.data.ai.model = 'deepseek-flash';
       this.data.migrations = { ...this.data.migrations, deepseekFlash131: true };
+      migrated = true;
+    }
+    // 2.0.2: start on the welcome page; reopening the last project is opt-in.
+    if (!this.data.migrations?.welcomeOnLaunch202) {
+      if (this.data.general) this.data.general.reopenLastProject = false;
+      this.data.migrations = { ...this.data.migrations, welcomeOnLaunch202: true };
       migrated = true;
     }
     // 2.0.2: the Endfield accents are yellow / lime / ice / amber; the earlier cyan maps to ice.

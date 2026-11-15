@@ -66,6 +66,21 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
     // Where you are: the current side-rail cell is filled with the accent and carries ink.
     assert.deepEqual(await colorAt('.act-btn.active'),signal,color+' marks the current panel');
     assert.deepEqual(await colorAt('.act-btn.active','color'),INK);
+    // Day title bar is paper, night is near-black; the strip draws in once; the PDF bar has no ink tab.
+    const bar=await colorAt('.titlebar');
+    assert.deepEqual(bar,theme==='light'?[255,255,255]:[22,22,22],'title bar follows the theme');
+    assert.equal(await evalJs('getComputedStyle(document.querySelector(".titlebar"),"::before").animationName'),'ef-strip');
+    assert.equal(await evalJs('getComputedStyle(document.querySelector(".preview"),"::before").content'),'none','no ink tab above the PDF toolbar');
+    assert.equal(await evalJs('getComputedStyle(document.querySelector(".split-btn")).columnGap'),'6px','compile and its options are set apart');
+    // The wipe covers the border and is parked clear of the edge, so no frame or sliver shows.
+    const wipeBox=await evalJs('(()=>{const s=getComputedStyle(document.querySelector("#btnBuild"),"::before");return [s.top,s.left,s.right,s.bottom]})()');
+    assert.deepEqual(wipeBox,['-1px','-1px','-1px','-1px']);
+    assert.ok(await evalJs('(()=>{const b=document.querySelector("#btnBuild"),m=new DOMMatrix(getComputedStyle(b,"::before").transform);return m.m41<=-(b.offsetWidth+1)})()'),'parked wipe is fully outside the button');
+    // Compiling: accent hatch that keeps moving.
+    await evalJs('document.querySelector("#btnBuild").classList.add("busy")');
+    assert.equal(await evalJs('getComputedStyle(document.querySelector("#btnBuild")).animationName'),'ef-hatch-run');
+    assert.deepEqual(await colorAt('#btnBuild'),signal,'compiling fills with the accent');
+    await evalJs('document.querySelector("#btnBuild").classList.remove("busy")');
     // Compile rests in the theme's ink; pointing at it wipes the chosen accent across.
     await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:10,y:400});await sleep(350);
     const restingInk=theme==='light'?INK:[237,237,237];
@@ -152,5 +167,5 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
   await evalJs('window.__texora.settingsUI.open("appearance")');await sleep(320);
   assert.equal(await evalJs('getComputedStyle(document.querySelector(".ef-accent-settings")).display'),'none','the Endfield accent picker is hidden in Studio');
   await evalJs('window.__texora.settingsUI.close()');
-  console.log('PASS Endfield light/dark × yellow/lime/ice/amber, ink-on-accent contrast, 8 Studio presets, accent compile button and wipe, accent picker, legacy cyan, settings/dialog geometry, keyboard focus, 900px/200%, motion preferences and Studio restore');
+  console.log('PASS Endfield light/dark × yellow/lime/ice/amber, day/night title bar, strip and hatch motion, compile gap, frameless wipe, ink-on-accent contrast, 8 Studio presets, accent compile button and wipe, accent picker, legacy cyan, settings/dialog geometry, keyboard focus, 900px/200%, motion preferences and Studio restore');
 }

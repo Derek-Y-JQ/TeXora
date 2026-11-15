@@ -1,4 +1,5 @@
-/** Math symbol palette catalogue. Each item: [insertText, displayGlyph] */
+/** Math symbol palette catalogue. Each item: [insertText, fallbackGlyph]; the palette renders insertText with KaTeX. */
+import katex from 'katex';
 
 export const SYMBOL_GROUPS = [
   {
@@ -95,4 +96,27 @@ export const SIZE_OPTIONS = [
 /** Convert "$1"-style body into a Monaco snippet. */
 export function toSnippet(body) {
   return String(body || '').replace(/\$(\d+)/g, (m, n) => '${' + n + '}');
+}
+
+/* Commands that render nothing on their own get a small example around them. */
+const PREVIEW_OVERRIDES = {
+  '\\quad': 'a\\quad b', '\\qquad': 'a\\qquad b', '\\,': 'a\\,b', '\\;': 'a\\;b', '\\!': 'a\\!b', '\\ ': 'a\\ b',
+  '\\displaystyle': '\\displaystyle\\sum_{i=1}^{n}', '\\textstyle': '\\textstyle\\sum_{i=1}^{n}',
+  '\\xrightarrow{}': '\\xrightarrow{f}', '\\xleftarrow{}': '\\xleftarrow{f}'
+};
+const previewCache = new Map();
+
+/** KaTeX HTML for one palette entry; placeholders $1… become a, b, … (X for font commands). */
+export function symbolPreviewHtml(tex, fallback = '') {
+  if (previewCache.has(tex)) return previewCache.get(tex);
+  let source = PREVIEW_OVERRIDES[tex];
+  if (!source) {
+    const font = /^\\math(?:bb|cal|frak|bf|rm|it|sf)\{\$1\}$/.test(tex);
+    source = tex.replace(/\$(\d+)/g, (m, n) => (font ? 'X' : 'abcd'[Number(n) - 1] || 'x'));
+  }
+  let html;
+  try { html = katex.renderToString(source, { throwOnError: true, displayMode: false, strict: 'ignore', trust: false }); }
+  catch { html = '<span class="symbol-fallback">' + String(fallback || tex).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]) + '</span>'; }
+  previewCache.set(tex, html);
+  return html;
 }

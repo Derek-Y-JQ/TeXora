@@ -73,6 +73,7 @@ const api = {
   project: {
     open: (path) => invoke('project:open', path),
     info: () => invoke('project:info'),
+    removeRecent: (path) => invoke('project:removeRecent', path),
     close: () => invoke('project:close'),
     tree: () => invoke('project:tree'),
     assets: () => invoke('project:assets'),

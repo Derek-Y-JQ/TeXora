@@ -233,7 +233,7 @@ app.whenReady().then(async () => {
       if(target.kind!=='pdf'){await project.open(target.root);if(target.rootFile)project.rootFile=target.rootFile;}
       initialFile=target.file||'';
     } catch (err) { pendingOpenTargets.unshift(cliProject);console.error('[startup] project open failed', err.message); }
-  } else if (store.get('general.reopenLastProject', true)) {
+  } else if (store.get('general.reopenLastProject', false)) {
     const last = store.get('ui.lastProject', '');
     if (last && fs.existsSync(last)) {
       try { await project.open(last); } catch {}
@@ -501,11 +501,12 @@ handle('project:open', async (target) => {
   return { ok: true, ...info };
 });
 handle('project:info', async () => ({ ok: true, ...project.info() }));
+handle('project:removeRecent', async (root) => ({ ok: true, recent: project.removeRecent(String(root || '')) }));
 handle('project:close', async () => {
   compiler.stop();
   compiler.lastResult = null;
   project.close();
-  send('project:changed', { root: '', reason: 'close' });
+  send('project:changed', { root: '', reason: 'close', recent: project.recent() });
   return { ok: true };
 });
 handle('project:tree', async () => ({ ok: true, tree: await project.tree(), info: project.info() }));

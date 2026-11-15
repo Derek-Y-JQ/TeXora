@@ -3,6 +3,7 @@
  * All behaviour is delegated to ctx.app / feature modules so the command list
  * stays declarative and is reused by the palette, menus and shortcuts.
  */
+import { startPresentation, togglePdfFullscreen } from './presentation.js';
 import { ctx } from './ctx.js';
 import { $, $$, el, icon, escapeHtml, debounce, toast, baseName, extOf } from './util.js';
 
@@ -84,6 +85,9 @@ export function createCommands() {
   register({ id: 'preview.fitWidth', title: '预览适合宽度', group: '预览', icon: 'fit', keys: 'Ctrl+0', run: () => ctx.preview.fitWidth() });
   register({ id: 'preview.invert', title: 'PDF 夜间反色', group: '预览', icon: 'moon', run: () => ctx.preview.toggleInvert() });
   register({ id: 'preview.refresh', title: '刷新预览', group: '预览', icon: 'refresh', run: () => ctx.app.runBuild({ previewOnly: true }) });
+  register({ id: 'preview.present', title: '从当前页演示 PDF', group: '预览', icon: 'present', keys: 'Shift+F5', run: () => startPresentation() });
+  register({ id: 'preview.presentStart', title: '从第一页演示 PDF', group: '预览', icon: 'present', run: () => startPresentation(1) });
+  register({ id: 'preview.fullscreen', title: '全屏阅读 PDF', group: '预览', icon: 'fullscreen', keys: 'Shift+F11', run: () => togglePdfFullscreen() });
   register({ id: 'preview.external', title: '用系统默认程序打开 PDF', group: '预览', icon: 'external', run: () => ctx.app.openPdfExternal() });
 
   /* --------------------------------------------------------------- editor */
@@ -174,6 +178,8 @@ export function createCommands() {
     ['ctrl+/', 'editor.comment'],
     ['shift+alt+down', 'editor.duplicateLine'],
     ['f11', 'view.focusMode'],
+    ['shift+f5', 'preview.present'],
+    ['shift+f11', 'preview.fullscreen'],
     ['ctrl+=', 'preview.zoomIn'],
     ['ctrl+-', 'preview.zoomOut'],
     ['ctrl+0', 'preview.fitWidth'],

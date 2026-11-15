@@ -889,7 +889,7 @@ function renderEmptyRecent(recent) {
   box.innerHTML = `<div class="empty-recent-title">最近打开</div>${recent
     .slice(0, 5)
     .map(
-      (r) => `<div class="empty-recent-item" data-path="${escapeHtml(r.path)}">${icon('folder')}<span>${escapeHtml(r.name || baseName(r.path))}</span><span class="er-path">${escapeHtml(r.path)}</span></div>`
+      (r) => `<div class="empty-recent-row"><button class="empty-recent-item" data-path="${escapeHtml(r.path)}">${icon('folder')}<span class="er-name">${escapeHtml(r.name || baseName(r.path))}</span><span class="er-path">${escapeHtml(r.path)}</span></button><button class="er-remove" data-remove="${escapeHtml(r.path)}" title="从最近列表中移除" aria-label="从最近列表中移除 ${escapeHtml(r.name || baseName(r.path))}">${icon('close')}</button></div>`
     )
     .join('')}`;
   for (const item of $$('.empty-recent-item', box)) {
@@ -897,6 +897,23 @@ function renderEmptyRecent(recent) {
       await openProject(item.dataset.path);
     });
   }
+  for (const button of $$('.er-remove', box)) {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      removeRecentProject(button.dataset.remove);
+    });
+  }
+}
+
+/** Drop a project from the recent list only; nothing on disk changes. */
+async function removeRecentProject(path) {
+  const res = await api.project.removeRecent(path).catch(() => null);
+  if (!res?.ok) { toast({ type: 'error', title: '未能移除', body: '请重试。' }); return; }
+  ctx.state.project.recent = res.recent || [];
+  renderEmptyRecent(ctx.state.project.recent);
+  const next = $('#emptyRecent .empty-recent-item');
+  if (next) next.focus(); else $('#editorEmpty .empty-actions .btn')?.focus();
+  toast({ type: 'info', title: '已从最近列表中移除', body: '项目文件不受影响', timeout: 2200 });
 }
 
 /* ---------------------------------------------------------------- documents */
