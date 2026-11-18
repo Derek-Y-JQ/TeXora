@@ -2,8 +2,9 @@
  * Left sidebar: file explorer, outline, math environments, labels & refs,
  * project search, local history, git and the AI assistant panel.
  */
+import { setupAgentPanel } from './agent-panel.js';
 import { ctx } from './ctx.js';
-import { $, $$, el, icon, escapeHtml, baseName, relPath, fileIcon, extOf, debounce, formatBytes, timeAgo, timeOfDay, toast, openMenu, openPopover, closeMenu, copyText } from './util.js';
+import { $, $$, el, icon, escapeHtml, joinPath, baseName, relPath, fileIcon, extOf, debounce, formatBytes, timeAgo, timeOfDay, toast, openMenu, openPopover, closeMenu, copyText } from './util.js';
 import { contextPolicy } from './ai-context.js';
 import {renderMarkdown} from './markdown.js';
 import { buildStructureIndex, readStructureDocuments, sameSource } from './structure-index.js';
@@ -761,7 +762,7 @@ export class Sidebar {
   async diffSnapshot(item) {
     const snap = await ctx.api.history.read(item.id);
     if (!snap.ok) return toast({ type: 'error', title: '读取快照失败', body: snap.error });
-    const full = `${ctx.state.project.root}\\${item.file.split('/').join('\\')}`;
+    const full = joinPath(ctx.state.project.root, item.file);
     const cur = await ctx.api.fs.read(full);
     ctx.dialogs.showDiff({
       title: `快照对比 · ${item.file}`,
@@ -892,6 +893,17 @@ export class Sidebar {
   buildAiPanel() {
     const p = this.panels.ai;
     p.innerHTML = `
+      <div class="ai-mode-tabs" role="tablist" aria-label="AI 模式">
+        <button class="btn btn-sm" role="tab" aria-selected="true" data-ai-mode="ask">Ask</button>
+        <button class="btn btn-sm" role="tab" aria-selected="false" data-ai-mode="agent">Agent</button>
+      </div>
+      <div class="agent-panel" hidden>
+        <select class="input" aria-label="本机 Agent 工具"></select>
+        <div class="row"><button class="btn btn-sm" data-detect>重新检测</button>
+          <button class="btn btn-sm btn-primary" data-start disabled>连接</button><button class="btn btn-sm" data-stop disabled>结束</button></div>
+        <div role="status"></div><div class="agent-terminal"></div>
+        <iframe hidden title="DeepSeek Harness" sandbox="allow-scripts allow-forms allow-same-origin allow-downloads"></iframe>
+      </div>
       <div class="ai-panel">
         <div class="ai-status" id="aiStatus"></div>
         <div class="ai-prompt">
@@ -911,6 +923,7 @@ export class Sidebar {
         </div>
         <div class="ai-thread" id="aiThread"></div>
       </div>`;
+    setupAgentPanel(p, ctx.api);
     p.querySelector('#aiSend').addEventListener('click', () => this.aiSend());
     p.querySelector('#aiPrompt').addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') this.aiSend();

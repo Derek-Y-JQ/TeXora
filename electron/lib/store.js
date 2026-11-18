@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS = {
   appearance: {
     uiStyle: 'studio',
     endfieldColor: 'yellow',
-    theme: 'dark',
+    theme: 'light',
     accent: 'blue',
     codeTheme: 'auto',
     customCss: '',
@@ -101,7 +101,7 @@ const DEFAULT_SETTINGS = {
     distro: 'auto',
     binPath: '',
     fontMode: 'ctex',
-    fonts: { latin: 'Times New Roman', cjk: 'Microsoft YaHei', mono: 'Consolas', sans: 'Microsoft YaHei' }
+    fonts: process.platform === 'darwin' ? { latin: 'Times', cjk: 'Songti SC', mono: 'Menlo', sans: 'PingFang SC' } : { latin: 'Times New Roman', cjk: 'Microsoft YaHei', mono: 'Consolas', sans: 'Microsoft YaHei' }
   },
   ai: {
     provider: 'deepseek',

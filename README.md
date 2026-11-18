@@ -1,8 +1,8 @@
-# TeXora 2.0.3 · 本地优先的 LaTeX 写作工作台
+# TeXora 2.1.0 · 本地优先的 LaTeX 写作工作台
 
 2.0.3：更新环境回车补全、PDF 全屏阅读与演示模式、数学符号面板和最近项目管理，并完善 Endfield 交互与动效。详见 [更新说明](docs/release-2.0.3.md)。
 
-TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
+TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
 - **受控 AI 赋能，主动权仍在自己**：选上下文、选 Skills、检查差异，再决定是否写入；检查与解释作为回答展示。
 - **图片、表格、代码块省心插入**：粘贴图片、编辑表格、选择 listings / minted、点选伪代码流程组件；代码块所需宏包自动补入主文档。
@@ -13,13 +13,32 @@ TeXora 是面向 Windows 的本地 LaTeX 编辑器，把源码、PDF、数学结
 - **数学文章的结构一览**：大纲按行文顺序展开；定理、定义、引理、证明和公式可集中浏览、点击定位。
 - **本地快照与 Git**：保存、编译快照和版本差异随手可查，也能查看项目 Git 状态与提交。
 - **全文字体一键应用**：读取本机中英文字体，自动写入主文档字体配置，减少手工维护导言区。
-- **适合长时间写作的外观**：默认夜间与蓝色，另有茶绿、晴空、日晷（Solarized 配套色）等强调色；编辑器高亮主题可独立切换。
+- **适合长时间写作的外观**：默认白天与蓝色，另有茶绿、晴空、日晷（Solarized 配套色）等强调色；编辑器高亮主题可独立切换。
 
 [下载 Windows 安装包](https://github.com/Derek-Y-JQ/TeXora/releases/latest) · [项目主页](https://derek-y-jq.github.io/TeXora/)
 
 > 文档编辑、编译与版本管理在本机完成。使用 AI 时，所选内容及已选 Skills 会发送至配置的模型服务商。软件不内置模型额度。
 
 ![TeXora 夜间蓝色工作台](docs/screenshots/133-workspace.png)
+
+## Ask 与 Agent
+
+Ask 沿用原有服务商设置、上下文选择、OCR 和修改确认。Agent 使用已安装的 `codex`、`claude` 或 `dsh`。打开项目，在 AI 侧栏选 Agent，选择已检测到的工具，点击「连接」。首次使用时按该工具的提示完成登录或配置提供商。DeepSeek Harness 使用本地 Web 界面，首次进入时选择当前项目作为工作区。会话在切换项目或关闭窗口时结束。
+
+## macOS 安装与构建
+
+支持 macOS 12 及以上。Apple 芯片选 `arm64`，Intel 芯片选 `x64`。打开对应架构的 DMG，将 TeXora.app 拖入「应用程序」。签名类型见对应 Release。
+
+编译文档需要本机 TeX 发行版。安装 [MacTeX](https://tug.org/mactex/) 后，从 Finder 打开 TeXora 即可识别 `/Library/TeX/texbin`。也可在「设置 → 宏包与 TeX 环境」指定引擎目录。中文文档可用 XeLaTeX 编译。局部预览可使用 Ghostscript 或 Poppler。编辑器支持 ⌘S 保存、⌘⇧O 打开文件、⌘⌥B 编译。
+
+在 Mac 上使用 Node.js 22.12 或更高版本，从源码运行：
+
+```sh
+npm ci
+npm start
+```
+
+执行 `npm run dist:mac` 可在 `release/` 中生成两个架构的 DMG。
 
 ## 功能实景
 
@@ -176,13 +195,13 @@ API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请�
 - 新增代码块与伪代码块弹窗、快捷栏入口、依赖检测安装、试编译验证与主文档宏包去重补齐。
 - 更新全局提示词；四个默认动作为润色、检查、翻译、解释，检查与解释默认只展示回答。
 - 新增系统提示词和 Block 动作恢复默认按钮，保留用户自定义提示词；Block 按钮悬浮仅显示名称。
-- 默认夜间 / 蓝色，新增茶绿、晴空和日晷配色。
+- 默认白天 / 蓝色，新增茶绿、晴空和日晷配色。
 - 修复并发预览写权限探针引发的缓存误切换，增强 SyncTeX 使用实际编译产物的定位能力。
 - 更新功能截图与 README，移除旧版更新记录。
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.0.3.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.1.0.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。

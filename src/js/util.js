@@ -102,7 +102,11 @@ export function dirName(p) {
   if (!p) return '';
   const parts = String(p).split(/[\\/]/);
   parts.pop();
-  return parts.join('\\');
+  return parts.join(p.includes('\\') ? '\\' : '/') || (p.startsWith('/') ? '/' : '');
+}
+export function joinPath(root, relative) {
+  const separator = root.includes('\\') ? '\\' : '/';
+  return root.replace(/[\\/]$/, '') + separator + relative.replace(/[\\/]/g, separator);
 }
 export function relPath(root, full) {
   if (!root || !full) return full || '';
@@ -144,7 +148,7 @@ export async function copyText(text) {
 }
 
 /* ------------------------------------------------------------------ toasts */
-export function toast({ type = 'info', title = '', body = '', timeout = 3800 } = {}) {
+export function toast({ type = 'info', title = '', body = '', timeout = 3800, onClick } = {}) {
   const layer = document.getElementById('toastLayer');
   if (!layer) return;
   const iconName = type === 'success' ? 'check' : type === 'error' ? 'error' : type === 'warn' ? 'alert' : 'info';
@@ -156,10 +160,16 @@ export function toast({ type = 'info', title = '', body = '', timeout = 3800 } =
     node.style.transform = 'translateY(6px)';
     setTimeout(() => node.remove(), 200);
   };
+  if (onClick) {
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+    node.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); node.click(); } };
+  }
   const timer = setTimeout(kill, timeout);
   node.addEventListener('click', () => {
     clearTimeout(timer);
     kill();
+    onClick?.();
   });
   while (layer.children.length > 4) layer.firstElementChild.remove();
 }

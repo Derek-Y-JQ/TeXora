@@ -5,7 +5,7 @@
  */
 import { startPresentation, togglePdfFullscreen } from './presentation.js';
 import { ctx } from './ctx.js';
-import { $, $$, el, icon, escapeHtml, debounce, toast, baseName, extOf } from './util.js';
+import { $, $$, el, icon, escapeHtml, debounce, toast, joinPath, baseName, extOf } from './util.js';
 
 export function createCommands() {
   const list = [];
@@ -241,7 +241,7 @@ export function createCommands() {
 
   function eventToCombo(e) {
     const parts = [];
-    if (e.ctrlKey) parts.push('ctrl');
+    if ((e.ctrlKey || e.metaKey)) parts.push('ctrl');
     if (e.shiftKey) parts.push('shift');
     if (e.altKey) parts.push('alt');
     let key = e.key.toLowerCase();
@@ -342,7 +342,7 @@ export function createCommands() {
       const q = value.trim().slice(1).toLowerCase();
       kind = '文件';
       const files = (ctx.state.assets.all || []).filter((f) => f.toLowerCase().includes(q)).slice(0, 40);
-      paletteItems = files.map((f) => ({ title: f, sub: '文件', icon: 'file', action: () => ctx.app.openDocument(`${ctx.state.project.root}\\${f.split('/').join('\\')}`) }));
+      paletteItems = files.map((f) => ({ title: f, sub: '文件', icon: 'file', action: () => ctx.app.openDocument(joinPath(ctx.state.project.root, f)) }));
     } else if (value.trim().startsWith(':') && ctx.state.activePath) {
       kind = '标签';
       const q = value.trim().slice(1);

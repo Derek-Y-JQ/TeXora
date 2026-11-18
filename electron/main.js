@@ -33,6 +33,13 @@ const i18n = require('./lib/i18n');
 const dialog = i18n.wrapDialog(electronDialog);
 const DIST = path.join(__dirname, '..', 'dist');
 app.setName('TeXora');
+const isMac = process.platform === 'darwin';
+if (isMac) {
+  const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  dirs.push('/Library/TeX/texbin', path.join(os.homedir(), 'Library/TinyTeX/bin/universal-darwin'),
+    '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin');
+  process.env.PATH = [...new Set(dirs)].join(path.delimiter);
+}
 // Packaged builds keep the stable %APPDATA%\\TeXora store (settings survive updates).
 // Development runs use an isolated store, and tests can override it explicitly.
 function ensureDir(dir) {
@@ -61,7 +68,10 @@ app.on('second-instance',(_event,args,cwd,data)=>{
   if(win&&!win.isDestroyed()){if(win.isMinimized())win.restore();win.show();win.focus();}
   if(ready)for(const file of targets)send('app:open-target',file);else pendingOpenTargets.push(...targets);
 });
-app.on('open-file',(event,file)=>{event.preventDefault();if(ready)send('app:open-target',file);else pendingOpenTargets.push(file);});
+app.on('open-file',(event,file)=>{event.preventDefault();if(ready)send('app:open-target',file);else {
+  pendingOpenTargets.push(file);
+  if (!win && app.isReady() && windowInitialized) createWindow();
+}});
 
 // ---------------------------------------------------------------- CLI options
 const argv = process.argv.slice(1);
@@ -113,6 +123,7 @@ const aiHistory = new AiHistory(path.join(USER_DATA, 'ai-history.json'));
 let git = new GitService(project);
 let win = null;
 let ready = false;
+let windowInitialized = false;
 const overleafSession = new OverleafSession(() => win,path.join(USER_DATA,'overleaf','browser'));
 const overleaf = new Overleaf({dir:path.join(USER_DATA,'overleaf'),transport:overleafSession});
 
@@ -123,6 +134,13 @@ function send(channel, payload) {
 }
 
 const compiler = new Compiler({ store, project, tex, history, send, fallbackCacheRoot: USER_DATA });
+const { AgentSession } = require('./lib/agent-session');
+const agentSession = new AgentSession(send);
+handle('agent:list', () => agentSession.list());
+handle('agent:start', id => agentSession.start(id, project.root));
+handle('agent:stop', () => agentSession.stop());
+ipcMain.on('agent:write', (event, data) => { if (event.senderFrame === win?.webContents.mainFrame) agentSession.write(data); });
+ipcMain.on('agent:resize', (event, cols, rows) => { if (event.senderFrame === win?.webContents.mainFrame) agentSession.resize(cols,rows); });
 const codeTools = new CodeTools({ tex, store, project, userData: USER_DATA });
 
 // --------------------------------------------------------------------- window
@@ -137,7 +155,8 @@ function createWindow() {
     minWidth: 900,
     minHeight: 680,
     show: false,
-    frame: false,
+    frame: isMac,
+    ...(isMac && { titleBarStyle: 'hiddenInset' }),
     backgroundColor: store.get('appearance.theme') === 'light' ? '#f4f5f8' : '#0d0f16',
     title: 'TeXora',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
@@ -180,7 +199,9 @@ function createWindow() {
   win.on('move', debounce(persist, 400));
   win.on('maximize', () => send('window:state', { maximized: true }));
   win.on('unmaximize', () => send('window:state', { maximized: false }));
+  win.webContents.on('did-start-navigation', (_event,_url,inPlace,mainFrame) => { if (mainFrame && !inPlace) agentSession.stop(); });
   win.on('closed', () => {
+    agentSession.stop();
     win = null;
     ready = false;
   });
@@ -250,10 +271,11 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+  windowInitialized = true;
   setupMenu();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (!win) createWindow();
   });
 });
 
@@ -295,6 +317,10 @@ function setupMenu() {
       ]
     }
   ];
+  if (isMac) {
+    template.unshift({ role: 'appMenu' });
+    template.push({ role: 'windowMenu' });
+  }
   const menu = Menu.buildFromTemplate(i18n.menu(template));
   Menu.setApplicationMenu(menu);
   if (win) win.setMenuBarVisibility(false);
@@ -304,6 +330,7 @@ function setupMenu() {
 function handle(channel, fn) {
   ipcMain.handle(channel, async (event, ...args) => {
     try {
+      if (!win || event.senderFrame !== win.webContents.mainFrame) throw Error('无效的窗口请求');
       return await fn(...args);
     } catch (err) {
       console.error(`[ipc] ${channel}`, err);
@@ -330,6 +357,7 @@ handle('overleaf:apply',async token=>{if(overleafSession.loginWindow)throw Error
 // ----------------------------------------------------------------- app / window
 handle('app:systemFonts', async () => {
   try {
+    if (isMac) return { ok: true, fonts: (await tex.fonts()).filter(font => font.kind === 'mono').map(font => font.name) };
     const { execFile } = require('node:child_process');
     const query = (key) => new Promise((resolve) => {
       execFile('reg', ['query', key], { windowsHide: true }, (err, stdout) => resolve(err ? '' : String(stdout || '')));
@@ -493,6 +521,7 @@ handle('project:open', async (target) => {
   }
   compiler.stop();
   compiler.lastResult = null;
+  agentSession.stop();
   const info = await project.open(root);
   if (info.cancelled) return { ok: false, canceled: true };
   history.setRoot(project.root, store.get('files.historyMaxDays', 14));
@@ -505,6 +534,7 @@ handle('project:removeRecent', async (root) => ({ ok: true, recent: project.remo
 handle('project:close', async () => {
   compiler.stop();
   compiler.lastResult = null;
+  agentSession.stop();
   project.close();
   send('project:changed', { root: '', reason: 'close', recent: project.recent() });
   return { ok: true };

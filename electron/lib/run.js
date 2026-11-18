@@ -59,7 +59,7 @@ function run(exe, args, options = {}) {
         env: { ...process.env, ...(env || {}) },
         stdio: [input ? 'ignore' : 'ignore', fd, fd],
         windowsHide: true,
-        detached: false
+        detached: process.platform !== 'win32'
       });
     } catch (err) {
       try { fs.closeSync(fd); } catch {}
@@ -117,6 +117,10 @@ async function capture(exe, args, options = {}) {
 function killTree(pid) {
   if (!pid) return;
   try {
+    if (process.platform !== 'win32') {
+      process.kill(-pid, 'SIGKILL');
+      return;
+    }
     spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
   } catch {
     try { process.kill(pid); } catch {}

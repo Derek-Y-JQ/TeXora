@@ -9,7 +9,7 @@ import { PROJECT_HOME, openExternalLink } from './external-links.js';
 import { openCodeDialog } from './code-dialog.js';
 import { monaco } from './editor.js';
 import {
-  $, $$, el, icon, escapeHtml, openMenu, toast, copyText, baseName, extOf, formatBytes, timeAgo, debounce, fileIcon } from './util.js';
+  $, $$, el, icon, escapeHtml, openMenu, toast, copyText, joinPath, baseName, extOf, formatBytes, timeAgo, debounce, fileIcon } from './util.js';
 import { SYMBOL_GROUPS, toSnippet, symbolPreviewHtml } from './symbols.js';
 import { TEMPLATES, buildWizardDocument, NEW_PROJECT_DEFAULTS } from './templates.js';
 import { parseBib, entryToBibtex, emptyEntry, suggestKey, formatAuthors } from './bib.js';
@@ -114,7 +114,7 @@ export function createDialogs() {
           root.querySelector('#dlgOk').addEventListener('click', () => finish(input.value.trim() || null));
           root.querySelector('[data-dialog-btn]').addEventListener('click', () => finish(null));
           input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (!multiline || e.ctrlKey)) {
+            if (e.key === 'Enter' && (!multiline || (e.ctrlKey || e.metaKey))) {
               e.preventDefault();
               finish(input.value.trim() || null);
             }
@@ -314,11 +314,11 @@ export function createDialogs() {
     if (!parent.ok) return;
     const name = await prompt({ title: '新建项目', label: '项目文件夹名称', value: slug(template.name), confirmText: '创建项目' });
     if (!name) return;
-    const root = `${parent.path}\\${name}`;
+    const root = joinPath(parent.path, name);
     const created = await ctx.api.fs.createDir(parent.path, name);
     if (!created.ok) return toast({ type: 'error', title: '创建失败', body: created.error });
     for (const file of template.files) {
-      await ctx.api.fs.write(`${root}\\${file.name}`, file.content);
+      await ctx.api.fs.write(joinPath(root, file.name), file.content);
     }
     const res = await ctx.api.project.open(root);
     if (res.ok) {
@@ -423,7 +423,7 @@ export function createDialogs() {
           if (!name) return;
           const created = await ctx.api.fs.createDir(parent.path, name);
           if (!created.ok) return toast({ type: 'error', title: '创建失败', body: created.error });
-          await ctx.api.fs.write(`${created.path}\\main.tex`, buildWizardDocument(o));
+          await ctx.api.fs.write(joinPath(created.path, `main.tex`), buildWizardDocument(o));
           const res = await ctx.api.project.open(created.path);
           if (res.ok) ctx.app.onProjectOpened(res, { openRoot: true });
         });
@@ -679,7 +679,7 @@ export function createDialogs() {
         root.querySelector('[data-dialog-btn]').addEventListener('click', close);
         root.querySelector('#imgInsert').addEventListener('click', async () => {
           if (!pendingImage && !imagePath) return toast({ type: 'warn', title: '请先选择一张图片' });
-          const dir = `${ctx.state.project.root}\\${imageDir}`;
+          const dir = joinPath(ctx.state.project.root, imageDir);
           let rel = '';
           let filename = (root.querySelector('#imgName').value.trim() || 'figure') + '.' + (selectedExt === 'jpg' ? 'jpeg' : selectedExt);
           if (imagePath && !pendingImage) {
@@ -1074,7 +1074,7 @@ export function createDialogs() {
           if (!entries.length) return;
           const bibFiles = ctx.state.assets.bib || [];
           if (!bibFiles.length) return toast({ type: 'warn', title: '未找到 .bib 文件' });
-          const file = `${ctx.state.project.root}\\${bibFiles[0].split('/').join('\\')}`;
+          const file = joinPath(ctx.state.project.root, bibFiles[0]);
           const res = await ctx.api.fs.write(file, entries.map((e) => entryToBibtex(e)).join('\n\n') + '\n');
           if (res.ok) {
             toast({ type: 'success', title: '文献库已保存', body: baseName(file) });
@@ -1086,7 +1086,7 @@ export function createDialogs() {
           const bibFiles = ctx.state.assets.bib || [];
           if (!bibFiles.length) return toast({ type: 'warn', title: '未找到 .bib 文件' });
           close();
-          ctx.app.openDocument(`${ctx.state.project.root}\\${bibFiles[0].split('/').join('\\')}`);
+          ctx.app.openDocument(joinPath(ctx.state.project.root, bibFiles[0]));
         });
       }
     });
@@ -1137,7 +1137,7 @@ export function createDialogs() {
         root.querySelector('#doiInsert').addEventListener('click', async () => {
           if (!bibtex) return toast({ type: 'warn', title: '请先抓取元数据' });
           const bibFiles = ctx.state.assets.bib || [];
-          const file = bibFiles.length ? `${ctx.state.project.root}\\${bibFiles[0].split('/').join('\\')}` : `${ctx.state.project.root}\\references.bib`;
+          const file = bibFiles.length ? joinPath(ctx.state.project.root, bibFiles[0]) : joinPath(ctx.state.project.root, `references.bib`);
           const cur = await ctx.api.fs.read(file);
           const text = (cur.ok ? cur.text : '') + '\n\n' + bibtex + '\n';
           const res = await ctx.api.fs.write(file, text);

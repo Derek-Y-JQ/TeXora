@@ -14,7 +14,7 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { ctx } from './ctx.js';
 import { toggleFormat, formatContext } from './format-toggle.js';
-import { debounce, escapeHtml, icon, baseName, relPath, extOf, openMenu } from './util.js';
+import { debounce, escapeHtml, icon, joinPath, baseName, relPath, extOf, openMenu } from './util.js';
 import {
   COMMANDS, ENVIRONMENTS, SNIPPETS, ENUMITEM_OPTIONS, wrapCommandFor, splitLines,
   stripComment, detectBlocks, parseDocument
@@ -376,7 +376,7 @@ function registerCompletions() {
         }
         for (const [name, info] of Object.entries(ctx.state.labelIndex || {})) {
           if (seen.has(name)) continue;
-          const rel = String(info.file || '').replace(ctx.state.project.root + '\\', '').split('\\').join('/');
+          const rel = relPath(ctx.state.project.root, info.file);
           items.push({
             label: name,
             insertText: ins(name),
@@ -782,9 +782,9 @@ function resolveAsset(rel) {
   if (!root) return '';
   const active = ctx.state.docs.get(ctx.state.activePath);
   const parts = String(rel).replace(/\\/g, '/');
-  if (/^[a-zA-Z]:\//.test(parts)) return parts;
+  if (/^(?:[a-zA-Z]:)?\//.test(parts)) return parts;
   const clean = parts.replace(/^\.\//, '');
-  return `${root}\\${clean}`;
+  return joinPath(root, clean);
 }
 
 /* --------------------------------------------------------------- controller */
@@ -1388,7 +1388,7 @@ export class EditorController {
         ctx.cmd('insert.cite', cite[1].split(',')[0]);
       } else if (inc) {
         const rel = inc[1].trim();
-        const full = `${ctx.state.project.root}\\${rel}${/\.(tex|ltx)$/.test(rel) ? '' : '.tex'}`;
+        const full = joinPath(ctx.state.project.root, `${rel}${/\.(tex|ltx)$/.test(rel) ? '' : '.tex'}`);
         ctx.cmd('doc.open', full);
       }
     }

@@ -25,6 +25,11 @@ const api = {
   takeOpenTargets: ()=>invoke('app:takeOpenTargets'),
   onOpenTarget: cb=>on('app:open-target',cb),
   droppedPath: file=>webUtils.getPathForFile(file),
+  agent: {
+    list: () => invoke('agent:list'), start: id => invoke('agent:start',id), stop: () => invoke('agent:stop'),
+    write: data => ipcRenderer.send('agent:write',data), resize: (cols,rows) => ipcRenderer.send('agent:resize',cols,rows),
+    onEvent: cb => on('agent:event',cb)
+  },
   pdf: {open:file=>invoke('pdf:open',file)},
   update: { check: () => invoke('update:check') },
   overleaf: {

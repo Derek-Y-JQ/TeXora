@@ -25,7 +25,7 @@ import { parseBib } from './js/bib.js';
 import { beautify, normalizePunctuation, applyDisplayStyle, splitLines, ENVIRONMENTS } from './js/latex.js';
 import { renderMarkdown } from './js/markdown.js';
 import {
-  $, $$, el, icon, escapeHtml, toast, baseName, extOf, relPath, debounce, clamp, textStats, formatBytes, copyText, openMenu, openPopover, fileIcon } from './js/util.js';
+  $, $$, el, icon, escapeHtml, toast, joinPath, baseName, extOf, relPath, debounce, clamp, textStats, formatBytes, copyText, openMenu, openPopover, fileIcon } from './js/util.js';
 
 const api = window.texora;
 ctx.api = api;
@@ -44,6 +44,7 @@ let buildPreparing = false;
 /* --------------------------------------------------------------------- boot */
 async function boot() {
   info = await api.info();
+  document.documentElement.dataset.platform = info.platform;
   ctx.state.settings = info.settings;
   ctx.state.capture = { ...info.capture, version: info.version };
   ctx.state.theme = resolveTheme(info.settings.appearance.theme);
@@ -111,6 +112,14 @@ async function boot() {
   if(info.initialFile)await openDocument(info.initialFile,{silent:true});
   for(const target of await api.takeOpenTargets())await openTarget(target);
   api.ready();
+  if (info.settings.appearance.uiStyle !== 'endfield' && !info.capture?.enabled) {
+    toast({title:'推荐使用 Endfield 主题风格', timeout:10000, onClick:() => {
+      ctx.settingsUI.open('appearance');
+      const control = document.querySelector('[data-setting="appearance.uiStyle"]');
+      control?.scrollIntoView({block:'center'});
+      control?.focus();
+    }});
+  }
   setTimeout(() => {
     const g = ctx.state.settings?.general || {};
     if (g.autoCheckUpdates !== false && Date.now() - Number(g.lastUpdateCheck || 0) > 24 * 3600 * 1000) {
@@ -592,7 +601,7 @@ async function autoSelectEngine(silent = false) {
   if (!root || !rootFile) return;
   const files = [rootFile];
   for (const rel of (ctx.state.assets?.tex || []).slice(0, 40)) {
-    const full = root + '\\' + String(rel).split('/').join('\\');
+    const full = joinPath(root, rel);
     if (full !== rootFile) files.push(full);
   }
   let text = '';
@@ -624,13 +633,13 @@ async function refreshEnvDefs() {
   try {
     const files = [];
     for (const rel of (ctx.state.assets?.tex || []).slice(0, 60)) {
-      files.push(String(rel).split('/').join('\\'));
+      files.push(rel);
     }
     const texts = [];
     const fileTexts = [];
     const seen = new Set();
     for (const rel of files) {
-      const full = ctx.state.project.root + '\\' + rel;
+      const full = joinPath(ctx.state.project.root, rel);
       if (seen.has(full)) continue;
       seen.add(full);
       const res = await api.fs.read(full);
@@ -820,7 +829,7 @@ async function reloadOpenDocuments() {
 async function refreshBibEntries() {
   const entries = [];
   for (const file of ctx.state.assets.bib || []) {
-    const full = `${ctx.state.project.root}\\${file.split('/').join('\\')}`;
+    const full = joinPath(ctx.state.project.root, file);
     const res = await api.fs.read(full);
     if (res.ok && res.text) entries.push(...parseBib(res.text));
   }
@@ -857,9 +866,9 @@ async function chooseRootFile() {
     .map((f) => ({
       label: f,
       icon: 'paper',
-      checked: ctx.state.project.rootFile === `${ctx.state.project.root}\\${f.split('/').join('\\')}`,
+      checked: ctx.state.project.rootFile === joinPath(ctx.state.project.root, f),
       onClick: async () => {
-        const full = `${ctx.state.project.root}\\${f.split('/').join('\\')}`;
+        const full = joinPath(ctx.state.project.root, f);
         await api.project.setRootFile(full);
         ctx.state.project.rootFile = full;
         $('#sbRootName').textContent = baseName(full);
@@ -1920,8 +1929,8 @@ async function exportLatexdiff() {
     onMount: ({ root, close }) => {
       root.querySelector('[data-dialog-btn]').addEventListener('click', close);
       root.querySelector('#ldRun').addEventListener('click', async () => {
-        const a = `${ctx.state.project.root}\\${root.querySelector('#ldA').value.split('/').join('\\')}`;
-        const b = `${ctx.state.project.root}\\${root.querySelector('#ldB').value.split('/').join('\\')}`;
+        const a = joinPath(ctx.state.project.root, root.querySelector('#ldA').value);
+        const b = joinPath(ctx.state.project.root, root.querySelector('#ldB').value);
         const out = root.querySelector('#ldOut').value.trim() || 'diff';
         close();
         toast({ type: 'info', title: '正在生成对比 PDF…' });

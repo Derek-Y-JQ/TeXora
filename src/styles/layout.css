@@ -809,3 +809,14 @@
     top:0;
   }
 
+
+html[data-platform="darwin"] .titlebar-left { padding-left: 76px; }
+html[data-platform="darwin"] .window-controls { display: none; }
+
+.ai-mode-tabs { display:flex; gap:4px; padding:6px; }
+.ai-mode-tabs button[aria-selected="true"] { background:var(--surface-3); font-weight:700; }
+.ai-panel[hidden], .agent-panel[hidden], .agent-panel [hidden] { display:none; }
+.agent-panel { padding:8px; }
+.agent-panel .row { flex-wrap:wrap; margin:6px 0; }
+.agent-terminal,.agent-panel iframe { width:100%; height:max(300px,calc(100vh - 320px)); border:0; }
+.agent-panel [role=status] { margin:8px 0; font-size:12px; }

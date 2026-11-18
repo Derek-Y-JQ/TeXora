@@ -203,7 +203,7 @@ export function createSettingsUI() {
               .join('')}
           </div>
         </div>
-        ${inputRow('tex.binPath', 'TeX 可执行文件目录', '留空则自动在 PATH 与常见安装位置中探测', { mono: true, placeholder: 'C:\\...\\MiKTeX\\miktex\\bin\\x64', width: 360 })}
+        ${inputRow('tex.binPath', 'TeX 可执行文件目录', '留空则自动在 PATH 与常见安装位置中探测', { mono: true, placeholder: document.documentElement.dataset.platform === 'darwin' ? '/Library/TeX/texbin' : 'C:\\...\\MiKTeX\\miktex\\bin\\x64', width: 360 })}
         <div class="setting-row">
           <div class="setting-main"><div class="setting-name">重新探测</div><div class="setting-desc">修改安装路径或新装宏包后刷新环境信息</div></div>
           <div class="setting-control"><button class="btn btn-sm" id="setDetectTex">${icon('refresh')}检测 TeX 环境</button></div>
@@ -796,7 +796,7 @@ export function createSettingsUI() {
         e.preventDefault();
         e.stopPropagation();
         const parts = [];
-        if (e.ctrlKey) parts.push('Ctrl');
+        if ((e.ctrlKey || e.metaKey)) parts.push('Ctrl');
         if (e.shiftKey) parts.push('Shift');
         if (e.altKey) parts.push('Alt');
         const key = e.key;

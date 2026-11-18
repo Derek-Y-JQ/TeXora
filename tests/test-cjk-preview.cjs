@@ -6,7 +6,7 @@ const {Compiler}=require('../electron/lib/compiler');const {TexEnv}=require('../
  const settings=structuredClone(DEFAULT_SETTINGS);settings.build.engine='xelatex';settings.build.recipe='single';settings.build.runs=1;settings.build.autoInstallMissing='never';
  const store={get:(key,fallback)=>key.split('.').reduce((v,k)=>v?.[k],settings)??fallback,set(){}};
  const tex=new TexEnv(store,path.resolve('.capture/cjk-regression'));tex.detect();
- const rootFile=path.join(root,'main.tex');await fs.writeFile(rootFile,String.raw`\documentclass[UTF8,fontset=windows]{ctexart}
+ const rootFile=path.join(root,'main.tex');await fs.writeFile(rootFile,String.raw`\documentclass[UTF8,fontset=${process.platform === 'win32' ? 'windows' : 'fandol'}]{ctexart}
 \usepackage{amsmath}
 \begin{document}
 \section{中文渲染回归测试}

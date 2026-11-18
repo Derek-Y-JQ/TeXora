@@ -30,12 +30,13 @@ class CodeTools {
     return { ok: true, ready: !missing.length && runtime, missing, runtime, backend, kind, engine: !!(this.tex.get('xelatex') || this.tex.get('pdflatex')) };
   }
   async python() {
-    for (const [exe,args] of [['py',['-3']],['python',[]],['python3',[]]]) {
+    for (const [exe,args] of (process.platform === 'win32' ? [['py',['-3']],['python',[]],['python3',[]]] : [['python3',[]]])) {
       const result = await run(exe, [...args,'-c','import sys; print(sys.executable)'], { timeout: 20000 });
       const file = result.output.trim().split(/\r?\n/).at(-1);
       if (result.code === 0 && fs.existsSync(file)) return file;
     }
     // Install for the current user; no arbitrary downloaded scripts are executed.
+    if (process.platform !== 'win32') throw Error('请安装 Python 3.10 或更高版本后重试。');
     const installed = await run('winget', ['install','--id','Python.Python.3.12','--exact','--scope','user','--silent','--accept-package-agreements','--accept-source-agreements','--disable-interactivity'], { timeout: 600000 });
     const local = path.join(process.env.LOCALAPPDATA || '', 'Programs','Python','Python312','python.exe');
     if (installed.code === 0 && fs.existsSync(local)) return local;
@@ -44,7 +45,7 @@ class CodeTools {
   async setupRuntime() {
     if (await this.executable('latexminted')) return;
     const folder = path.join(this.userData, 'code-runtime');
-    const python = path.join(folder, 'Scripts', 'python.exe');
+    const python = process.platform === 'win32' ? path.join(folder, 'Scripts', 'python.exe') : path.join(folder, 'bin', 'python');
     if (!fs.existsSync(python)) {
       const base = await this.python();
       const result = await run(base, ['-m','venv',folder], { timeout: 120000 });
@@ -52,7 +53,7 @@ class CodeTools {
     }
     const result = await run(python, ['-m','pip','install','--disable-pip-version-check','--index-url','https://pypi.org/simple','latexminted>=0.6,<1','Pygments>=2.17,<3'], { timeout: 300000 });
     if (result.code !== 0) throw Error('安装 minted 高亮工具失败：' + result.output.slice(-700));
-    this.store.set('code.runtimeScripts',path.join(folder,'Scripts'));
+    this.store.set('code.runtimeScripts',path.dirname(python));
   }
   async prepare(options = {}) {
     if (this.pending) return { ok: false, error: '正在配置代码环境，请稍候' };

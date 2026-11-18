@@ -28,7 +28,7 @@ assert.ok(blockSource({backend:'minted',code:'print(1)',label:'lst:minted'}).sou
 assert.ok(blockSource({kind:'algorithm',code:ALGORITHM_PARTS[3][1]}).source.includes('\\EndFor'));
 assert.ok(ALGORITHM_PARTS.some(([name])=>name==='If / Else'));
 assert.throws(()=>blockSource({code:'\\end{lstlisting}'}));assert.throws(()=>blockSource({code:'a',label:'{bad}'}));
-const dir=path.resolve('.capture/unit133-'+Date.now());const store=new Store(dir);assert.equal(store.get('appearance.accent'),'blue');assert.equal(store.get('appearance.theme'),'dark');
+const dir=path.resolve('.capture/unit133-'+Date.now());const store=new Store(dir);assert.equal(store.get('appearance.accent'),'blue');assert.equal(store.get('appearance.theme'),'light');
 const partial=path.join(dir,'partial');fs.mkdirSync(partial,{recursive:true});fs.writeFileSync(path.join(partial,'settings.json'),JSON.stringify({general:{autoCheckUpdates:false}}));
 const partialStore=new Store(partial);partialStore.set('ai.systemPrompt','custom');assert.equal(require('../electron/lib/store').DEFAULT_SETTINGS.ai.systemPrompt,SYSTEM_PROMPT,'editing loaded settings cannot mutate reset defaults');
 console.log('PASS 1.3.3: prompt migration/custom preservation, four task modes, code/algorithm generation, dependency injection/dedup/conflicts, dark/blue defaults.');

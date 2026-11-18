@@ -18,3 +18,20 @@ jobs:
       - run: npm run test:window
       - run: npm run test:appearance
       - run: npm run test:editing
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:mac
+      - run: npm run test:electron
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TeXora-macOS
+          path: release/*.dmg
+          if-no-files-found: error

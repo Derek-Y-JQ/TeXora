@@ -7,7 +7,7 @@ const path = require('node:path');
 const { run } = require('./run');
 
 function findGit() {
-  const exe = 'git.exe';
+  const exe = process.platform === 'win32' ? 'git.exe' : 'git';
   for (const dir of (process.env.PATH || '').split(path.delimiter)) {
     if (!dir) continue;
     const full = path.join(dir, exe);
@@ -15,6 +15,7 @@ function findGit() {
       if (fs.existsSync(full)) return full;
     } catch {}
   }
+  if (process.platform !== 'win32') return '';
   const candidates = [
     path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'cmd', 'git.exe'),
     path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'cmd', 'git.exe'),
@@ -36,7 +37,7 @@ class GitService {
   }
 
   async exec(args, opts = {}) {
-    if (!this.available) return { ok: false, error: '未检测到 Git（安装 Git for Windows 后重启应用）' };
+    if (!this.available) return { ok: false, error: '未检测到 Git（安装 Git 后重启应用）' };
     if (!this.project.root) return { ok: false, error: '尚未打开项目' };
     const res = await run(this.exe, args, { cwd: this.project.root, timeout: opts.timeout || 60000 });
     return { ok: res.code === 0, code: res.code, output: res.output, error: res.code === 0 ? '' : res.output.slice(-2000) };

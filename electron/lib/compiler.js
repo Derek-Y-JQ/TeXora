@@ -402,7 +402,7 @@ class Compiler {
               await exec(this.tex.get('biber'), ['--input-directory', rootDir, '--output-directory', cache, bcfPath], cache, 'biber');
             } else if (/\\bibdata|\\citation/.test(auxText) && this.tex.get('bibtex')) {
               send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
-              const bibEnv = { ...env, BIBINPUTS: [rootDir, this.root, cache].join(path.delimiter), BSTINPUTS: [rootDir, this.root, cache].join(path.delimiter) };
+              const bibEnv = { ...env, BIBINPUTS: [rootDir, this.root, cache, ''].join(path.delimiter), BSTINPUTS: [rootDir, this.root, cache, ''].join(path.delimiter) };
               await run(this.tex.get('bibtex'), [jobname], {
                 cwd: cache,
                 env: bibEnv,

@@ -53,7 +53,9 @@ async function checkForUpdates({ repo, current }) {
   const latest = String(data.tag_name || data.name || '').replace(/^v/i, '');
   if (!latest) return { ok: false, error: '最新发布没有版本号' };
   const assets = (data.assets || []).map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size }));
-  const asset = assets.find((a) => /\.exe$/i.test(a.name)) || null;
+  const asset = (process.platform === 'darwin'
+    ? assets.find(a => a.name.endsWith('-mac-' + process.arch + '.dmg')) || assets.find(a => /universal.*\.dmg$/i.test(a.name))
+    : assets.find(a => /\.exe$/i.test(a.name))) || null;
   return {
     ok: true,
     current,

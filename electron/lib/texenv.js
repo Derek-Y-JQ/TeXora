@@ -8,6 +8,7 @@ const fsp = fs.promises;
 const path = require('node:path');
 const { run, capture } = require('./run');
 
+const windows = process.platform === 'win32';
 const ENGINE_BINARIES = {
   xelatex: 'xelatex.exe',
   pdflatex: 'pdflatex.exe',
@@ -30,6 +31,7 @@ const ENGINE_BINARIES = {
 };
 
 const CANDIDATE_DIRS = () => {
+  if (!windows) return [];
   const dirs = [];
   const local = process.env.LOCALAPPDATA || '';
   const appdata = process.env.APPDATA || '';
@@ -113,37 +115,18 @@ class TexEnv {
     const configured = (this.store.get('tex.binPath') || '').trim();
     const found = {};
     let binDir = '';
-    if (configured && exists(path.join(configured, 'xelatex.exe'))) {
-      binDir = configured;
-    } else if (configured && exists(configured)) {
-      binDir = configured;
-    } else {
-      const inPath = findInPath('xelatex.exe') || findInPath('pdflatex.exe') || findInPath('lualatex.exe');
-      if (inPath) binDir = path.dirname(inPath);
-      else {
-        for (const dir of CANDIDATE_DIRS()) {
-          if (exists(path.join(dir, 'xelatex.exe')) || exists(path.join(dir, 'pdflatex.exe'))) {
-            binDir = dir;
-            break;
-          }
-        }
-      }
+    const binaryName = key => windows ? ENGINE_BINARIES[key] : key === 'mgs' ? 'gs' : key;
+    const engines = ['xelatex', 'pdflatex', 'lualatex'].map(binaryName);
+    const dirs = [configured, ...(process.env.PATH || '').split(path.delimiter), ...CANDIDATE_DIRS()];
+    binDir = dirs.find(dir => dir && engines.some(name => exists(path.join(dir, name)))) || '';
+    for (const key of Object.keys(ENGINE_BINARIES)) {
+      const name = binaryName(key);
+      const local = path.join(binDir, name);
+      const external = ['pdftocairo', 'pdftoppm', 'pdftohtml', 'pdftotext', 'pdfinfo', 'mgs', 'latexdiff', 'chktex'].includes(key);
+      found[key] = binDir && exists(local) ? local : (!binDir || external) ? findInPath(name) : '';
     }
-    for (const [key, bin] of Object.entries(ENGINE_BINARIES)) {
-      found[key] = '';
-      if (binDir && exists(path.join(binDir, bin))) found[key] = path.join(binDir, bin);
-      else if (!binDir) found[key] = findInPath(bin);
-      if (!found[key] && key === 'pdftocairo') {
-        const alt = findInPath('pdftocairo.exe');
-        if (alt) found[key] = alt;
-      }
-    }
-    // mpm/tlmgr may live next to engines under different names
-    if (!found.tlmgr && binDir && exists(path.join(binDir, 'tlmgr.exe'))) found.tlmgr = path.join(binDir, 'tlmgr.exe');
-    if (!found.mgs) {
-      const alt = findInPath('gswin64c.exe');
-      if (alt) found.mgs = alt;
-    }
+    if (windows && !found.tlmgr && binDir && exists(path.join(binDir, 'tlmgr.exe'))) found.tlmgr = path.join(binDir, 'tlmgr.exe');
+    if (windows && !found.mgs) found.mgs = findInPath('gswin64c.exe');
     this.binDir = binDir;
     this.tools = found;
     this.distro = this._detectDistro(binDir);
@@ -162,10 +145,10 @@ class TexEnv {
     const lower = binDir.toLowerCase();
     if (lower.includes('tinytex')) return 'tinytex';
     if (lower.includes('texlive')) return 'texlive';
-    if (lower.includes('miktex') || exists(path.join(binDir, 'mpm.exe')) || exists(path.join(binDir, 'miktex-console.exe'))) {
+    if (lower.includes('miktex') || exists(path.join(binDir, windows ? 'mpm.exe' : 'mpm')) || exists(path.join(binDir, 'miktex-console.exe'))) {
       return 'miktex';
     }
-    if (exists(path.join(binDir, 'tlmgr.bat')) || exists(path.join(binDir, 'tlmgr.exe')) || lower.includes('texlive')) {
+    if (exists(path.join(binDir, 'tlmgr')) || exists(path.join(binDir, 'tlmgr.bat')) || exists(path.join(binDir, 'tlmgr.exe')) || lower.includes('texlive')) {
       return 'texlive';
     }
     return 'unknown';
@@ -310,24 +293,31 @@ class TexEnv {
     const now = Date.now();
     if (!force && this.cache.fonts && now - (this.cache.fontsAt || 0) < 86400000) return this.cache.fonts;
     const names = new Set();
-    const regQuery = async (key) => {
-      const out = await capture('reg', ['query', key], { timeout: 15000 });
-      return out;
-    };
-    const parse = (text) => {
-      for (const line of text.split(/\r?\n/)) {
-        const m = line.match(/^\s{4}(.+?)\s+REG_(?:SZ|EXPAND_SZ)\s+(.+)$/);
-        if (!m) continue;
-        let name = m[1];
-        name = name.replace(/\s*\((TrueType|OpenType|Type 1|TrueType Collection)\)\s*$/i, '').trim();
-        if (name) names.add(name);
-      }
-    };
-    parse(await regQuery('HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts'));
-    parse(await regQuery('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Fonts'));
+    if (process.platform === 'darwin') {
+      // Core Text is available on a clean Mac, including without Homebrew.
+      const families = await capture('/usr/bin/osascript', ['-l', 'JavaScript', '-e',
+        "ObjC.import('AppKit'); JSON.stringify(ObjC.deepUnwrap($.NSFontManager.sharedFontManager.availableFontFamilies))"]);
+      for (const name of JSON.parse(families.trim())) names.add(name);
+    } else {
+      const regQuery = async (key) => {
+        const out = await capture('reg', ['query', key], { timeout: 15000 });
+        return out;
+      };
+      const parse = (text) => {
+        for (const line of text.split(/\r?\n/)) {
+          const m = line.match(/^\s{4}(.+?)\s+REG_(?:SZ|EXPAND_SZ)\s+(.+)$/);
+          if (!m) continue;
+          let name = m[1];
+          name = name.replace(/\s*\((TrueType|OpenType|Type 1|TrueType Collection)\)\s*$/i, '').trim();
+          if (name) names.add(name);
+        }
+      };
+      parse(await regQuery('HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts'));
+      parse(await regQuery('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Fonts'));
 
+    }
     const list = Array.from(names).sort((a, b) => a.localeCompare(b));
-    const CJK = /(宋体|黑体|楷体|仿宋|微软雅黑|等线|新宋|幼圆|隶书|华文|方正|汉仪|思源|SimSun|SimHei|KaiTi|FangSong|YaHei|DengXian|NSimSun|STSong|STKaiti|STHeiti|STFangsong|STXihei|MingLiU|PMingLiU|JhengHei|Source Han|Noto (Sans|Serif) (CJK|SC|TC)|WenQuanYi|Hanzi|LXGW|Zhuque|Alibaba|HarmonyOS|MiSans|OPPO|SmileySans|DingTalk|Fandol)/i;
+    const CJK = /(PingFang|Songti|Heiti|Kaiti|Hiragino|宋体|黑体|楷体|仿宋|微软雅黑|等线|新宋|幼圆|隶书|华文|方正|汉仪|思源|SimSun|SimHei|KaiTi|FangSong|YaHei|DengXian|NSimSun|STSong|STKaiti|STHeiti|STFangsong|STXihei|MingLiU|PMingLiU|JhengHei|Source Han|Noto (Sans|Serif) (CJK|SC|TC)|WenQuanYi|Hanzi|LXGW|Zhuque|Alibaba|HarmonyOS|MiSans|OPPO|SmileySans|DingTalk|Fandol)/i;
     const MONO = /(Mono|Consolas|Courier|Code|Cascadia|Fixed|Terminal|Console|Menlo|Inconsolata|Hack|Iosevka|Fira|JetBrains)/i;
     const result = list.map((name) => {
       let kind = 'latin';
@@ -345,7 +335,7 @@ class TexEnv {
       ['Courier New', 'mono'], ['JetBrains Mono', 'mono'], ['Fira Code', 'mono']
     ];
     const have = new Set(result.map((f) => f.name.toLowerCase()));
-    for (const [name, kind] of extra) {
+    for (const [name, kind] of (windows ? extra : [])) {
       if (!have.has(name.toLowerCase())) result.push({ name, kind });
     }
     result.sort((a, b) => a.name.localeCompare(b.name));
