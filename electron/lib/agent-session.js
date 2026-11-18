@@ -50,7 +50,9 @@ class AgentSession {
     if (!spec) throw Error('未找到所选工具，请安装后重新检测');
     const args = id === 'dsh' ? [...spec.args, 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'] : spec.args;
     // ConPTY spawns a worker thread which requires a real filesystem path.
-    const modulePath = require.resolve('node-pty').replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2');
+    const entry = require.resolve('node-pty');
+    // On macOS node-pty translates its own spawn-helper path to the unpacked directory.
+    const modulePath = process.platform !== 'win32' ? entry : entry.replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2');
     const proc = require(modulePath).spawn(spec.exe, args, {
       name:'xterm-256color', cols:80, rows:24, cwd, env:{...process.env, PATH:spec.path, TERM:'xterm-256color'}
     });

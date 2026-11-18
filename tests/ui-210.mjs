@@ -6,7 +6,7 @@ export default async function ({evalJs, click, sleep}) {
       if (await evalJs(expression)) return;
       await sleep(100);
     }
-    throw Error('Timed out waiting for ' + expression);
+    throw Error('Timed out waiting for ' + expression + ': ' + await evalJs("document.querySelector('.agent-panel [role=status]')?.textContent"));
   }
   await until('!!window.__texora');
   assert.equal(await evalJs('document.documentElement.dataset.theme'), 'light');
