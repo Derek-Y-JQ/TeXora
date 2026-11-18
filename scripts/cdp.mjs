@@ -185,6 +185,9 @@ main()
   })
   .finally(() => {
     try { fs.closeSync(logFd); } catch {}
-    try { spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+    if (child.pid && child.exitCode === null) {
+      if (process.platform === 'win32') spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      else child.kill();
+    }
     setTimeout(() => process.exit(process.exitCode || 0), 300);
   });

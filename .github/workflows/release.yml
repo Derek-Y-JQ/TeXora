@@ -30,6 +30,8 @@ jobs:
           }
           node scripts/package-release.cjs x64
           if ($LASTEXITCODE) {exit $LASTEXITCODE}
+          node scripts/test-release-agent.cjs release/win-unpacked/TeXora.exe
+          if ($LASTEXITCODE) {exit $LASTEXITCODE}
           $installer = Get-Item release/TeXora-Setup-*.exe
           $signature = Get-AuthenticodeSignature $installer
           if (!$signature.SignerCertificate -or $signature.Status -eq 'HashMismatch') {throw 'Invalid installer signature'}
@@ -74,6 +76,9 @@ jobs:
           hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$disk"
           codesign --verify --deep --strict --verbose=2 "$mount/TeXora.app"
           test -x "$mount/TeXora.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-$ARCH/spawn-helper"
+          if [[ "$ARCH" == "$(node -p process.arch)" ]]; then
+            node scripts/test-release-agent.cjs "$mount/TeXora.app/Contents/MacOS/TeXora"
+          fi
           hdiutil detach "$mount"
           echo "macOS $ARCH · $note" > "release/mac-$ARCH.txt"
       - uses: actions/upload-artifact@v4
