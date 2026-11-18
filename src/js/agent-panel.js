@@ -11,8 +11,8 @@ export function setupAgentPanel(panel, api) {
   const stop = agent.querySelector('[data-stop]');
   const status = agent.querySelector('[role=status]');
   const host = agent.querySelector('.agent-terminal');
-  const frame = agent.querySelector('iframe');
-  let terminal, fit, running = false, output = '';
+  const frame = agent.querySelector('.agent-web');
+  let terminal, fit, running = false;
   function controls() {
     select.disabled = running;
     start.disabled = running || !select.value;
@@ -55,7 +55,6 @@ export function setupAgentPanel(panel, api) {
       terminal.onResize(({cols,rows}) => api.agent.resize(cols,rows));
     }
     terminal.reset();
-    output = '';
     running = true;
     controls();
     const result = await api.agent.start(select.value);
@@ -71,18 +70,33 @@ export function setupAgentPanel(panel, api) {
   api.agent.onEvent(event => {
     if (event.ended) {
       running = false;
-      frame.removeAttribute('src');
+      cancelAnimationFrame(layoutFrame);
+      previousBounds = undefined;
       frame.hidden = true;
       host.hidden = false;
       status.textContent = '会话已结束' + (event.exitCode ? '（' + event.exitCode + '）' : '');
       controls();
     }
-    if (!event.data) return;
-    terminal?.write(event.data);
-    if (select.value === 'dsh' && frame.hidden) {
-      output = (output + event.data).slice(-8192);
-      const url = output.match(/http:\/\/(?:127\.0\.0\.1|localhost):\d+(?:\/[^\s\x1b]*)?(?=[\s\x1b])/);
-      if (url) { frame.src = url[0]; frame.hidden = false; host.hidden = true; }
+    if (event.data) terminal?.write(event.data);
+    if (event.webError) status.textContent = event.webError;
+    if (event.web) {
+      frame.hidden = false;
+      host.hidden = true;
+      layoutWebView();
     }
   });
+
+  let layoutFrame, previousBounds;
+  function layoutWebView() {
+    if (frame.hidden) return;
+    const r = frame.getBoundingClientRect();
+    const container = panel.getBoundingClientRect();
+    const top = Math.max(0, r.top, container.top);
+    const bottom = Math.min(innerHeight, r.bottom, panel.closest('#sidebar').getBoundingClientRect().bottom);
+    const visible = r.width && bottom > top && !document.querySelector('#modalLayer.open, #paletteLayer.open, .menu-open');
+    const rect = visible ? {x:r.x, y:top, width:r.width, height:bottom-top} : null;
+    const value = JSON.stringify(rect);
+    if (value !== previousBounds) { api.agent.bounds(rect); previousBounds = value; }
+    layoutFrame = requestAnimationFrame(layoutWebView);
+  }
 }

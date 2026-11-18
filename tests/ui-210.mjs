@@ -31,6 +31,12 @@ export default async function ({evalJs, click, sleep}) {
   assert.ok(response, 'packaged PTY must echo evaluated output through the renderer bridge');
   await click('.agent-panel [data-stop]');
   await until("document.querySelector('.agent-panel [role=status]').textContent.includes('已结束')");
+  await evalJs("document.querySelector('.agent-panel select').value='dsh'");
+  await click('.agent-panel [data-start]');
+  await until("!document.querySelector('.agent-web').hidden");
+  const marker = await evalJs("window.texora.fs.read(window.__texora.state.project.root + '/agent-web-authenticated.txt')");
+  assert.equal(marker.text, 'authenticated', 'local provider view completes the first-party cookie exchange');
+  await click('.agent-panel [data-stop]');
   await click('[data-ai-mode=ask]');
   assert.ok(await evalJs("document.querySelector('#aiPrompt').getClientRects().length > 0"));
 }

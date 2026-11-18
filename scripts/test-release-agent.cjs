@@ -8,6 +8,25 @@ const windows = process.platform === 'win32';
 const fixture = path.join(root, windows ? 'codex.exe' : 'codex');
 if (windows) fs.copyFileSync(process.execPath, fixture);
 else fs.symlinkSync(process.execPath, fixture);
+// Simulate DSH's documented loopback launch URL and Strict cookie exchange.
+const dshPackage = path.join(root, 'node_modules', '@deepseek-ai', 'dsh');
+fs.mkdirSync(dshPackage, {recursive:true});
+fs.writeFileSync(path.join(dshPackage, 'package.json'), JSON.stringify({name:'@deepseek-ai/dsh',bin:{dsh:'bin.cjs'}}));
+const dsh = path.join(dshPackage, 'bin.cjs');
+fs.writeFileSync(dsh, `#!/usr/bin/env node
+const http = require('node:http'), fs = require('node:fs');
+const server = http.createServer((req,res) => {
+  if (req.url === '/?token=fixture') {
+    res.writeHead(303, {Location:'/', 'Set-Cookie':'dsh-test=ok; Path=/; HttpOnly; SameSite=Strict'});
+  } else if (req.url === '/' && req.headers.cookie?.includes('dsh-test=ok')) {
+    fs.writeFileSync('agent-web-authenticated.txt', 'authenticated');
+    res.writeHead(200, {'Content-Type':'text/html'});
+  } else res.writeHead(401);
+  res.end();
+});
+server.listen(0,'127.0.0.1',() => console.log('dsh web: http://127.0.0.1:'+server.address().port+'/?token=fixture'));
+`, {mode:0o755});
+if (!windows) fs.symlinkSync(dsh,path.join(root,'dsh'));
 const project = path.join(root,'project');
 fs.mkdirSync(project);
 fs.writeFileSync(path.join(project,'main.tex'),'\\documentclass{article}\n\\begin{document}Test\\end{document}');

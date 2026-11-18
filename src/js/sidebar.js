@@ -902,7 +902,7 @@ export class Sidebar {
         <div class="row"><button class="btn btn-sm" data-detect>重新检测</button>
           <button class="btn btn-sm btn-primary" data-start disabled>连接</button><button class="btn btn-sm" data-stop disabled>结束</button></div>
         <div role="status"></div><div class="agent-terminal"></div>
-        <iframe hidden title="DeepSeek Harness" sandbox="allow-scripts allow-forms allow-same-origin allow-downloads"></iframe>
+        <div class="agent-web" hidden></div>
       </div>
       <div class="ai-panel">
         <div class="ai-status" id="aiStatus"></div>

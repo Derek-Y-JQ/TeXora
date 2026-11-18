@@ -40,7 +40,7 @@ function launchSpec(provider) {
 }
 
 class AgentSession {
-  constructor(send) { this.send = send; this.process = null; }
+  constructor(send, web = null) { this.send = send; this.web = web; this.process = null; }
   list() { return providers.map(p => ({ id:p.id, label:p.label, installed:!!launchSpec(p) })); }
   start(id, cwd) {
     if (this.process) throw Error('请先结束当前会话');
@@ -55,10 +55,25 @@ class AgentSession {
       name:'xterm-256color', cols:80, rows:24, cwd, env:{...process.env, PATH:spec.path, TERM:'xterm-256color'}
     });
     this.process = proc;
-    proc.onData(data => { if (this.process === proc) this.send('agent:event', { data }); });
+    let startup = '', opened = false;
+    proc.onData(data => {
+      if (this.process !== proc) return;
+      if (id === 'dsh' && this.web && !opened) {
+        startup = (startup + data).slice(-8192);
+        const entry = startup.match(/http:\/\/127\.0\.0\.1:\d+\/[^\s\x1b]*(?=[\s\x1b])/);
+        if (entry) {
+          opened = true;
+          this.web.open(entry[0]);
+          startup = '';
+          return;
+        }
+      }
+      this.send('agent:event', { data });
+    });
     proc.onExit(({exitCode}) => {
       if (this.process !== proc) return;
       this.process = null;
+      this.web?.close();
       this.send('agent:event', { ended:true, exitCode });
     });
     return {ok:true};
@@ -72,6 +87,7 @@ class AgentSession {
     const proc = this.process;
     if (!proc) return;
     this.process = null;
+    this.web?.close();
     try { proc.kill(); } finally { this.send('agent:event', {ended:true}); }
   }
 }
