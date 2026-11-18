@@ -16,23 +16,27 @@ export default async function ({evalJs, click, sleep}) {
   await evalJs("window.__texora.sidebar.show('ai')");
   await click('[data-ai-mode=agent]');
   await until("document.querySelector('.agent-panel select').value === 'codex'");
-  await click('.agent-panel [data-start]');
-  await until("document.querySelector('.agent-panel [role=status]').textContent === '会话已连接'");
-  await until("document.querySelector('.xterm')");
-  const response = await evalJs(`new Promise(resolve => {
-    let output = '';
-    const off = window.texora.agent.onEvent(e => {
-      if (e.data) output += e.data;
-      if (output.includes('TEXORA-' + 'READY-210')) { off(); resolve(true); }
-    });
-    window.texora.agent.write("console.log('TEXORA-' + 'READY-210')\\r");
-    setTimeout(() => { off(); resolve(false); }, 10000);
-  })`);
-  assert.ok(response, 'packaged PTY must echo evaluated output through the renderer bridge');
-  await click('.agent-panel [data-stop]');
-  await until("document.querySelector('.agent-panel [role=status]').textContent.includes('已结束')");
-  await evalJs("document.querySelector('.agent-panel select').value='dsh'");
-  await click('.agent-panel [data-start]');
+  for (const id of ['codex','claude']) {
+    await evalJs(`(()=>{const sel=document.querySelector('.agent-panel select'); sel.value='${id}'; sel.dispatchEvent(new Event('change'));})()`);
+    await until("!document.querySelector('.agent-panel [data-login]').hidden && !document.querySelector('.agent-panel textarea').value");
+    await click('.agent-panel [data-login]');
+    await until("!document.querySelector('.agent-panel textarea').disabled");
+    async function send(text) {
+      await evalJs(`(()=>{const input=document.querySelector('.agent-panel textarea');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input'));input.form.requestSubmit()})()`);
+      await until("document.querySelector('.agent-panel [data-stop]').hidden");
+    }
+    await send('你好');
+    await until("document.querySelector('.agent-messages').textContent.includes('收到 你好')");
+    await click('.agent-panel [data-new]');
+    await click('.agent-panel [data-history]');
+    await click('.agent-recent button');
+    await send('再问一次');
+    await until("document.querySelector('.agent-messages').textContent.includes('继续 再问一次')");
+    assert.equal(await evalJs("document.querySelectorAll('.agent-messages .agent-assistant').length"),2);
+  }
+  await evalJs("(()=>{const sel=document.querySelector('.agent-panel select');sel.value='dsh';sel.dispatchEvent(new Event('change'))})()");
+  await until("document.querySelector('.agent-panel [data-login]').textContent==='打开 DeepSeek'");
+  await click('.agent-panel [data-login]');
   await until("!document.querySelector('.agent-web').hidden");
   const marker = await evalJs("window.texora.fs.read(window.__texora.state.project.root + '/agent-web-authenticated.txt')");
   assert.equal(marker.text, 'authenticated', 'local provider view completes the first-party cookie exchange');

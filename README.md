@@ -1,4 +1,4 @@
-# TeXora 2.1.2 · 本地优先的 LaTeX 写作工作台
+# TeXora 2.1.3 · 本地优先的 LaTeX 写作工作台
 
 2.0.3：更新环境回车补全、PDF 全屏阅读与演示模式、数学符号面板和最近项目管理，并完善 Endfield 交互与动效。详见 [更新说明](docs/release-2.0.3.md)。
 
@@ -23,7 +23,7 @@ TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF�
 
 ## Ask 与 Agent
 
-Ask 沿用原有服务商设置、上下文选择、OCR 和修改确认。Agent 使用已安装的 `codex`、`claude` 或 `dsh`。打开项目，在 AI 侧栏选 Agent，选择已检测到的工具，点击「连接」。首次使用时按该工具的提示完成登录或配置提供商。DeepSeek Harness 使用本地 Web 界面，首次进入时选择当前项目作为工作区。会话在切换项目或关闭窗口时结束。
+Ask 保留上下文选择、OCR 和修改确认。打开项目，在 AI 侧栏选择 Agent 和本机安装的 Codex 或 Claude Code，点击登录并在服务商浏览器页面完成授权。已有登录状态会自动识别。可在底部输入框直接发送消息，Shift+Enter 换行；「最近对话」按项目和服务商保存，并可恢复上下文。DeepSeek Harness 通过「打开 DeepSeek」进入该工具自带的图形界面。
 
 ## macOS 安装与构建
 
@@ -201,7 +201,7 @@ API Key 使用系统加密存储并迁移旧设置及备份；Gemini 通过请�
 
 ## 安装与开始使用
 
-1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.1.2.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
+1. 从 [Releases](https://github.com/Derek-Y-JQ/TeXora/releases/latest) 下载 `TeXora-Setup-2.1.3.exe`，退出旧程序后安装。安装程序可选择目录，保留用户数据。
 2. 安装或配置 MiKTeX / TeX Live；在“设置 → 宏包与 TeX 环境”检查编译工具。PDF 预览需要 pdftoppm 或 pdftocairo，双向定位需要 SyncTeX。
 3. 打开项目文件夹或内置 `samples/demo`、`samples/paper`、`samples/book`。在主文档中编译，也可编辑子文件。
 4. 如需 AI，在设置中填写自己的服务商、模型、Base URL 与 API Key；自行选择上下文和 Skills。新安装的默认最大输出为 10000 Tokens。

@@ -137,13 +137,14 @@ const compiler = new Compiler({ store, project, tex, history, send, fallbackCach
 const { AgentSession } = require('./lib/agent-session');
 const { AgentWebView } = require('./lib/agent-web-view');
 const agentWeb = new AgentWebView(() => win, send);
-const agentSession = new AgentSession(send, agentWeb);
+const agentSession = new AgentSession(send, agentWeb, USER_DATA);
 ipcMain.on('agent:bounds', (event, rect) => { if (event.senderFrame === win?.webContents.mainFrame) agentWeb.bounds(rect); });
 handle('agent:list', () => agentSession.list());
-handle('agent:start', id => agentSession.start(id, project.root));
+handle('agent:status', id => agentSession.status(id));
+handle('agent:login-code', code => agentSession.loginCode(code));
+handle('agent:history', id => agentSession.history(id, project.root));
+handle('agent:start', (id,kind,request) => agentSession.start(id, project.root,kind,request));
 handle('agent:stop', () => agentSession.stop());
-ipcMain.on('agent:write', (event, data) => { if (event.senderFrame === win?.webContents.mainFrame) agentSession.write(data); });
-ipcMain.on('agent:resize', (event, cols, rows) => { if (event.senderFrame === win?.webContents.mainFrame) agentSession.resize(cols,rows); });
 const codeTools = new CodeTools({ tex, store, project, userData: USER_DATA });
 
 // --------------------------------------------------------------------- window

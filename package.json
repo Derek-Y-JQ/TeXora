@@ -1,6 +1,6 @@
 {
   "name": "texora",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "TeXora — a modern local-first LaTeX editor for Windows and macOS with block editing, SyncTeX, local history and controlled AI assistance",
   "main": "electron/main.js",
   "author": "TeXora Studio",
@@ -134,11 +134,7 @@
         }
       ],
       "artifactName": "TeXora-${version}-mac-${arch}.${ext}"
-    },
-    "asarUnpack": [
-      "node_modules/node-pty/**/*"
-    ],
-    "afterPack": "scripts/after-pack.cjs"
+    }
   },
   "repository": {
     "type": "git",
@@ -146,10 +142,6 @@
   },
   "homepage": "https://derek-y-jq.github.io/TeXora/",
   "dependencies": {
-    "@xterm/addon-fit": "0.11.0",
-    "@xterm/addon-web-links": "0.12.0",
-    "@xterm/xterm": "6.0.0",
-    "adm-zip": "0.6.1",
-    "node-pty": "1.1.0"
+    "adm-zip": "0.6.1"
   }
 }

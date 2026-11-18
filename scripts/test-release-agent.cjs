@@ -4,10 +4,16 @@ const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const root = fs.mkdtempSync(path.join(os.tmpdir(),'texora-agent-test-'));
 const windows = process.platform === 'win32';
-// A local Node REPL exercises real terminal input/output without a provider account.
-const fixture = path.join(root, windows ? 'codex.exe' : 'codex');
-if (windows) fs.copyFileSync(process.execPath, fixture);
-else fs.symlinkSync(process.execPath, fixture);
+// A provider fixture implements the same login, JSON event and resume contracts.
+for (const [id,pkg] of [['codex','@openai/codex'],['claude','@anthropic-ai/claude-code']]) {
+  const dir=path.join(root,'node_modules',pkg);
+  fs.mkdirSync(dir,{recursive:true});
+  fs.writeFileSync(path.join(dir,'package.json'),JSON.stringify({name:pkg,bin:{[id]:'bin.cjs'}}));
+  const entry=path.join(dir,'bin.cjs');
+  fs.copyFileSync(path.join(__dirname,'../tests/fixtures/agent-provider.cjs'),entry);
+  fs.chmodSync(entry,0o755);
+  if (!windows) fs.symlinkSync(entry,path.join(root,id));
+}
 // Simulate DSH's documented loopback launch URL and Strict cookie exchange.
 const dshPackage = path.join(root, 'node_modules', '@deepseek-ai', 'dsh');
 fs.mkdirSync(dshPackage, {recursive:true});

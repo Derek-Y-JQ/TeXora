@@ -897,13 +897,7 @@ export class Sidebar {
         <button class="btn btn-sm" role="tab" aria-selected="true" data-ai-mode="ask">Ask</button>
         <button class="btn btn-sm" role="tab" aria-selected="false" data-ai-mode="agent">Agent</button>
       </div>
-      <div class="agent-panel" hidden>
-        <select class="input" aria-label="本机 Agent 工具"></select>
-        <div class="row"><button class="btn btn-sm" data-detect>重新检测</button>
-          <button class="btn btn-sm btn-primary" data-start disabled>连接</button><button class="btn btn-sm" data-stop disabled>结束</button></div>
-        <div role="status"></div><div class="agent-terminal"></div>
-        <div class="agent-web" hidden></div>
-      </div>
+      <section class="agent-panel" aria-label="Agent 聊天" hidden></section>
       <div class="ai-panel">
         <div class="ai-status" id="aiStatus"></div>
         <div class="ai-prompt">

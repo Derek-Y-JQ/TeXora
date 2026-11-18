@@ -78,7 +78,6 @@ jobs:
           mount="$RUNNER_TEMP/texora-mount"
           hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$disk"
           codesign --verify --deep --strict --verbose=2 "$mount/TeXora.app"
-          test -x "$mount/TeXora.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-$ARCH/spawn-helper"
           ditto "$mount/TeXora.app" "$RUNNER_TEMP/TeXora.app"
           hdiutil detach "$mount"
           node scripts/test-release-agent.cjs "$RUNNER_TEMP/TeXora.app/Contents/MacOS/TeXora"
@@ -100,7 +99,7 @@ jobs:
       - working-directory: release
         run: |
           sha256sum *.exe *.dmg > SHA256SUMS.txt
-          echo '默认白天主题。AI 侧栏可在 Ask 与本机 Agent 之间切换。' > notes.md
+          echo 'Agent 侧栏新增图形聊天、账号登录、最近对话和会话恢复。支持本机 Codex、Claude Code 和 DeepSeek Harness。' > notes.md
           cat windows.txt mac-*.txt >> notes.md
       - uses: softprops/action-gh-release@v2
         with:
