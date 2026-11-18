@@ -1,4 +1,5 @@
 import { Terminal } from '@xterm/xterm';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
@@ -48,6 +49,7 @@ export function setupAgentPanel(panel, api) {
       terminal = new Terminal({fontSize:12, scrollback:1500, cursorBlink:true});
       fit = new FitAddon();
       terminal.loadAddon(fit);
+      terminal.loadAddon(new WebLinksAddon((_event, url) => api.openExternal(url)));
       terminal.open(host);
       terminal.onData(data => api.agent.write(data));
       terminal.onResize(({cols,rows}) => api.agent.resize(cols,rows));

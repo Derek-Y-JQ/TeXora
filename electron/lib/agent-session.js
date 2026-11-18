@@ -48,8 +48,10 @@ class AgentSession {
     const provider = providers.find(p => p.id === id);
     const spec = provider && launchSpec(provider);
     if (!spec) throw Error('未找到所选工具，请安装后重新检测');
-    const args = id === 'dsh' ? [...spec.args, 'web', '--no-open'] : spec.args;
-    const proc = require('node-pty').spawn(spec.exe, args, {
+    const args = id === 'dsh' ? [...spec.args, 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'] : spec.args;
+    // ConPTY spawns a worker thread which requires a real filesystem path.
+    const modulePath = require.resolve('node-pty').replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2');
+    const proc = require(modulePath).spawn(spec.exe, args, {
       name:'xterm-256color', cols:80, rows:24, cwd, env:{...process.env, PATH:spec.path, TERM:'xterm-256color'}
     });
     this.process = proc;

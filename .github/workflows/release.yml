@@ -28,7 +28,7 @@ jobs:
             $env:CSC_LINK = Join-Path $env:RUNNER_TEMP 'texora-signing.pfx'
             Export-PfxCertificate -Cert $cert -FilePath $env:CSC_LINK -Password (ConvertTo-SecureString $env:CSC_KEY_PASSWORD -AsPlainText -Force) | Out-Null
           }
-          npx electron-builder --win nsis --x64 --publish never -c.forceCodeSigning=true
+          node scripts/package-release.cjs x64
           if ($LASTEXITCODE) {exit $LASTEXITCODE}
           $installer = Get-Item release/TeXora-Setup-*.exe
           $signature = Get-AuthenticodeSignature $installer
@@ -61,11 +61,11 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           if [[ -n "$CSC_LINK" ]]; then
-            npx electron-builder --mac dmg --"$ARCH" --publish never -c.forceCodeSigning=true
+            node scripts/package-release.cjs "$ARCH"
             note="应用使用仓库配置的 Apple 证书签名。"
           else
             unset CSC_LINK CSC_KEY_PASSWORD
-            npx electron-builder --mac dmg --"$ARCH" --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false
+            node scripts/package-release.cjs "$ARCH"
             note="应用使用 macOS 临时签名，未经 Apple 公证。"
           fi
           disk=$(find release -maxdepth 1 -name '*.dmg')
