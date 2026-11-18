@@ -79,10 +79,9 @@ jobs:
           hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$disk"
           codesign --verify --deep --strict --verbose=2 "$mount/TeXora.app"
           test -x "$mount/TeXora.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-$ARCH/spawn-helper"
-          if [[ "$ARCH" == "$(node -p process.arch)" ]]; then
-            node scripts/test-release-agent.cjs "$mount/TeXora.app/Contents/MacOS/TeXora"
-          fi
+          ditto "$mount/TeXora.app" "$RUNNER_TEMP/TeXora.app"
           hdiutil detach "$mount"
+          node scripts/test-release-agent.cjs "$RUNNER_TEMP/TeXora.app/Contents/MacOS/TeXora"
           echo "macOS $ARCH · $note" > "release/mac-$ARCH.txt"
       - uses: actions/upload-artifact@v4
         with:
