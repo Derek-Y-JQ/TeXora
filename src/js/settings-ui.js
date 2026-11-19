@@ -154,7 +154,7 @@ export function createSettingsUI() {
         ${switchRow('build.autoEngine', '根据项目自动选择引擎', '打开项目时识别中文/ctex/fontspec：中文项目用 XeLaTeX，纯英文项目用 pdfLaTeX')}
         ${selectRow('build.engine', '默认编译引擎', '全局默认，可在工具栏临时切换', [['xelatex', 'XeLaTeX（推荐，中文友好）'], ['pdflatex', 'pdfLaTeX'], ['lualatex', 'LuaLaTeX'], ['latexmk', 'latexmk（自动多遍）']])}
         ${selectRow('build.bibliography', '文献引擎', '', [['biber', 'Biber（biblatex）'], ['bibtex', 'BibTeX（传统）']])}
-        ${selectRow('build.recipe', '编译方式', '使用项目 latexmkrc 配置时，请选择 latexmk。', [['auto', '自动（按引擎多遍编译）'], ['latexmk', 'latexmk 统一调度'], ['xelatex', '固定 XeLaTeX'], ['pdflatex', '固定 pdfLaTeX'], ['lualatex', '固定 LuaLaTeX']])}
+        ${selectRow('build.recipe', '编译方式', '自动模式识别项目中的 latexmkrc。', [['auto', '自动（按引擎多遍编译）'], ['latexmk', 'latexmk 统一调度'], ['xelatex', '固定 XeLaTeX'], ['pdflatex', '固定 pdfLaTeX'], ['lualatex', '固定 LuaLaTeX']])}
         ${inputRow('build.maxRuns', '最大编译遍数', '用于交叉引用稳定', { type: 'number', width: 100 })}
         ${inputRow('build.timeout', '单次编译超时（秒）', '', { type: 'number', width: 100 })}
         ${inputRow('build.extraArgs', '附加编译参数', '例如 -shell-escape，留空则不添加', { placeholder: '-shell-escape' })}

@@ -1019,7 +1019,7 @@ async function saveDocumentNow(path, { silent = false } = {}) {
   renderTabs();
   if (!silent) {
     setBuildStatus(ctx.state.build.state, ctx.state.build.state === 'ok' ? '已保存 · 编译成功' : '已保存');
-    if (ctx.state.settings.build.buildOnSave) ctx.cmd('build.run');
+    if (ctx.state.settings.build.buildOnSave) ctx.cmd('build.run', { background: true });
   }
   return true;
 }
@@ -1254,7 +1254,7 @@ async function openPreviewOnLoad(generation = previewGeneration) {
   }
   if (loaded || generation !== previewGeneration) return;
   if (ctx.state.settings.build.livePreview && !info?.capture?.enabled) {
-    setTimeout(() => { if (generation === previewGeneration) ctx.cmd('build.run'); }, 500);
+    setTimeout(() => { if (generation === previewGeneration) ctx.cmd('build.run', { live: true }); }, 500);
   }
 }
 
@@ -1305,8 +1305,12 @@ async function runBuild(opts = {}) {
     buildStartedAt = Date.now();
     setBuildStatus('building', '编译中…');
     ctx.preview.setBusy(true);
-    const res = await api.build.run({ file: ctx.state.activePath, live: !!opts.live });
+    const res = await api.build.run({ file: ctx.state.activePath, live: !!opts.live, background: !!opts.background });
     if (generation !== previewGeneration) return;
+    if (res?.needsProjectBuild) {
+      ctx.preview.setBusy(false);
+      setBuildStatus('idle', '点击编译以加载项目配置');
+    }
     if (res && res.error) {
       if(ctx.state.build.state!=='error')handleBuildDone({...res,ok:false,rootFile:ctx.state.project.rootFile});
     }
@@ -1611,7 +1615,7 @@ function toggleLivePreview() {
   ctx.state.settings.build.livePreview = next;
   ctx.ribbon.refresh();
   toast({ type: 'info', title: next ? '自动编译已开启' : '自动编译已关闭', timeout: 1800 });
-  if (next) ctx.cmd('build.run');
+  if (next) ctx.cmd('build.run', { live: true });
 }
 
 function toggleFocusMode() {

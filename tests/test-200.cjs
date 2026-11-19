@@ -26,10 +26,17 @@ const {Compiler}=require('../electron/lib/compiler');const {DEFAULT_SETTINGS}=re
  let cancelledCalls=0;const stopped=make(async()=>{cancelledCalls++;stopped._buildToken.cancelled=true;return {code:1,output:'fatal: putenv(TEXMF_OUTPUT_DIRECTORY=bad)'}});assert.ok((await stopped.build()).cancelled);assert.equal(cancelledCalls,1);
  settings.build.engine='latexmk';calls.length=0;const mk=make(output);assert.ok((await mk.build()).ok);assert.equal(calls.length,2);assert.ok(calls[1].cache.includes('build-cache'));
  await fs.writeFile(path.join(root,'latexmkrc'),'$biber = "biber-arm64 %O %S";');
- settings.build.engine='xelatex';settings.build.recipe='latexmk';calls.length=0;
- assert.ok((await make(output).build()).ok);
+ settings.build.engine='xelatex';settings.build.recipe='auto';calls.length=0;
+ const projectRecipe=make(output);
+ assert.ok((await projectRecipe.build({background:true})).needsProjectBuild);
+ assert.equal(calls.length,0);
+ assert.ok((await projectRecipe.build()).ok);
  assert.ok(calls.every(call=>call.exe==='latexmk' && call.args.includes('-xelatex') && !call.args.includes('-halt-on-error=0')));
- settings.build.recipe='auto';
+ calls.length=0;
+ assert.ok((await projectRecipe.build({live:true})).ok);
+ assert.equal(calls[0].exe,'latexmk');
+ await fs.writeFile(path.join(root,'latexmkrc'),'$biber = "another-biber %O %S";');
+ assert.ok((await projectRecipe.build({background:true})).needsProjectBuild);
  let bibPasses=0;
  const badBib=make(async(exe,args,opts)=>{
    if(exe==='biber')return {code:255,output:'extracting arm64 binary with lipo failed'};
@@ -37,7 +44,7 @@ const {Compiler}=require('../electron/lib/compiler');const {DEFAULT_SETTINGS}=re
    if(response.code===0)await fs.writeFile(path.join(calls.at(-1).cache,'main.bcf'),'fixture');
    return response;
  });
- badBib.tex={get:name=>name,env:{}};
+ badBib.tex={get:name=>name==='latexmk' ? '' : name,env:{}};
  const broken=await badBib.build();
  assert.equal(bibPasses,2,'one retry for the non-ASCII cache, then stop at Biber');
  assert.equal(broken.code,255);

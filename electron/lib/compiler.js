@@ -284,9 +284,27 @@ class Compiler {
     if (!rootFile || !fs.existsSync(rootFile)) return { ok: false, error: '未找到主文档（含 \\documentclass 的 .tex 文件）' };
     const projectRoot = this.root;
     const revision = this.project.revision;
+    const engine = options.engine || this.store.get('build.engine', 'xelatex');
+    const rootDir = path.dirname(rootFile);
+    const recipe = this.store.get('build.recipe', 'auto');
+    const findRc = dir => ['.latexmkrc', 'latexmkrc'].map(name => path.join(dir,name))
+      .find(file => fs.statSync(file, { throwIfNoEntry:false })?.isFile());
+    const localRc = findRc(rootDir);
+    const parentRc = rootDir !== projectRoot && !localRc && findRc(projectRoot);
+    const projectRc = localRc || parentRc;
+    const latexmk = this.tex.get('latexmk');
+    const useProjectRc = recipe === 'auto' && engine !== 'latexmk' && projectRc && latexmk;
+    const actualRecipe = recipe === 'auto' ? (useProjectRc ? 'latexmk' : engine) : recipe;
+    const background = options.background || options.live;
+    if (useProjectRc) {
+      const content = crypto.createHash('sha256').update(await fsp.readFile(projectRc)).digest('hex');
+      const projectBuild = JSON.stringify([projectRoot,revision,projectRc,content]);
+      if (this.root !== projectRoot || this.project.revision !== revision) return {ok:false,cancelled:true};
+      if (background && this._approvedProjectBuild !== projectBuild) return {ok:false,needsProjectBuild:true};
+      if (!background) this._approvedProjectBuild = projectBuild;
+    }
     this._artifactGeneration = (this._artifactGeneration || 0) + 1;
     const send = (event, payload) => { if (this.root === projectRoot && this.project.revision === revision) this.send(event, { ...payload, projectRoot, revision }); };
-    const engine = options.engine || this.store.get('build.engine', 'xelatex');
     const token = { cancelled: false };
     this._buildToken = token;
     const checkCancelled = () => {
@@ -299,7 +317,6 @@ class Compiler {
     let previewDir = path.join(cache, 'preview');
     await fsp.mkdir(previewDir, { recursive: true });
     const jobname = this.jobnameFor(rootFile);
-    const rootDir = path.dirname(rootFile);
     const relRoot = path.relative(this.root, rootFile) || path.basename(rootFile);
     // TeX must run from the directory that contains the root document so that
     // \input{sections/...}, \includegraphics{figures/...} and relative .bib
@@ -322,13 +339,6 @@ class Compiler {
     if (mintedEnabled(this.store, this.root) && !extra.includes('-shell-escape')) extra.push('-shell-escape');
     const maxRuns = Math.max(1, Number(this.store.get('build.maxRuns', 3)) || 3);
     const timeout = Math.max(20, Number(this.store.get('build.timeout', 180)) || 180) * 1000;
-    const recipe = this.store.get('build.recipe', 'auto');
-    const findRc = dir => ['latexmkrc', '.latexmkrc'].map(name => path.join(dir,name))
-      .find(file => fs.existsSync(file) && fs.statSync(file).isFile());
-    const localRc = findRc(rootDir);
-    const parentRc = rootDir !== projectRoot && !localRc && findRc(projectRoot);
-    const actualRecipe = recipe === 'auto' ? engine : recipe;
-
     const results = [];
     let code = 0;
     let timedOut = false;
@@ -371,13 +381,13 @@ class Compiler {
 
     try {
       if (actualRecipe === 'latexmk') {
-        const latexmk = this.tex.get('latexmk');
         if (!latexmk) throw Error('未找到 latexmk，请安装或在设置中选择固定 LaTeX 引擎');
         const args = [
           engine === 'pdflatex' ? '-pdf' : engine === 'lualatex' ? '-lualatex' : '-xelatex',
           '-synctex=1', '-interaction=nonstopmode', '-file-line-error', ...(parentRc ? ['-r',parentRc] : []),
           `-outdir=${cache}`, docArg
         ].concat(extra);
+        if (projectRc) send('build:log', {chunk:`\n— latexmk · ${projectRc} —\n`});
         await exec(latexmk, args, runCwd, 'latexmk');
       } else {
         const engineName = engine === 'latexmk' ? 'xelatex' : engine;
@@ -445,8 +455,8 @@ class Compiler {
         problems.unshift({
           severity:'error', file:rootFile, line:0, source:'texora',
           message: failedStep.timedOut ? `${failedLabel} 编译超时` : `${failedLabel} 退出（${failedStep.code}）`,
-          detail: [failedStep.detail, failedLabel === 'Biber' && (localRc || parentRc)
-            ? '此项目含 latexmkrc。选择「编译方式 → latexmk 统一调度」可使用项目指定的 Biber。' : ''].filter(Boolean).join('\n')
+          detail: [failedStep.detail, failedLabel === 'Biber' && projectRc && !latexmk
+            ? '未检测到 latexmk。安装后，自动编译可读取项目的 latexmkrc。' : ''].filter(Boolean).join('\n')
         });
       }
       const errors = problems.filter(p => p.severity === 'error');
