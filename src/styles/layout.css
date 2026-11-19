@@ -848,3 +848,10 @@ html[data-platform="darwin"] .window-controls { display: none; }
 .agent-project span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .agent-turn-end { display:flex; align-items:center; gap:8px; margin:6px 0 16px; font-size:11px; color:var(--text-3); }
 .agent-turn-end::before { content:""; flex:1; border-top:1px solid var(--border); }
+
+.agent-head select { flex:1; }
+.agent-head .icon-btn { flex:none; }
+.agent-model { width:12ch; max-width:38%; min-width:0; font-size:11px; padding:3px 5px; }
+.agent-environment p { margin:0; padding:6px 16px; }
+.agent-changes { display:grid; justify-items:start; gap:5px; }
+.agent-changes button { max-width:100%; text-align:left; overflow-wrap:anywhere; white-space:normal; }

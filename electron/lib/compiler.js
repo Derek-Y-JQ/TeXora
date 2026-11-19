@@ -323,6 +323,10 @@ class Compiler {
     const maxRuns = Math.max(1, Number(this.store.get('build.maxRuns', 3)) || 3);
     const timeout = Math.max(20, Number(this.store.get('build.timeout', 180)) || 180) * 1000;
     const recipe = this.store.get('build.recipe', 'auto');
+    const findRc = dir => ['latexmkrc', '.latexmkrc'].map(name => path.join(dir,name))
+      .find(file => fs.existsSync(file) && fs.statSync(file).isFile());
+    const localRc = findRc(rootDir);
+    const parentRc = rootDir !== projectRoot && !localRc && findRc(projectRoot);
     const actualRecipe = recipe === 'auto' ? engine : recipe;
 
     const results = [];
@@ -331,13 +335,13 @@ class Compiler {
     let transcript = '';
 
     let cacheRetried = false;
-    const exec = async (exe, args, cwd = this.root, passLabel = '') => {
+    const exec = async (exe, args, cwd = this.root, passLabel = '', stepEnv = env) => {
       checkCancelled();
       args = args.map(arg => /^(?:-output-directory=|-outdir=)/.test(arg) ? arg.slice(0,arg.indexOf('=')+1) + cache : arg);
       const outFile = path.join(cache, 'compile-console.log');
       const res = await this.execute(exe, args, {
         cwd,
-        env,
+        env: stepEnv,
         timeout,
         outFile,
         onSpawn: (child) => { this.childPid = child.pid; },
@@ -346,7 +350,7 @@ class Compiler {
       transcript += res.output;
       code = res.code;
       timedOut = res.timedOut;
-      const step = { exe: path.basename(exe), args, code: res.code, pass: passLabel };
+      const step = { exe: path.basename(exe), args, code: res.code, timedOut: res.timedOut, detail: (res.output || '').trim().slice(-6000), pass: passLabel };
       results.push(step);
       this.childPid = 0;
       checkCancelled();
@@ -358,7 +362,7 @@ class Compiler {
         cache = next; pdfPath = path.join(cache, jobname + '.pdf');
         previewDir = path.join(cache, 'preview'); await fsp.mkdir(previewDir, {recursive:true});
         send('build:log', {chunk:`\n[cache] 检测到输出目录 putenv 错误，已切换到英文缓存目录重试：${cache}\n`});
-        const retry = await exec(exe, args, cwd, passLabel + ':ascii-retry');
+        const retry = await exec(exe, args, cwd, passLabel + ':ascii-retry', stepEnv);
         if (retry.code === 0 && !retry.timedOut) step.recovered = true;
         return retry;
       }
@@ -366,13 +370,15 @@ class Compiler {
     };
 
     try {
-      if (actualRecipe === 'latexmk' && this.tex.get('latexmk')) {
+      if (actualRecipe === 'latexmk') {
+        const latexmk = this.tex.get('latexmk');
+        if (!latexmk) throw Error('未找到 latexmk，请安装或在设置中选择固定 LaTeX 引擎');
         const args = [
           engine === 'pdflatex' ? '-pdf' : engine === 'lualatex' ? '-lualatex' : '-xelatex',
-          '-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-halt-on-error=0',
+          '-synctex=1', '-interaction=nonstopmode', '-file-line-error', ...(parentRc ? ['-r',parentRc] : []),
           `-outdir=${cache}`, docArg
         ].concat(extra);
-        await exec(this.tex.get('latexmk'), args, runCwd, 'latexmk');
+        await exec(latexmk, args, runCwd, 'latexmk');
       } else {
         const engineName = engine === 'latexmk' ? 'xelatex' : engine;
         const exe = this.tex.get(engineName) || this.tex.get('xelatex') || this.tex.get('pdflatex');
@@ -395,21 +401,21 @@ class Compiler {
           const auxPath = path.join(cache, jobname + '.aux');
           const bcfPath = path.join(cache, jobname + '.bcf');
           if (pass === 1) {
-            const bibEngine = this.store.get('build.bibliography', 'biber');
-            const auxText = fs.existsSync(auxPath) ? await fsp.readFile(auxPath, 'utf8').catch(() => '') : '';
-            if ((bibEngine === 'biber' || fs.existsSync(bcfPath)) && fs.existsSync(bcfPath) && this.tex.get('biber')) {
+            const auxText = await fsp.readFile(auxPath, 'utf8').catch(() => '');
+            if (passResult.code === 0 && !passResult.timedOut && fs.existsSync(bcfPath)) {
+              const biber = this.tex.get('biber');
+              if (!biber) throw Error('未找到 Biber，无法生成参考文献');
               send('build:log', { chunk: '\n— 参考文献（Biber）—\n' });
-              await exec(this.tex.get('biber'), ['--input-directory', rootDir, '--output-directory', cache, bcfPath], cache, 'biber');
-            } else if (/\\bibdata|\\citation/.test(auxText) && this.tex.get('bibtex')) {
+              const bib = await exec(biber, ['--input-directory',rootDir,'--output-directory',cache,bcfPath], rootDir, 'Biber');
+              if (bib.code !== 0 || bib.timedOut) break;
+            } else if (passResult.code === 0 && !passResult.timedOut && /\\bibdata\b/.test(auxText)) {
+              const bibtex = this.tex.get('bibtex');
+              if (!bibtex) throw Error('未找到 BibTeX，无法生成参考文献');
               send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
-              const bibEnv = { ...env, BIBINPUTS: [rootDir, this.root, cache, ''].join(path.delimiter), BSTINPUTS: [rootDir, this.root, cache, ''].join(path.delimiter) };
-              await run(this.tex.get('bibtex'), [jobname], {
-                cwd: cache,
-                env: bibEnv,
-                timeout,
-                onSpawn: (child) => { this.childPid = child.pid; },
-                onChunk: (chunk) => send('build:log', { chunk })
-              }).then((r) => { transcript += r.output; results.push({ exe: 'bibtex', code: r.code }); this.childPid = 0; });
+              const search = [rootDir,projectRoot,cache,''].join(path.delimiter);
+              const bib = await exec(bibtex, [jobname], cache, 'BibTeX',
+                {...env, BIBINPUTS:search, BSTINPUTS:search});
+              if (bib.code !== 0 || bib.timedOut) break;
             }
           }
           if (timedOut) break;
@@ -433,12 +439,22 @@ class Compiler {
           source: 'texora'
         });
       }
-      const errors = problems.filter((p) => p.severity === 'error');
-      const failedStep=results.find(r=>r.code!==0 && !r.recovered);
-      const ok = !!(pdfFresh && pdfStat && pdfStat.size > 0 && !timedOut && !failedStep && code === 0 && errors.length===0);
-      if(!ok&&!errors.length){
-        const problem={severity:'error',file:rootFile,line:0,source:'texora',message:timedOut?'编译超时，已停止排版':failedStep?`编译进程退出异常（退出码 ${failedStep.code}）`:'编译未生成新的有效 PDF',detail:(transcript||logText||'排版程序未返回日志，请检查引擎路径与文件写入权限。').slice(-6000)};
-        problems.push(problem);errors.push(problem);
+      const failedStep = results.find(step => (step.code !== 0 || step.timedOut) && !step.recovered);
+      const failedLabel = failedStep && (/^pass/.test(failedStep.pass) ? failedStep.exe : failedStep.pass.split(':')[0]);
+      if (failedStep) {
+        problems.unshift({
+          severity:'error', file:rootFile, line:0, source:'texora',
+          message: failedStep.timedOut ? `${failedLabel} 编译超时` : `${failedLabel} 退出（${failedStep.code}）`,
+          detail: [failedStep.detail, failedLabel === 'Biber' && (localRc || parentRc)
+            ? '此项目含 latexmkrc。选择「编译方式 → latexmk 统一调度」可使用项目指定的 Biber。' : ''].filter(Boolean).join('\n')
+        });
+      }
+      const errors = problems.filter(p => p.severity === 'error');
+      const ok = !!(pdfFresh && pdfStat && pdfStat.size > 0 && !timedOut && !failedStep && code === 0 && errors.length === 0);
+      if (!ok && !errors.length) {
+        const problem = {severity:'error', file:rootFile, line:0, source:'texora', message:'编译未生成新的有效 PDF',
+          detail:(transcript || logText || '排版程序未返回日志，请检查引擎路径与文件写入权限。').slice(-6000)};
+        problems.push(problem); errors.push(problem);
       }
 
       // copy PDF next to sources
@@ -468,8 +484,9 @@ class Compiler {
       const result = {
         ok,
         engine: actualRecipe === 'latexmk' ? 'latexmk' : engine,
-        code,
-        timedOut,
+        code: failedStep?.code ?? code,
+        timedOut: !!(failedStep?.timedOut || timedOut),
+        failedStep: failedStep ? {name:failedLabel, code:failedStep.code, detail:failedStep.detail} : undefined,
         duration,
         rootFile,
         projectRoot, revision,
@@ -481,7 +498,7 @@ class Compiler {
         problems,
         errorCount: errors.length,
         warningCount: problems.filter((p) => p.severity === 'warning').length,
-        transcriptTail: (transcript||logText).slice(-6000),
+        transcriptTail: (failedStep ? [problems[0].message,problems[0].detail].filter(Boolean).join('\n') : (transcript || logText).slice(-6000)),
         autoInstalled, cacheDirectory:cache, cacheFallback:cacheRetried
       };
       checkCancelled();

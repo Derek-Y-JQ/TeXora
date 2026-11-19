@@ -1,3 +1,4 @@
+import { ctx } from './ctx.js';
 import { icon } from './util.js';
 import { renderMarkdown } from './markdown.js';
 
@@ -7,7 +8,7 @@ export function setupAgentPanel(panel, api) {
   const tool = (action,label,glyph) => `<button type="button" class="icon-btn" data-${action} title="${label}" aria-label="${label}">${icon(glyph)}</button>`;
   agent.innerHTML = `
     <header class="agent-head"><select aria-label="Agent 服务商"></select><span class="spacer"></span>
-      ${tool('history','最近对话','history')}${tool('new','新对话','plus')}${tool('detect','重新检测账号和工具','refresh')}</header>
+      ${tool('history','最近对话','history')}${tool('new','新对话','plus')}${tool('detect','重新检测账号和工具','refresh')}${tool('settings','Agent 模式 AI 设置','sliders')}</header>
     <div class="agent-scroll"><div class="agent-recent"></div><div class="agent-messages" role="log" aria-live="polite"></div></div>
     <div class="agent-web" hidden></div>
     <div class="agent-account"><span role="status"></span><button class="btn btn-sm" data-login hidden></button>
@@ -15,9 +16,11 @@ export function setupAgentPanel(panel, api) {
       <button class="btn btn-sm" data-stop hidden>结束</button></div>
     <form class="agent-code" hidden><input type="password" autocomplete="off" aria-label="授权码" placeholder="浏览器如有提供，请粘贴授权码"><button class="btn btn-sm">确认</button></form>
     <form class="agent-compose"><textarea aria-label="消息" placeholder="给 Agent 发消息…" rows="2"></textarea>
-      <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
+      <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><input class="agent-model input" list="agent-models" aria-label="选择模型" title="选择模型或输入模型 ID" maxlength="120" placeholder="工具默认模型" autocomplete="off"><datalist id="agent-models"></datalist><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
   const find = q => agent.querySelector(q);
   const select = find('select'), frame = find('.agent-web'), status = find('[role=status]');
+  const model = find('.agent-model');
+  const modelChoices = new Map();
   const input = find('textarea'), form = find('.agent-compose'), scroll = find('.agent-scroll');
   const historyBox = find('.agent-recent'), messages = find('.agent-messages');
   const login = find('[data-login]'), browser = find('[data-browser]'), stop = find('[data-stop]');
@@ -27,6 +30,7 @@ export function setupAgentPanel(panel, api) {
   function controls() {
     const dsh = select.value === 'dsh';
     const installed = providers.some(p => p.id === select.value && p.installed);
+    model.disabled = !!busy || !installed;
     select.disabled = !!busy;
     find('[data-detect]').disabled = !!busy;
     for (const key of ['new','history']) find('[data-'+key+']').disabled = !!busy;
@@ -39,9 +43,21 @@ export function setupAgentPanel(panel, api) {
     stop.textContent = busy === 'message' ? '停止生成' : busy === 'login' ? '取消登录' : '返回聊天';
     form.hidden = busy === 'web';
     input.disabled = !auth || !projectRoot;
-    form.querySelector('button').disabled = input.disabled || !!busy || !input.value.trim();
+    form.querySelector('[type=submit]').disabled = input.disabled || !!busy || !input.value.trim();
     find('[data-account]').textContent = dsh ? '' : auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
   }
+  function syncModel() {
+    const provider = providers.find(p => p.id === select.value);
+    const preferred = ctx.state.settings.agent?.models?.[select.value] || '';
+    model.value = modelChoices.get(select.value) ?? preferred;
+    const choices = [...new Set([preferred,...(provider?.models || [])].filter(Boolean))];
+    find('#agent-models').replaceChildren(...choices.map(id=>new Option(id,id)));
+  }
+  model.onchange = () => modelChoices.set(select.value,model.value.trim());
+  model.onkeydown = event => { if (event.key === 'Enter') event.preventDefault(); event.stopPropagation(); };
+  find('[data-settings]').onclick = () => ctx.settingsUI.open('agent');
+  ctx.on('settings:changed', syncModel);
+
   function showChat() {
     historyBox.replaceChildren();
     messages.replaceChildren();
@@ -71,10 +87,40 @@ export function setupAgentPanel(panel, api) {
     for (const [index,item] of transcript.entries()) {
       const el = document.createElement('div');
       el.className = 'agent-msg agent-'+item.role;
-      if (item.role === 'assistant') { el.classList.add('markdown-body'); el.innerHTML = renderMarkdown(item.text); }
-      else el.textContent = item.text;
+      if (item.role === 'assistant') {
+        el.classList.add('markdown-body');
+        el.innerHTML = renderMarkdown(item.text);
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.className = 'btn btn-sm';
+        copy.innerHTML = icon('copy') + '复制回答';
+        copy.onclick = async () => {
+          const result = await api.clipboard.writeText(item.text);
+          copy.textContent = result.ok ? '已复制' : '复制失败';
+        };
+        if (!item.pending) el.append(copy);
+      } else if (item.role === 'changes') {
+        el.classList.add('agent-changes');
+        const title = document.createElement('strong');
+        title.textContent = '本轮项目文件变化';
+        el.append(title);
+        const labels = {added:'新增',deleted:'删除',modified:'修改'};
+        for (const change of item.changes) {
+          const diff = document.createElement('button');
+          diff.type = 'button';
+          diff.className = 'btn btn-sm';
+          diff.textContent = `${labels[change.kind]} · ${change.file}`;
+          diff.onclick = () => ctx.dialogs.showDiff({title:change.file,subtitle:'本轮磁盘内容对比',left:change.left,right:change.right});
+          el.append(diff);
+        }
+        if (item.limited) {
+          const note = document.createElement('small');
+          note.textContent = '部分文件超出预览范围。';
+          el.append(note);
+        }
+      } else el.textContent = item.text;
       messages.append(el);
-      const historical = item.role === 'assistant' && !item.pending && transcript[index+1]?.role !== 'status';
+      const historical = item.role === 'assistant' && !item.pending && !transcript.slice(index+1,index+3).some(entry=>entry.role === 'status');
       if (item.completedAt || historical) {
         const time = document.createElement('time');
         const date = item.completedAt ? new Date(item.completedAt) : null;
@@ -92,13 +138,14 @@ export function setupAgentPanel(panel, api) {
   }
   async function refresh() {
     const ticket = ++generation;
-    const id = select.value;
+    const id = select.value || ctx.state.settings.agent?.provider;
     const list = await api.agent.list();
     if (ticket !== generation || busy) return;
     providers = Array.isArray(list) ? list : [];
     select.replaceChildren(...providers.map(p => new Option(p.label,p.id)));
     select.value = providers.some(p=>p.id===id) ? id : (providers.find(p=>p.installed) || providers[0])?.id || '';
     const provider = providers.find(p=>p.id===select.value);
+    syncModel();
     auth = false; status.textContent = '正在检测…'; controls();
     const [account, records, project] = await Promise.all([
       provider?.installed ? api.agent.status(provider.id) : {},
@@ -117,7 +164,7 @@ export function setupAgentPanel(panel, api) {
     controls(); showChat();
   }
   function reset() { current=null; showingHistory=true; expand=false; input.value=''; loginUrl=''; }
-  select.onchange = () => { reset(); refresh(); };
+  select.onchange = () => { reset(); syncModel(); refresh(); };
   find('[data-detect]').onclick = refresh;
   find('[data-new]').onclick = () => { reset(); showingHistory=false; status.textContent=''; showChat(); controls(); input.focus(); };
   find('[data-history]').onclick = () => { showingHistory=true; expand=true; showChat(); };
@@ -131,7 +178,7 @@ export function setupAgentPanel(panel, api) {
     }
     busy=kind; loginUrl=''; controls();
     status.textContent = kind === 'login' ? '请在浏览器中完成登录…' : kind === 'message' ? '正在处理…' : '正在打开 DeepSeek…';
-    const result = await api.agent.start(select.value,kind,{chatId,text});
+    const result = await api.agent.start(select.value,kind,{chatId,text,model:model.value.trim()});
     if (!result?.ok) {
       busy=''; status.textContent=result?.error || '操作失败';
       if (kind==='message') { current=previous; input.value=text; showChat(); }
@@ -161,7 +208,13 @@ export function setupAgentPanel(panel, api) {
     e.stopPropagation();
   };
   form.onsubmit = e => { e.preventDefault(); if (auth && projectRoot && input.value.trim()) start('message',input.value.trim()); };
-  api.project.onChange(() => { ++generation; reset(); if (!agent.hidden) refresh(); });
+  api.project.onChange(event => {
+    ++generation; reset();
+    projectRoot = event.root || '';
+    showChat();
+    controls();
+    if (!agent.hidden && !busy) refresh();
+  });
   for (const tab of panel.querySelectorAll('[data-ai-mode]')) tab.onclick = () => {
     const active=tab.dataset.aiMode==='agent';
     for (const t of panel.querySelectorAll('[data-ai-mode]')) t.setAttribute('aria-selected',String(t===tab));
@@ -170,6 +223,13 @@ export function setupAgentPanel(panel, api) {
   };
   api.agent.onEvent(async e => {
     if (e.provider && e.provider!==select.value) return;
+    if (e.projectRoot && e.projectRoot !== projectRoot) {
+      if (e.ended) {
+        busy = ''; loginUrl = ''; controls();
+        if (!agent.hidden) refresh();
+      }
+      return;
+    }
     if (e.codePrompt) find('.agent-code').hidden = false;
     if (e.loginUrl) {
       loginUrl=e.loginUrl; controls();

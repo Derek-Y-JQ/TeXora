@@ -140,10 +140,11 @@ const agentWeb = new AgentWebView(() => win, send);
 const agentSession = new AgentSession(send, agentWeb, USER_DATA, url => shell.openExternal(url));
 ipcMain.on('agent:bounds', (event, rect) => { if (event.senderFrame === win?.webContents.mainFrame) agentWeb.bounds(rect); });
 handle('agent:list', () => agentSession.list());
+handle('agent:environment', () => agentSession.environment());
 handle('agent:status', id => agentSession.status(id));
 handle('agent:login-code', code => agentSession.loginCode(code));
 handle('agent:history', id => agentSession.history(id, project.root));
-handle('agent:start', (id,kind,request) => agentSession.start(id, project.root,kind,request));
+handle('agent:start', (id,kind,request) => agentSession.start(id, project.root,kind,{...request,cacheDir:project.root ? compiler.cacheDir() : ''}));
 handle('agent:stop', () => agentSession.stop());
 const codeTools = new CodeTools({ tex, store, project, userData: USER_DATA });
 

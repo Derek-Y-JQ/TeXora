@@ -16,6 +16,11 @@ export default async function ({evalJs, click, sleep}) {
   await evalJs("window.__texora.sidebar.show('ai')");
   await click('[data-ai-mode=agent]');
   await until("document.querySelector('.agent-panel select').value === 'codex'");
+  await click('.agent-panel [data-settings]');
+  await until("document.querySelector('.settings-content')?.textContent.includes('Agent 模式 AI 设置')");
+  await click('#agentCheck');
+  await until("document.querySelector('#agentEnvironment')?.textContent.includes('fixture 1.0')");
+  await click('#settingsClose');
   for (const id of ['codex','claude','dsh']) {
     await evalJs(`(()=>{const sel=document.querySelector('.agent-panel select'); sel.value='${id}'; sel.dispatchEvent(new Event('change'));})()`);
     await until("!document.querySelector('.agent-panel [data-login]').hidden && !document.querySelector('.agent-panel textarea').value");
@@ -25,8 +30,17 @@ export default async function ({evalJs, click, sleep}) {
       await evalJs(`(()=>{const input=document.querySelector('.agent-panel textarea');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input'));input.form.requestSubmit()})()`);
       await until("document.querySelector('.agent-panel [data-stop]').hidden");
     }
+    if (id==='codex') await evalJs("document.querySelector('.agent-model').value='fixture-model'");
     await send('你好');
     await until("document.querySelector('.agent-messages').textContent.includes('收到 你好')");
+    if (id==='codex') {
+      await until("!!document.querySelector('.agent-changes button')");
+      await click('.agent-changes button');
+      await until("!!document.querySelector('.diff-editor-host')");
+      await evalJs("window.__texora.dialogs.close()");
+      await click('.agent-assistant button');
+      assert.match(await evalJs("document.querySelector('.agent-assistant button').textContent"),/已复制/);
+    }
     await click('.agent-panel [data-new]');
     await click('.agent-panel [data-history]');
     await click('.agent-recent button');

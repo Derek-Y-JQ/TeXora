@@ -26,7 +26,7 @@ const api = {
   onOpenTarget: cb=>on('app:open-target',cb),
   droppedPath: file=>webUtils.getPathForFile(file),
   agent: {
-    list: () => invoke('agent:list'), loginCode:code => invoke('agent:login-code',code), status:id => invoke('agent:status',id), history:id => invoke('agent:history',id),
+    list: () => invoke('agent:list'), environment: () => invoke('agent:environment'), loginCode:code => invoke('agent:login-code',code), status:id => invoke('agent:status',id), history:id => invoke('agent:history',id),
     start:(id,kind,request) => invoke('agent:start',id,kind,request), stop:() => invoke('agent:stop'),
     bounds: rect => ipcRenderer.send('agent:bounds',rect), onEvent: cb => on('agent:event',cb)
   },

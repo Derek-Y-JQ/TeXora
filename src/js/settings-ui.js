@@ -28,7 +28,8 @@ const SECTIONS = [
   { id: 'editor', title: '编辑器与交互', icon: 'code', group: '工作区' },
   { id: 'build', title: '编译与预览', icon: 'play', group: '工作区' },
   { id: 'tex', title: '宏包与 TeX 环境', icon: 'layers', group: '工作区' },
-  { id: 'ai', title: 'AI 助手', icon: 'sparkles', group: '智能' },
+  { id: 'ai', title: 'Ask 模式 AI 设置', icon: 'sparkles', group: '智能' },
+  { id: 'agent', title: 'Agent 模式 AI 设置', icon: 'sliders', group: '智能' },
   { id: 'appearance', title: '外观与主题', icon: 'palette', group: '个性化' },
   { id: 'keys', title: '快捷键', icon: 'keyboard', group: '个性化' },
   { id: 'files', title: '文件与备份', icon: 'files', group: '数据' },
@@ -153,7 +154,7 @@ export function createSettingsUI() {
         ${switchRow('build.autoEngine', '根据项目自动选择引擎', '打开项目时识别中文/ctex/fontspec：中文项目用 XeLaTeX，纯英文项目用 pdfLaTeX')}
         ${selectRow('build.engine', '默认编译引擎', '全局默认，可在工具栏临时切换', [['xelatex', 'XeLaTeX（推荐，中文友好）'], ['pdflatex', 'pdfLaTeX'], ['lualatex', 'LuaLaTeX'], ['latexmk', 'latexmk（自动多遍）']])}
         ${selectRow('build.bibliography', '文献引擎', '', [['biber', 'Biber（biblatex）'], ['bibtex', 'BibTeX（传统）']])}
-        ${selectRow('build.recipe', '编译方式', '', [['auto', '自动（按引擎多遍编译）'], ['latexmk', 'latexmk 统一调度'], ['xelatex', '固定 XeLaTeX'], ['pdflatex', '固定 pdfLaTeX'], ['lualatex', '固定 LuaLaTeX']])}
+        ${selectRow('build.recipe', '编译方式', '使用项目 latexmkrc 配置时，请选择 latexmk。', [['auto', '自动（按引擎多遍编译）'], ['latexmk', 'latexmk 统一调度'], ['xelatex', '固定 XeLaTeX'], ['pdflatex', '固定 pdfLaTeX'], ['lualatex', '固定 LuaLaTeX']])}
         ${inputRow('build.maxRuns', '最大编译遍数', '用于交叉引用稳定', { type: 'number', width: 100 })}
         ${inputRow('build.timeout', '单次编译超时（秒）', '', { type: 'number', width: 100 })}
         ${inputRow('build.extraArgs', '附加编译参数', '例如 -shell-escape，留空则不添加', { placeholder: '-shell-escape' })}
@@ -243,11 +244,33 @@ export function createSettingsUI() {
       </div>`;
   }
 
+  function renderAgent() {
+    const harnesses = [['codex','Codex'],['claude','Claude Code'],['dsh','DeepSeek Harness']];
+    return `<h2 class="settings-section-title">Agent 模式 AI 设置</h2>
+      <div class="setting-card">
+        ${selectRow('agent.provider','默认工具','新打开的 Agent 栏会优先选用此工具。',[['','自动选择'],...harnesses])}
+      </div>
+      <h3>默认模型</h3>
+      <div class="setting-card">
+        ${harnesses.map(([id,label]) => `<label class="setting-row">
+          <span class="setting-main"><span class="setting-name">${label}</span></span>
+          <span class="setting-control"><input class="input input-mono" type="text" maxlength="120" autocomplete="off"
+            placeholder="沿用本机工具默认值" data-setting="agent.models.${id}" value="${escapeHtml(settingValue('agent.models.'+id) || '')}"></span>
+        </label>`).join('')}
+      </div>
+      <h3>本机环境</h3>
+      <div class="setting-card">
+        <div class="setting-row"><span class="setting-main">检查已安装工具、版本和登录状态</span>
+          <button type="button" class="btn btn-sm" id="agentCheck">${icon('refresh')}检测环境</button></div>
+        <div id="agentEnvironment" class="agent-environment" aria-live="polite"></div>
+      </div>`;
+  }
+
   function renderAi() {
     const ai = ctx.state.settings.ai;
     const preset = PROVIDER_PRESETS[ai.provider] || PROVIDER_PRESETS.deepseek;
     return `
-      <h2 class="settings-section-title">AI 助手</h2>
+      <h2 class="settings-section-title">Ask 模式 AI 设置</h2>
       <p class="settings-section-desc">支持 OpenAI、DeepSeek、Claude、Gemini 与任意 OpenAI 兼容接口。密钥仅保存在本机设置文件中。</p>
       ${group('模型服务商')}
       <div class="setting-card">
@@ -495,10 +518,10 @@ export function createSettingsUI() {
         render();
       });
     }
-    const map = { editor: renderEditor, build: renderBuild, tex: renderTex, ai: renderAi, appearance: renderAppearance, keys: renderKeys, files: renderFiles, about: renderAbout };
+    const map = { editor: renderEditor, build: renderBuild, tex: renderTex, ai: renderAi, agent: renderAgent, appearance: renderAppearance, keys: renderKeys, files: renderFiles, about: renderAbout };
     body.innerHTML = (map[currentSection] || renderEditor)();
     const title = body.querySelector('.settings-section-title');
-    if (title) title.dataset.efLabel = '// ' + ({ editor:'EDITOR',build:'BUILD & PREVIEW',tex:'TEX ENVIRONMENT',ai:'AI ASSISTANT',appearance:'APPEARANCE',keys:'KEYBOARD SHORTCUTS',files:'FILES & BACKUPS',about:'ABOUT' }[currentSection] || 'SETTINGS');
+    if (title) title.dataset.efLabel = '// ' + ({ editor:'EDITOR',build:'BUILD & PREVIEW',tex:'TEX ENVIRONMENT',ai:'ASK',agent:'AGENT',appearance:'APPEARANCE',keys:'KEYBOARD SHORTCUTS',files:'FILES & BACKUPS',about:'ABOUT' }[currentSection] || 'SETTINGS');
     body.scrollTop = 0;
     bind(body);
   }
@@ -523,6 +546,16 @@ export function createSettingsUI() {
         node.addEventListener('change', () => set(path, coerce(node.value, path)));
       } else if (node.tagName === 'TEXTAREA') {
         node.addEventListener('change', () => set(path, node.value));
+      } else if (path.startsWith('agent.models.')) {
+        node.addEventListener('change', () => {
+          const model = node.value.trim();
+          if (model && !/^[a-z0-9][a-z0-9._:/-]{0,119}$/i.test(model)) {
+            node.value = settingValue(path) || '';
+            toast({type:'error',title:'模型 ID 格式无效'});
+            return;
+          }
+          set(path,model);
+        });
       } else if (node.tagName === 'INPUT') {
         node.addEventListener(type === 'number' ? 'change' : 'input', debounce(() => set(path, coerce(node.value, path)), type === 'number' ? 0 : 260));
       }
@@ -551,6 +584,24 @@ export function createSettingsUI() {
         for (const d of $$('[data-accent-choice]', body)) d.classList.toggle('active', d === dot);
       });
     }
+
+    body.querySelector('#agentCheck')?.addEventListener('click', async event => {
+      const button = event.currentTarget;
+      const target = body.querySelector('#agentEnvironment');
+      button.disabled = true;
+      target.textContent = '正在检测…';
+      try {
+        const tools = await ctx.api.agent.environment();
+        if (!Array.isArray(tools)) throw Error(tools?.error || '环境检测失败');
+        target.replaceChildren(...tools.map(tool => {
+          const row = document.createElement('p');
+          const account = tool.error || (tool.local ? '账号由本机 Harness 管理' : tool.authenticated ? '已登录' : '未登录');
+          row.textContent = tool.label + ' · ' + (tool.installed ? [tool.version || '已安装',account].join(' · ') : '未检测到');
+          return row;
+        }));
+      } catch (error) { target.textContent = error.message; }
+      finally { button.disabled = false; }
+    });
 
     // specific buttons
     body.querySelector('#setClean')?.addEventListener('click', () => ctx.cmd('build.clean', false));

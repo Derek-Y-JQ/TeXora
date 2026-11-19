@@ -3,6 +3,7 @@ const fs=require('node:fs'), path=require('node:path');
 const args=process.argv.slice(2), claude=__dirname.includes('anthropic-ai');
 const marker=path.join(__dirname,'signed-in');
 const output=value=>console.log(JSON.stringify(value));
+if (args.includes('--version')) { console.log('fixture 1.0'); process.exit(0); }
 if (args.includes('app-server')) {
   require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
     const request=JSON.parse(line);
@@ -28,6 +29,8 @@ if (args.includes('login')) { fs.writeFileSync(marker,'1'); process.exit(0); }
 const text=fs.readFileSync(0,'utf8');
 if (!fs.existsSync(marker)) process.exit(2);
 const remote='8b020c45-c8a0-4659-b260-74af567bdb31';
+const model = args.indexOf('--model');
+if (model >= 0) fs.writeFileSync('agent-note.tex', args[model+1]);
 const response=(args.includes(remote)?'继续 ':'收到 ')+text;
 if (claude) {
   output({type:'system',subtype:'init',session_id:remote});

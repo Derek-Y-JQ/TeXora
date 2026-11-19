@@ -103,6 +103,10 @@ const DEFAULT_SETTINGS = {
     fontMode: 'ctex',
     fonts: process.platform === 'darwin' ? { latin: 'Times', cjk: 'Songti SC', mono: 'Menlo', sans: 'PingFang SC' } : { latin: 'Times New Roman', cjk: 'Microsoft YaHei', mono: 'Consolas', sans: 'Microsoft YaHei' }
   },
+  agent: {
+    provider: '',
+    models: {codex:'', claude:'', dsh:''}
+  },
   ai: {
     provider: 'deepseek',
     baseUrl: 'https://api.deepseek.com/v1',
