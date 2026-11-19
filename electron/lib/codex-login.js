@@ -19,19 +19,24 @@ function startCodexLogin(spec, options, emit, openBrowser, onEnd) {
   const child = spawn(spec.exe,[...spec.args,'app-server'],{
     ...options, detached:process.platform !== 'win32', stdio:'pipe'
   });
-  let ended=false, loginId, stderr='', stage=1;
+  let ended=false, outcome='', loginId, stderr='', stage=1;
   const timer=setTimeout(()=>finish('Codex 没有返回登录地址，请检查本机 Codex 版本及网络。'),45000);
   function finish(error='') {
     if (ended) return;
     ended=true;
     clearTimeout(timer);
     if (child.exitCode===null && child.signalCode===null) killTree(child.pid);
-    onEnd(error);
+    outcome=error;
   }
   function write(message) { child.stdin.write(JSON.stringify(message)+'\n'); }
   child.on('error',error=>finish(safeError(error.message)));
   child.stdin.on('error',error=>{ if (!ended) stderr ||= safeError(error.message); });
-  child.on('close',code=>finish('Codex 登录进程退出（'+code+'）。'+(stderr || '请确认所安装的 Codex 支持 app-server。')));
+  child.on('close',code=>{
+    clearTimeout(timer);
+    const error=ended ? outcome : 'Codex 登录进程退出（'+code+'）。'+(stderr || '请确认所安装的 Codex 支持 app-server。');
+    ended=true;
+    onEnd(error);
+  });
   createInterface({input:child.stderr,crlfDelay:Infinity}).on('line',line=>{
     if (line.trim()) stderr=safeError(line);
   });
