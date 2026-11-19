@@ -44,7 +44,7 @@ const {spawn, execFile} = require('node:child_process');
 const {createInterface} = require('node:readline');
 const {randomUUID, createHash} = require('node:crypto');
 const {killTree} = require('./run');
-const {startCodexLogin} = require('./codex-login');
+const {startCodexLogin,safeError} = require('./codex-login');
 
 function command(id) {
   const provider = providers.find(p => p.id === id);
@@ -66,7 +66,7 @@ class AgentSession {
   }
   list() { return providers.map(p => ({id:p.id, label:p.label, installed:!!launchSpec(p)})); }
   status(id) {
-    if (id === 'dsh') return {web:true};
+    if (id === 'dsh') return {local:true};
     const spec = command(id);
     const args = id === 'codex' ? ['login','status'] : ['auth','status','--json'];
     return new Promise(resolve => execFile(spec.exe, [...spec.args,...args], {...options(spec,os.homedir()),timeout:12000}, (error,out) => {
@@ -108,7 +108,7 @@ class AgentSession {
     } else if (kind === 'web' && id === 'dsh') {
       if (!cwd) throw Error('请先打开项目文件夹');
       args = ['web','--no-open','--host','127.0.0.1','--port','0'];
-    } else if (kind === 'message' && id !== 'dsh') {
+    } else if (kind === 'message') {
       if (!cwd) throw Error('请先打开项目文件夹');
       prompt = String(request.text || '').trim();
       if (!prompt || prompt.length > 100000) throw Error('请输入 1 到 100000 个字符');
@@ -120,6 +120,13 @@ class AgentSession {
       chat.messages.push({role:'user',text:prompt});
       if (id === 'codex') {
         args = ['exec','--sandbox','workspace-write','--skip-git-repo-check','--json',...(chat.remote ? ['resume',chat.remote] : []),'-'];
+      } else if (id === 'dsh') {
+        // DSH's shipped headless profile needs its official credential-store overlay
+        // to reuse accounts configured in its Web app. Keep the user's profiles intact.
+        fs.mkdirSync(this.dir,{recursive:true});
+        const overlay = path.join(this.dir,'dsh-credentials.yml');
+        fs.writeFileSync(overlay,'- id: credentials\n  disabled: false\n- id: authorization\n  disabled: false\n- id: deepseek-account\n  disabled: false\n');
+        args = ['--profile','headless','--patch',overlay,'--json',...(chat.remote ? ['--session-id',chat.remote] : []),'-'];
       } else {
         args = ['-p','--output-format','stream-json','--verbose',...(chat.remote ? ['--resume',chat.remote] : [])];
       }
@@ -127,7 +134,7 @@ class AgentSession {
     const child = spawn(spec.exe,[...spec.args,...args],{...options(spec,kind === 'login' ? os.homedir() : cwd || os.homedir()),detached:process.platform!=='win32',stdio:'pipe'});
     const job = this.job = {id,cwd,kind,child,chat};
     const emit = payload => { if (this.job === job) this.send('agent:event',{provider:id, ...payload}); };
-    let diagnostic = '', reply = '', activity = '', opened = false;
+    let stderrHint = '', diagnostic = '', reply = '', activity = '', opened = false;
     const read = (data,stdout) => {
       if (this.job !== job) return;
       if (kind === 'login') {
@@ -147,9 +154,23 @@ class AgentSession {
         if (entry && !opened) { opened = true; this.web.open(entry[0]); }
         return;
       }
-      if (!stdout) return;
+      if (!stdout) {
+        if (id === 'dsh' && /^(?:dsh:|error:)/i.test(data)) stderrHint = safeError(data);
+        return;
+      }
       let e;
       try { e = JSON.parse(data); } catch { return; }
+      if (id === 'dsh') {
+        if (e.type === 'session') chat.remote = e.sessionId;
+        if (e.type === 'tool_call') emit({activity:e.name || '工具'});
+        if (e.type === 'final') {
+          reply = String(e.text || '');
+          if (reply) emit({message:reply});
+          if (e.reason?.kind !== 'completed') diagnostic = safeError(e.reason?.error?.message) || 'DeepSeek 未完成本次回答';
+        }
+        if (e.type === 'error') diagnostic = safeError(e.message) || 'DeepSeek 请求失败';
+        return;
+      }
       if (e.type === 'thread.started') chat.remote = e.thread_id;
       if (e.type === 'system' && e.subtype === 'init') chat.remote = e.session_id;
       let message = '';
@@ -180,8 +201,10 @@ class AgentSession {
     }
     const finish = (error, cancelled=false) => {
       if (this.job !== job) return;
+      if (chat && id === 'dsh' && !error && !cancelled && !reply) error = '未收到 DeepSeek 回答，请检查 Harness 版本及账号配置。';
       if (chat) {
-        if (reply) chat.messages.push({role:'assistant',text:reply});
+        chat.updated = Date.now();
+        if (reply) chat.messages.push({role:'assistant',text:reply,completedAt:error || cancelled ? undefined : chat.updated});
         if (error || cancelled) chat.messages.push({role:'status',text:error || '已停止'});
         try { this.save(job); } catch { error = '会话记录保存失败'; }
       }
@@ -191,7 +214,7 @@ class AgentSession {
     };
     job.cancel = () => { killTree(child.pid); finish('',true); };
     child.on('error',e=>finish(e.message));
-    child.on('close',code=>finish(diagnostic || (code !== 0 ? '工具已退出（'+code+'），请检查账号状态和本机配置。' : '')));
+    child.on('close',code=>finish(diagnostic || (code !== 0 ? stderrHint || '工具已退出（'+code+'），请检查账号状态和本机配置。' : '')));
     child.stdin.on('error',()=>{});
     if (kind !== 'login') child.stdin.end(prompt);
     return {ok:true, chatId:chat?.id};

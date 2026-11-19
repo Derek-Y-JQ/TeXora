@@ -15,36 +15,37 @@ export function setupAgentPanel(panel, api) {
       <button class="btn btn-sm" data-stop hidden>结束</button></div>
     <form class="agent-code" hidden><input type="password" autocomplete="off" aria-label="授权码" placeholder="浏览器如有提供，请粘贴授权码"><button class="btn btn-sm">确认</button></form>
     <form class="agent-compose"><textarea aria-label="消息" placeholder="给 Agent 发消息…" rows="2"></textarea>
-      <footer><span data-account></span><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
+      <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
   const find = q => agent.querySelector(q);
   const select = find('select'), frame = find('.agent-web'), status = find('[role=status]');
   const input = find('textarea'), form = find('.agent-compose'), scroll = find('.agent-scroll');
   const historyBox = find('.agent-recent'), messages = find('.agent-messages');
   const login = find('[data-login]'), browser = find('[data-browser]'), stop = find('[data-stop]');
   let providers = [], history = [], current = null, auth = false, busy = '', loginUrl = '', generation = 0;
+  let projectRoot = '';
   let showingHistory = true, expand = false;
   function controls() {
     const dsh = select.value === 'dsh';
     const installed = providers.some(p => p.id === select.value && p.installed);
     select.disabled = !!busy;
     find('[data-detect]').disabled = !!busy;
-    for (const key of ['new','history']) find('[data-'+key+']').disabled = !!busy || dsh;
+    for (const key of ['new','history']) find('[data-'+key+']').disabled = !!busy;
     login.hidden = !installed || !!busy || (!dsh && auth);
-    login.textContent = dsh ? '打开 DeepSeek' : '登录 ' + (select.selectedOptions[0]?.textContent || '');
+    login.textContent = dsh ? '配置 DeepSeek 账号' : '登录 ' + (select.selectedOptions[0]?.textContent || '');
     browser.hidden = !loginUrl || busy !== 'login';
     find('[data-copy]').hidden = browser.hidden;
     if (busy !== 'login') find('.agent-code').hidden = true;
     stop.hidden = !busy;
-    stop.textContent = busy === 'message' ? '停止生成' : busy === 'login' ? '取消登录' : '结束';
-    form.hidden = dsh;
-    input.disabled = !auth;
-    form.querySelector('button').disabled = !auth || !!busy || !input.value.trim();
-    find('[data-account]').textContent = auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
+    stop.textContent = busy === 'message' ? '停止生成' : busy === 'login' ? '取消登录' : '返回聊天';
+    form.hidden = busy === 'web';
+    input.disabled = !auth || !projectRoot;
+    form.querySelector('button').disabled = input.disabled || !!busy || !input.value.trim();
+    find('[data-account]').textContent = dsh ? '' : auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
   }
   function showChat() {
     historyBox.replaceChildren();
     messages.replaceChildren();
-    if (showingHistory && select.value !== 'dsh') {
+    if (showingHistory) {
       const title = document.createElement('h3');
       title.textContent = '最近对话';
       historyBox.append(title);
@@ -66,12 +67,26 @@ export function setupAgentPanel(panel, api) {
         more.onclick = () => { expand = true; showChat(); }; historyBox.append(more);
       }
     }
-    for (const item of showingHistory ? [] : current?.messages || []) {
+    const transcript = showingHistory ? [] : current?.messages || [];
+    for (const [index,item] of transcript.entries()) {
       const el = document.createElement('div');
       el.className = 'agent-msg agent-'+item.role;
       if (item.role === 'assistant') { el.classList.add('markdown-body'); el.innerHTML = renderMarkdown(item.text); }
       else el.textContent = item.text;
       messages.append(el);
+      const historical = item.role === 'assistant' && !item.pending && transcript[index+1]?.role !== 'status';
+      if (item.completedAt || historical) {
+        const time = document.createElement('time');
+        const date = item.completedAt ? new Date(item.completedAt) : null;
+        time.className = 'agent-turn-end';
+        time.textContent = '回答结束';
+        if (date && Number.isFinite(date.getTime())) {
+          time.dateTime = date.toISOString();
+          time.title = date.toLocaleString();
+          time.textContent += ' · ' + date.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+        }
+        messages.append(time);
+      }
     }
     if (!showingHistory) scroll.scrollTop = scroll.scrollHeight;
   }
@@ -85,15 +100,20 @@ export function setupAgentPanel(panel, api) {
     select.value = providers.some(p=>p.id===id) ? id : (providers.find(p=>p.installed) || providers[0])?.id || '';
     const provider = providers.find(p=>p.id===select.value);
     auth = false; status.textContent = '正在检测…'; controls();
-    const [account, records] = await Promise.all([
+    const [account, records, project] = await Promise.all([
       provider?.installed ? api.agent.status(provider.id) : {},
-      api.agent.history(select.value)
+      api.agent.history(select.value), api.project.info()
     ]);
     if (ticket !== generation || busy) return;
-    auth = !!account.authenticated;
+    projectRoot = project?.root || '';
+    const folder = find('.agent-project');
+    folder.title = projectRoot || '尚未打开项目';
+    folder.querySelector('span').textContent = projectRoot.split(/[\\/]/).filter(Boolean).pop() || folder.title;
+    folder.setAttribute('aria-label', projectRoot ? '当前项目 · '+projectRoot : folder.title);
+    auth = !!(account.authenticated || account.local);
     history = Array.isArray(records) ? records : [];
     status.textContent = !provider?.installed ? '未检测到本机 '+(provider?.label || '工具')+'，安装后点击重新检测。' :
-      account.error || (account.web ? '使用 DeepSeek Harness 的账号与工作区。' : auth ? '' : '使用现有账号登录，完成后回到这里。');
+      account.error || (account.local ? '使用本机 Harness 配置。首次使用可配置账号，完成后点「返回聊天」。' : auth ? '' : '使用现有账号登录，完成后回到这里。');
     controls(); showChat();
   }
   function reset() { current=null; showingHistory=true; expand=false; input.value=''; loginUrl=''; }
@@ -140,7 +160,7 @@ export function setupAgentPanel(panel, api) {
     if (e.key==='Enter' && !e.shiftKey && !e.isComposing && e.keyCode!==229) { e.preventDefault(); form.requestSubmit(); }
     e.stopPropagation();
   };
-  form.onsubmit = e => { e.preventDefault(); if (auth && input.value.trim()) start('message',input.value.trim()); };
+  form.onsubmit = e => { e.preventDefault(); if (auth && projectRoot && input.value.trim()) start('message',input.value.trim()); };
   api.project.onChange(() => { ++generation; reset(); if (!agent.hidden) refresh(); });
   for (const tab of panel.querySelectorAll('[data-ai-mode]')) tab.onclick = () => {
     const active=tab.dataset.aiMode==='agent';
@@ -156,7 +176,7 @@ export function setupAgentPanel(panel, api) {
       if (e.deviceCode) status.textContent='请在浏览器中输入设备码：'+e.deviceCode;
     }
     if (e.browserError) status.textContent+=' '+e.browserError;
-    if (e.message && current) { current.messages.push({role:'assistant',text:e.message}); showChat(); }
+    if (e.message && current) { current.messages.push({role:'assistant',text:e.message,pending:true}); showChat(); }
     if (e.activity) status.textContent = '正在使用工具 · '+e.activity;
     if (e.webError) status.textContent=e.webError;
     if (e.web) { frame.hidden=false; scroll.hidden=true; status.textContent=''; layoutWebView(); }

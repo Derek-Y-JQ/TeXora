@@ -21,6 +21,15 @@ fs.writeFileSync(path.join(dshPackage, 'package.json'), JSON.stringify({name:'@d
 const dsh = path.join(dshPackage, 'bin.cjs');
 fs.writeFileSync(dsh, `#!/usr/bin/env node
 const http = require('node:http'), fs = require('node:fs');
+if (process.argv.includes('headless')) {
+  const args = process.argv.slice(2);
+  const resume = args.includes('--session-id');
+  if (!fs.existsSync('main.tex') || !args.includes('--json') || !fs.existsSync(args[args.indexOf('--patch')+1])) process.exit(2);
+  const text = fs.readFileSync(0,'utf8');
+  console.log(JSON.stringify({type:'session',sessionId:'fixture-dsh'}));
+  console.log(JSON.stringify({type:'final',reason:{kind:'completed'},text:(resume ? '继续 ' : '收到 ')+text}));
+  process.exit(0);
+}
 const server = http.createServer((req,res) => {
   if (req.url === '/?token=fixture') {
     res.writeHead(303, {Location:'/', 'Set-Cookie':'dsh-test=ok; Path=/; HttpOnly; SameSite=Strict'});

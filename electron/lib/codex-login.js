@@ -82,4 +82,4 @@ function startCodexLogin(spec, options, emit, openBrowser, onEnd) {
   write({id:1,method:'initialize',params:{clientInfo:{name:'texora',title:'TeXora',version},capabilities:null}});
   return {cancel:()=>finish()};
 }
-module.exports={startCodexLogin};
+module.exports={startCodexLogin,safeError};

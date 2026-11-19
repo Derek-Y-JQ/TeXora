@@ -16,10 +16,10 @@ export default async function ({evalJs, click, sleep}) {
   await evalJs("window.__texora.sidebar.show('ai')");
   await click('[data-ai-mode=agent]');
   await until("document.querySelector('.agent-panel select').value === 'codex'");
-  for (const id of ['codex','claude']) {
+  for (const id of ['codex','claude','dsh']) {
     await evalJs(`(()=>{const sel=document.querySelector('.agent-panel select'); sel.value='${id}'; sel.dispatchEvent(new Event('change'));})()`);
     await until("!document.querySelector('.agent-panel [data-login]').hidden && !document.querySelector('.agent-panel textarea').value");
-    await click('.agent-panel [data-login]');
+    if (id !== 'dsh') await click('.agent-panel [data-login]');
     await until("!document.querySelector('.agent-panel textarea').disabled");
     async function send(text) {
       await evalJs(`(()=>{const input=document.querySelector('.agent-panel textarea');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input'));input.form.requestSubmit()})()`);
@@ -33,9 +33,11 @@ export default async function ({evalJs, click, sleep}) {
     await send('再问一次');
     await until("document.querySelector('.agent-messages').textContent.includes('继续 再问一次')");
     assert.equal(await evalJs("document.querySelectorAll('.agent-messages .agent-assistant').length"),2);
+    await until("document.querySelectorAll('time.agent-turn-end').length === 2");
+    assert.equal(await evalJs("document.querySelector('.agent-project span').textContent"),'project');
   }
   await evalJs("(()=>{const sel=document.querySelector('.agent-panel select');sel.value='dsh';sel.dispatchEvent(new Event('change'))})()");
-  await until("document.querySelector('.agent-panel [data-login]').textContent==='打开 DeepSeek'");
+  await until("document.querySelector('.agent-panel [data-login]').textContent==='配置 DeepSeek 账号'");
   await click('.agent-panel [data-login]');
   await until("!document.querySelector('.agent-web').hidden");
   const marker = await evalJs("window.texora.fs.read(window.__texora.state.project.root + '/agent-web-authenticated.txt')");

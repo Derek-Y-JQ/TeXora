@@ -94,12 +94,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {contents: write}
     steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - uses: actions/download-artifact@v4
         with: {path: release, merge-multiple: true}
       - working-directory: release
         run: |
           sha256sum *.exe *.dmg > SHA256SUMS.txt
-          echo '修复 Codex 登录无法唤起浏览器的问题。TeXora 直接打开官方授权页面，提供复制登录链接和端口占用时的设备码登录。' > notes.md
+          git -C "$GITHUB_WORKSPACE" for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > notes.md
+          echo >> notes.md
           cat windows.txt mac-*.txt >> notes.md
       - uses: softprops/action-gh-release@v2
         with:

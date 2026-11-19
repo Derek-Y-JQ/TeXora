@@ -73,7 +73,7 @@ async function main(){
  const installerBytes=await fs.readFile(path.join('release',installer));
  const checksum=crypto.createHash('sha256').update(installerBytes).digest('hex')+'  '+installer+'\n';
  await fs.writeFile('release/SHA256SUMS.txt',checksum);
- const notes=(await fs.readFile('docs/release-'+version+'.md','utf8'))+(process.env.GITHUB_SKIP_WORKFLOWS==='1'?'\n\nCI 上传状态：本次 token 缺少 Workflows 写入权限，GitHub 返回 403。新增工作流已在本地完成，暂未上线；正式回归测试和安装包已在本地验证。\n':'');
+ const notes=process.env.GITHUB_RELEASE_NOTES || '';
  // Default releases are immutable; same-version replacement requires an explicit flag.
  const tags=await request(prefix+'/git/matching-refs/tags/'+tag);
  const oldTag=tags.find(t=>t.ref==='refs/tags/'+tag);

@@ -842,3 +842,9 @@ html[data-platform="darwin"] .window-controls { display: none; }
 
 .agent-code { display:flex; gap:4px; }
 .agent-code input { flex:1; min-width:0; }
+
+.agent-project { display:inline-flex; align-items:center; gap:5px; min-width:0; }
+.agent-project svg,.agent-submit { flex:none; }
+.agent-project span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.agent-turn-end { display:flex; align-items:center; gap:8px; margin:6px 0 16px; font-size:11px; color:var(--text-3); }
+.agent-turn-end::before { content:""; flex:1; border-top:1px solid var(--border); }
