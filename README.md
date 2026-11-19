@@ -11,7 +11,7 @@ TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF�
 - **数学文章的结构一览**：大纲按行文顺序展开；定理、定义、引理、证明和公式可集中浏览、点击定位。
 - **本地快照与 Git**：保存、编译快照和版本差异随手可查，也能查看项目 Git 状态与提交。
 - **全文字体一键应用**：读取本机中英文字体，自动写入主文档字体配置，减少手工维护导言区。
-- **适合长时间写作的外观**：默认白天与蓝色，另有茶绿、晴空、日晷（Solarized 配套色）等强调色；编辑器高亮主题可独立切换。
+- **适合长时间写作的外观**：完全优于主流编辑器 TexStudio、WinEdt 等软件的精细化 UI；还支持 Endfield 工业风 UI，码字不烧心。
 
 [下载 Windows 和 Mac 安装包](https://github.com/Derek-Y-JQ/TeXora/releases/latest) · [项目主页](https://derek-y-jq.github.io/TeXora/)
 
