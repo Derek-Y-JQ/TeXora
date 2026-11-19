@@ -45,6 +45,7 @@ jobs:
             release/*.exe
             release/windows.txt
   macos:
+    permissions: {contents: read, actions: read}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -57,9 +58,26 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: npm}
       - run: npm ci
+      - name: Check for a saved notarization submission
+        id: resume
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          archived=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+            --jq ".artifacts[] | select(.name == \"notary-$ARCH\" and .expired == false) | .id")
+          echo "saved=$(test -z "$archived" && echo false || echo true)" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.resume.outputs.saved == 'true'
+        with:
+          name: notary-${{ matrix.arch }}
+          path: release
       - run: npm test
+        if: steps.resume.outputs.saved != 'true'
       - run: npm run build
+        if: steps.resume.outputs.saved != 'true'
       - name: Build and verify signed application and disk image
+        if: steps.resume.outputs.saved != 'true'
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
@@ -93,7 +111,8 @@ jobs:
           unset TEXORA_ARCHIVE_PASSWORD archive_password
           node scripts/package-release.cjs "$ARCH"
           compgen -G 'release/*.dmg' >/dev/null
-      - name: Submit signed DMG to Apple and validate the ticket
+      - name: Submit signed DMG to Apple
+        if: steps.resume.outputs.saved != 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -104,12 +123,35 @@ jobs:
           codesign --verify --strict --verbose=2 "$disk"
           codesign -dv --verbose=4 "$disk" 2>&1 | grep -Fx "TeamIdentifier=$APPLE_TEAM_ID"
           auth=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD")
-          response="$RUNNER_TEMP/notary.json"
-          xcrun notarytool submit "$disk" "${auth[@]}" --wait --output-format json > "$response"
-          if ! jq -e '.status == "Accepted"' "$response" >/dev/null; then
-            xcrun notarytool log "$(jq -er .id "$response")" "${auth[@]}"
-            exit 1
-          fi
+          xcrun notarytool submit "$disk" "${auth[@]}" --output-format json > "$RUNNER_TEMP/notary-submit.json"
+          jq -er '.id | select(type == "string" and length > 0)' "$RUNNER_TEMP/notary-submit.json" > release/notary-id.txt
+          echo "Apple submission: $(cat release/notary-id.txt)"
+      - uses: actions/upload-artifact@v4
+        if: steps.resume.outputs.saved != 'true'
+        with:
+          name: notary-${{ matrix.arch }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            release/*.dmg
+            release/notary-id.txt
+      - name: Wait for Apple and validate the ticket
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          disk=$(find release -maxdepth 1 -name '*.dmg')
+          submission=$(cat release/notary-id.txt)
+          auth=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD")
+          echo "Waiting on Apple submission $submission"
+          xcrun notarytool wait "$submission" "${auth[@]}" --timeout 5h || true
+          status=$(xcrun notarytool info "$submission" "${auth[@]}" --output-format json | jq -er .status)
+          case "$status" in
+            Accepted) ;;
+            "In Progress") echo "::error::Apple is still processing $submission. Re-run failed jobs to resume without re-uploading."; exit 1 ;;
+            *) xcrun notarytool log "$submission" "${auth[@]}"; exit 1 ;;
+          esac
           xcrun stapler staple "$disk"
           xcrun stapler validate "$disk"
           spctl --assess --type open --context context:primary-signature --verbose=4 "$disk"
@@ -142,7 +184,7 @@ jobs:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
       - uses: actions/download-artifact@v4
-        with: {path: release, merge-multiple: true}
+        with: {path: release, pattern: '{windows,mac-*}', merge-multiple: true}
       - working-directory: release
         run: |
           sha256sum *.exe *.dmg > SHA256SUMS.txt
