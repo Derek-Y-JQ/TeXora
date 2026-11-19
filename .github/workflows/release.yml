@@ -65,23 +65,42 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           ARCH: ${{ matrix.arch }}
         run: |
-          if [[ -n "$CSC_LINK" ]]; then
-            node scripts/package-release.cjs "$ARCH"
-            note="应用使用仓库配置的 Apple 证书签名。"
-          else
-            unset CSC_LINK CSC_KEY_PASSWORD
-            node scripts/package-release.cjs "$ARCH"
-            note="应用使用 macOS 临时签名，未经 Apple 公证。"
+          : "${CSC_LINK:?Missing MAC_CSC_LINK}" "${CSC_KEY_PASSWORD:?Missing MAC_CSC_KEY_PASSWORD}"
+          node scripts/package-release.cjs "$ARCH"
+      - name: Submit signed DMG to Apple and validate the ticket
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          : "${APPLE_ID:?Missing APPLE_ID}" "${APPLE_TEAM_ID:?Missing APPLE_TEAM_ID}" "${APPLE_APP_SPECIFIC_PASSWORD:?Missing APPLE_APP_SPECIFIC_PASSWORD}"
+          disk=$(find release -maxdepth 1 -name '*.dmg')
+          codesign --verify --strict --verbose=2 "$disk"
+          codesign -dv --verbose=4 "$disk" 2>&1 | grep -Fx "TeamIdentifier=$APPLE_TEAM_ID"
+          auth=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD")
+          response="$RUNNER_TEMP/notary.json"
+          xcrun notarytool submit "$disk" "${auth[@]}" --wait --output-format json > "$response"
+          if ! jq -e '.status == "Accepted"' "$response" >/dev/null; then
+            xcrun notarytool log "$(jq -er .id "$response")" "${auth[@]}"
+            exit 1
           fi
+          xcrun stapler staple "$disk"
+          xcrun stapler validate "$disk"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$disk"
+      - name: Verify and launch the distributed application
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
           disk=$(find release -maxdepth 1 -name '*.dmg')
           hdiutil verify "$disk"
           mount="$RUNNER_TEMP/texora-mount"
           hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$disk"
           codesign --verify --deep --strict --verbose=2 "$mount/TeXora.app"
+          spctl --assess --type execute --verbose=4 "$mount/TeXora.app"
           ditto "$mount/TeXora.app" "$RUNNER_TEMP/TeXora.app"
           hdiutil detach "$mount"
           node scripts/test-release-agent.cjs "$RUNNER_TEMP/TeXora.app/Contents/MacOS/TeXora"
-          echo "macOS $ARCH · $note" > "release/mac-$ARCH.txt"
+          echo "macOS $ARCH · Developer ID 签名，已通过 Apple 公证，DMG 已装订公证票据。" > "release/mac-$ARCH.txt"
       - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}
