@@ -1,7 +1,5 @@
 # TeXora 2.1.5 · 本地优先的 LaTeX 写作工作台
 
-2.0.3：更新环境回车补全、PDF 全屏阅读与演示模式、数学符号面板和最近项目管理，并完善 Endfield 交互与动效。详见 [更新说明](docs/release-2.0.3.md)。
-
 TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
 - **受控 AI 赋能，主动权仍在自己**：选上下文、选 Skills、检查差异，再决定是否写入；检查与解释作为回答展示。本软件也支持设备安装好的 harness，例如 codex，claude code，dsh 作为 agent。
