@@ -101,6 +101,7 @@ jobs:
       - working-directory: release
         run: |
           sha256sum *.exe *.dmg > SHA256SUMS.txt
+          git -C "$GITHUB_WORKSPACE" fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           git -C "$GITHUB_WORKSPACE" for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > notes.md
           echo >> notes.md
           cat windows.txt mac-*.txt >> notes.md
