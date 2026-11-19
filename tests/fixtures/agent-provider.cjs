@@ -3,6 +3,24 @@ const fs=require('node:fs'), path=require('node:path');
 const args=process.argv.slice(2), claude=__dirname.includes('anthropic-ai');
 const marker=path.join(__dirname,'signed-in');
 const output=value=>console.log(JSON.stringify(value));
+if (args.includes('app-server')) {
+  require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
+    const request=JSON.parse(line);
+    if(request.method==='initialize') output({id:request.id,result:{}});
+    if(request.method==='account/login/start') {
+      const scenario=process.env.TEXORA_LOGIN_FIXTURE;
+      if (scenario==='port' && request.params.type==='chatgpt')
+        return output({id:request.id,error:{message:'Port 1455 is already in use'}});
+      if (scenario==='error') return output({id:request.id,error:{message:'Configuration invalid: token=secret-fixture'}});
+      const result=request.params.type==='chatgptDeviceCode' ? {verificationUrl:'https://auth.openai.com/codex/device',userCode:'ABCD-TEST'} :
+        {authUrl:scenario==='invalid' ? 'https://example.org/' : 'https://auth.openai.com/'};
+      output({id:request.id,result:{loginId:'fixture',...result}});
+      fs.writeFileSync(marker,'1');
+      setTimeout(()=>output({method:'account/login/completed',params:{loginId:'fixture',success:true}}),250);
+    }
+  });
+  return;
+}
 if (args.includes('status')) {
   output({loggedIn:fs.existsSync(marker)}); process.exit(fs.existsSync(marker)?0:1);
 }

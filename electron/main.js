@@ -137,7 +137,7 @@ const compiler = new Compiler({ store, project, tex, history, send, fallbackCach
 const { AgentSession } = require('./lib/agent-session');
 const { AgentWebView } = require('./lib/agent-web-view');
 const agentWeb = new AgentWebView(() => win, send);
-const agentSession = new AgentSession(send, agentWeb, USER_DATA);
+const agentSession = new AgentSession(send, agentWeb, USER_DATA, url => shell.openExternal(url));
 ipcMain.on('agent:bounds', (event, rect) => { if (event.senderFrame === win?.webContents.mainFrame) agentWeb.bounds(rect); });
 handle('agent:list', () => agentSession.list());
 handle('agent:status', id => agentSession.status(id));

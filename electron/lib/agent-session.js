@@ -44,6 +44,7 @@ const {spawn, execFile} = require('node:child_process');
 const {createInterface} = require('node:readline');
 const {randomUUID, createHash} = require('node:crypto');
 const {killTree} = require('./run');
+const {startCodexLogin} = require('./codex-login');
 
 function command(id) {
   const provider = providers.find(p => p.id === id);
@@ -56,7 +57,8 @@ function options(spec, cwd) {
 }
 
 class AgentSession {
-  constructor(send, web, dir) {
+  constructor(send, web, dir, openBrowser) {
+    this.openBrowser = openBrowser;
     this.send = send;
     this.web = web;
     this.dir = path.join(dir, 'agent-chats');
@@ -92,9 +94,17 @@ class AgentSession {
   start(id,cwd,kind,request={}) {
     if (this.job) throw Error('请先结束当前操作');
     const spec = command(id);
+    if (kind === 'login' && id === 'codex') {
+      const emit = payload => this.send('agent:event',{provider:id,...payload});
+      this.job = startCodexLogin(spec,options(spec,os.homedir()),emit,this.openBrowser,error=>{
+        this.job=null;
+        emit({ended:true,kind,error});
+      });
+      return {ok:true};
+    }
     let args, chat, prompt;
     if (kind === 'login' && id !== 'dsh') {
-      args = id === 'codex' ? ['login'] : ['auth','login'];
+      args = ['auth','login'];
     } else if (kind === 'web' && id === 'dsh') {
       if (!cwd) throw Error('请先打开项目文件夹');
       args = ['web','--no-open','--host','127.0.0.1','--port','0'];
@@ -114,7 +124,7 @@ class AgentSession {
         args = ['-p','--output-format','stream-json','--verbose',...(chat.remote ? ['--resume',chat.remote] : [])];
       }
     } else throw Error('不支持此操作');
-    const child = spawn(spec.exe,[...spec.args,...args],{...options(spec,cwd || os.homedir()),detached:process.platform!=='win32',stdio:'pipe'});
+    const child = spawn(spec.exe,[...spec.args,...args],{...options(spec,kind === 'login' ? os.homedir() : cwd || os.homedir()),detached:process.platform!=='win32',stdio:'pipe'});
     const job = this.job = {id,cwd,kind,child,chat};
     const emit = payload => { if (this.job === job) this.send('agent:event',{provider:id, ...payload}); };
     let diagnostic = '', reply = '', activity = '', opened = false;

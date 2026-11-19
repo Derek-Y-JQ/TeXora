@@ -11,7 +11,7 @@ export function setupAgentPanel(panel, api) {
     <div class="agent-scroll"><div class="agent-recent"></div><div class="agent-messages" role="log" aria-live="polite"></div></div>
     <div class="agent-web" hidden></div>
     <div class="agent-account"><span role="status"></span><button class="btn btn-sm" data-login hidden></button>
-      <button class="btn btn-sm" data-browser hidden>打开登录页面</button>
+      <button class="btn btn-sm" data-browser hidden>打开登录页面</button><button class="btn btn-sm" data-copy hidden>复制链接</button>
       <button class="btn btn-sm" data-stop hidden>结束</button></div>
     <form class="agent-code" hidden><input type="password" autocomplete="off" aria-label="授权码" placeholder="浏览器如有提供，请粘贴授权码"><button class="btn btn-sm">确认</button></form>
     <form class="agent-compose"><textarea aria-label="消息" placeholder="给 Agent 发消息…" rows="2"></textarea>
@@ -32,6 +32,7 @@ export function setupAgentPanel(panel, api) {
     login.hidden = !installed || !!busy || (!dsh && auth);
     login.textContent = dsh ? '打开 DeepSeek' : '登录 ' + (select.selectedOptions[0]?.textContent || '');
     browser.hidden = !loginUrl || busy !== 'login';
+    find('[data-copy]').hidden = browser.hidden;
     if (busy !== 'login') find('.agent-code').hidden = true;
     stop.hidden = !busy;
     stop.textContent = busy === 'message' ? '停止生成' : busy === 'login' ? '取消登录' : '结束';
@@ -125,7 +126,14 @@ export function setupAgentPanel(panel, api) {
     field.value = '';
     if (result.error) status.textContent=result.error;
   };
-  browser.onclick = () => api.openExternal(loginUrl);
+  browser.onclick = async () => {
+    const result=await api.openExternal(loginUrl);
+    if (!result.ok) status.textContent='系统未能打开浏览器，请复制链接到浏览器继续。';
+  };
+  find('[data-copy]').onclick = async () => {
+    const result = await api.clipboard.writeText(loginUrl);
+    if (!result.ok) status.textContent += ' 复制链接失败，请重试。';
+  };
   stop.onclick = () => api.agent.stop();
   input.oninput = controls;
   input.onkeydown = e => {
@@ -143,7 +151,11 @@ export function setupAgentPanel(panel, api) {
   api.agent.onEvent(async e => {
     if (e.provider && e.provider!==select.value) return;
     if (e.codePrompt) find('.agent-code').hidden = false;
-    if (e.loginUrl) { loginUrl=e.loginUrl; controls(); }
+    if (e.loginUrl) {
+      loginUrl=e.loginUrl; controls();
+      if (e.deviceCode) status.textContent='请在浏览器中输入设备码：'+e.deviceCode;
+    }
+    if (e.browserError) status.textContent+=' '+e.browserError;
     if (e.message && current) { current.messages.push({role:'assistant',text:e.message}); showChat(); }
     if (e.activity) status.textContent = '正在使用工具 · '+e.activity;
     if (e.webError) status.textContent=e.webError;
