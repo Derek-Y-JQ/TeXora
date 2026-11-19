@@ -65,8 +65,32 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           ARCH: ${{ matrix.arch }}
         run: |
+          set -o pipefail
           : "${CSC_LINK:?Missing MAC_CSC_LINK}" "${CSC_KEY_PASSWORD:?Missing MAC_CSC_KEY_PASSWORD}"
+          umask 077
+          signing_dir=$(mktemp -d "$RUNNER_TEMP/texora-signing.XXXXXX")
+          trap 'rm -rf "$signing_dir"' EXIT
+          openssl3="$(brew --prefix openssl@3)/bin/openssl"
+          if ! printf '%s' "$CSC_LINK" | base64 -D > "$signing_dir/original.p12"; then
+            echo "::error::MAC_CSC_LINK must contain the base64-encoded PKCS#12 file."
+            exit 1
+          fi
+          if ! "$openssl3" pkcs12 -legacy -in "$signing_dir/original.p12" -passin env:CSC_KEY_PASSWORD -noout; then
+            echo "::error::OpenSSL could not read the uploaded PKCS#12 with MAC_CSC_KEY_PASSWORD."
+            exit 1
+          fi
+          # Normalize the container for macOS security import. Keep decrypted keys in the pipe.
+          archive_password=$("$openssl3" rand -hex 32)
+          echo "::add-mask::$archive_password"
+          export TEXORA_ARCHIVE_PASSWORD="$archive_password"
+          "$openssl3" pkcs12 -legacy -in "$signing_dir/original.p12" -passin env:CSC_KEY_PASSWORD -noenc |
+            "$openssl3" pkcs12 -export -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+              -passout env:TEXORA_ARCHIVE_PASSWORD -out "$signing_dir/signing.p12"
+          echo "PKCS#12 credentials verified and prepared for macOS."
+          export CSC_LINK="$signing_dir/signing.p12" CSC_KEY_PASSWORD="$TEXORA_ARCHIVE_PASSWORD"
+          unset TEXORA_ARCHIVE_PASSWORD archive_password
           node scripts/package-release.cjs "$ARCH"
+          compgen -G 'release/*.dmg' >/dev/null
       - name: Submit signed DMG to Apple and validate the ticket
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
