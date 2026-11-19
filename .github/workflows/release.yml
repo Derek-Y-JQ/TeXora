@@ -83,8 +83,10 @@ jobs:
           archive_password=$("$openssl3" rand -hex 32)
           echo "::add-mask::$archive_password"
           export TEXORA_ARCHIVE_PASSWORD="$archive_password"
-          "$openssl3" pkcs12 -legacy -in "$signing_dir/original.p12" -passin env:CSC_KEY_PASSWORD -noenc |
-            "$openssl3" pkcs12 -export -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+          "$openssl3" pkcs12 -legacy -in "$signing_dir/original.p12" -passin env:CSC_KEY_PASSWORD \
+            -nokeys -out "$signing_dir/certificates.pem"
+          "$openssl3" pkcs12 -legacy -in "$signing_dir/original.p12" -passin env:CSC_KEY_PASSWORD -nocerts -noenc |
+            "$openssl3" pkcs12 -export -in "$signing_dir/certificates.pem" -inkey /dev/stdin -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
               -passout env:TEXORA_ARCHIVE_PASSWORD -out "$signing_dir/signing.p12"
           echo "PKCS#12 credentials verified and prepared for macOS."
           export CSC_LINK="$signing_dir/signing.p12" CSC_KEY_PASSWORD="$TEXORA_ARCHIVE_PASSWORD"
