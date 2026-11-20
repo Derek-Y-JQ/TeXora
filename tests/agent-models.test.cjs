@@ -101,46 +101,58 @@ test('collectSearchDirs includes macOS Homebrew/desktop paths and Windows packag
   assert.ok(winDirs.includes('C:\\Program Files\\nodejs'));
 });
 
-test('AgentSession discovers codex, claude, and agy models and falls back gracefully on legacy claude', async () => {
+test('AgentSession discovers claude/agy models and falls back gracefully on legacy claude', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'texora-agent-session-'));
   const binDir = path.join(root, 'bin');
   const dataDir = path.join(root, 'data');
   fs.mkdirSync(binDir, { recursive: true });
   fs.mkdirSync(dataDir, { recursive: true });
 
-  // Place executable claude (legacy, exits 1 on --input-format) and agy (ANSI models)
-  const legacyClaude = path.join(binDir, 'claude');
-  fs.writeFileSync(legacyClaude, `#!/usr/bin/env node\nprocess.exit(1);\n`, { mode: 0o755 });
+  const win = process.platform === 'win32';
+  // Legacy claude that exits 1 on --input-format (uses npm pkg layout on Windows, executable on Unix)
+  if (win) {
+    const pkgDir = path.join(binDir, 'node_modules', '@anthropic-ai', 'claude-code');
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify({ name: '@anthropic-ai/claude-code', bin: { claude: 'bin.cjs' } }));
+    fs.writeFileSync(path.join(pkgDir, 'bin.cjs'), 'process.exit(1);\n');
+  } else {
+    const legacyClaude = path.join(binDir, 'claude');
+    fs.writeFileSync(legacyClaude, '#!/usr/bin/env node\nprocess.exit(1);\n', { mode: 0o755 });
+  }
 
   const agyBin = path.join(binDir, 'agy');
-  fs.writeFileSync(agyBin, [
-    '#!/usr/bin/env node',
-    'if (process.argv[2] === "--version") { console.log("agy 1.6.0"); process.exit(0); }',
-    'if (process.argv[2] === "models") { console.log("\\x1b[36mgemini-4-neon-high\\x1b[0m  Gemini 4 Neon (High)"); process.exit(0); }',
-    'process.exit(0);'
-  ].join('\n'), { mode: 0o755 });
+  if (!win) {
+    fs.writeFileSync(agyBin, [
+      '#!/usr/bin/env node',
+      'if (process.argv[2] === "--version") { console.log("agy 1.6.0"); process.exit(0); }',
+      'if (process.argv[2] === "models") { console.log("\\x1b[36mgemini-4-neon-high\\x1b[0m  Gemini 4 Neon (High)"); process.exit(0); }',
+      'process.exit(0);'
+    ].join('\n'), { mode: 0o755 });
+  }
 
   const prevPath = process.env.PATH;
   process.env.PATH = binDir + path.delimiter + prevPath;
   try {
-    const spec = launchSpec({ id: 'agy' }, { probeShell: false });
-    assert.equal(spec?.exe, agyBin);
-
     const session = new AgentSession(() => {}, dataDir, () => {});
-    const agyRes = await session.models('agy', root, true);
-    assert.equal(agyRes.source, 'agy');
-    assert.equal(agyRes.authenticated, true);
-    assert.deepEqual(agyRes.models, [{ id: 'gemini-4-neon-high', label: 'Gemini 4 Neon (High)', isDefault: false }]);
-
     const claudeRes = await session.models('claude', root, true);
     assert.equal(claudeRes.source, 'suggested');
     assert.deepEqual(claudeRes.models, DEFAULT_CLAUDE_MODELS);
 
-    const env = await session.environment();
-    const agyEnv = env.find(t => t.id === 'agy');
-    assert.equal(agyEnv.installed, true);
-    assert.equal(agyEnv.binPath, agyBin);
-    assert.equal(agyEnv.version, 'agy 1.6.0');
+    if (!win) {
+      const spec = launchSpec({ id: 'agy' }, { probeShell: false });
+      assert.equal(spec?.exe, agyBin);
+
+      const agyRes = await session.models('agy', root, true);
+      assert.equal(agyRes.source, 'agy');
+      assert.equal(agyRes.authenticated, true);
+      assert.deepEqual(agyRes.models, [{ id: 'gemini-4-neon-high', label: 'Gemini 4 Neon (High)', isDefault: false }]);
+
+      const env = await session.environment();
+      const agyEnv = env.find(t => t.id === 'agy');
+      assert.equal(agyEnv.installed, true);
+      assert.equal(agyEnv.binPath, agyBin);
+      assert.equal(agyEnv.version, 'agy 1.6.0');
+    }
   } finally {
     process.env.PATH = prevPath;
     fs.rmSync(root, { recursive: true, force: true });

@@ -42,8 +42,8 @@ function loginShellDirs() {
 function collectSearchDirs(provider, { includeShell = false, env = process.env, platform = process.platform, home = os.homedir() } = {}) {
   const win = platform === 'win32';
   const sep = win ? ';' : ':';
-  const join = win ? path.win32.join : path.join;
-  const isAbs = win ? path.win32.isAbsolute : path.isAbsolute;
+  const join = win ? path.win32.join : path.posix.join;
+  const isAbs = win ? path.win32.isAbsolute : path.posix.isAbsolute;
   const dirs = String(env.PATH || '').split(sep);
 
   if (includeShell && !win) dirs.push(...loginShellDirs());
