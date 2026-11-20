@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const providers = [
-  { id: 'codex', label: 'Codex', pkg: '@openai/codex', models: ['gpt-5.4','gpt-5.4-mini'] },
+  { id: 'codex', label: 'Codex', pkg: '@openai/codex', models: [] },
   { id: 'claude', label: 'Claude Code', pkg: '@anthropic-ai/claude-code', models: ['sonnet','opus','haiku'] },
   { id: 'dsh', label: 'DeepSeek Harness', pkg: '@deepseek-ai/dsh', models: ['deepseek-flash','deepseek-pro'] }
 ];
@@ -45,6 +45,7 @@ const {createInterface} = require('node:readline');
 const {randomUUID, createHash} = require('node:crypto');
 const {killTree} = require('./run');
 const {snapshotProject,compareProject} = require('./agent-changes');
+const {listCodexModels} = require('./codex-models');
 const {startCodexLogin,safeError} = require('./codex-login');
 
 function command(id) {
@@ -64,8 +65,30 @@ class AgentSession {
     this.web = web;
     this.dir = path.join(dir, 'agent-chats');
     this.job = null;
+    this.modelCatalog = null;
   }
   list() { return providers.map(p => ({id:p.id, label:p.label, models:p.models, installed:!!launchSpec(p)})); }
+  async models(id,cwd,refresh=false) {
+    const provider = this.list().find(item=>item.id===id);
+    if (!provider?.installed) return {models:[],error:'未检测到本机工具'};
+    if (id !== 'codex') return {models:provider.models.map(id=>({id,label:id})),source:'suggested'};
+    const spec = command(id);
+    const directory = cwd || os.homedir();
+    const cached = this.modelCatalog;
+    if (cached?.directory === directory && cached.exe === spec.exe && (!cached.expires || (!refresh && cached.expires > Date.now()))) {
+      return cached.result;
+    }
+    const entry = {directory,exe:spec.exe};
+    this.modelCatalog = entry;
+    entry.result = listCodexModels(spec,options(spec,directory)).then(models=>{
+      entry.expires = Date.now()+60000;
+      return {models,source:'codex'};
+    }, error=>{
+      if (this.modelCatalog === entry) this.modelCatalog = null;
+      return {models:[],error:safeError(error.message)};
+    });
+    return entry.result;
+  }
   async environment() {
     return Promise.all(this.list().map(async provider => {
       if (!provider.installed) return provider;
@@ -112,6 +135,7 @@ class AgentSession {
       const emit = payload => this.send('agent:event',{provider:id,...payload});
       this.job = startCodexLogin(spec,options(spec,os.homedir()),emit,this.openBrowser,error=>{
         this.job=null;
+        this.modelCatalog=null;
         emit({ended:true,kind,error});
       });
       return {ok:true};

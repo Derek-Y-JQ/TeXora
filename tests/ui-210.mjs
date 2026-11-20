@@ -18,6 +18,10 @@ export default async function ({evalJs, click, sleep}) {
   await until("document.querySelector('.agent-panel select').value === 'codex'");
   await click('.agent-panel [data-settings]');
   await until("document.querySelector('.settings-content')?.textContent.includes('Agent 模式 AI 设置')");
+  await until("document.querySelector('[data-agent-model=codex]')?.textContent.includes('Fixture Astra')");
+  assert.ok(await evalJs("!document.querySelector('[data-agent-model=codex]').textContent.includes('Hidden Test')"));
+  await evalJs("(()=>{const picker=document.querySelector('[data-agent-model=codex]');picker.value='fixture-sol';picker.dispatchEvent(new Event('change'));})()");
+  await until("window.__texora.state.settings.agent.models.codex==='fixture-sol'");
   await click('#agentCheck');
   await until("document.querySelector('#agentEnvironment')?.textContent.includes('fixture 1.0')");
   await click('#settingsClose');
@@ -30,11 +34,16 @@ export default async function ({evalJs, click, sleep}) {
       await evalJs(`(()=>{const input=document.querySelector('.agent-panel textarea');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input'));input.form.requestSubmit()})()`);
       await until("document.querySelector('.agent-panel [data-stop]').hidden");
     }
-    if (id==='codex') await evalJs("document.querySelector('.agent-model').value='fixture-model'");
+    if (id==='codex') {
+      await until("document.querySelector('.agent-model').value==='fixture-sol' && document.querySelector('.agent-model').textContent.includes('Fixture Astra')");
+      await evalJs("(()=>{const picker=document.querySelector('.agent-model');picker.value='fixture-model';picker.dispatchEvent(new Event('change'));})()");
+    }
     await send('你好');
     await until("document.querySelector('.agent-messages').textContent.includes('收到 你好')");
     if (id==='codex') {
       await until("!!document.querySelector('.agent-changes button')");
+      const file = await evalJs("window.texora.fs.read(window.__texora.state.project.root+'/agent-note.tex')");
+      assert.equal(file.text,'fixture-model');
       await click('.agent-changes button');
       await until("!!document.querySelector('.diff-editor-host')");
       await evalJs("window.__texora.dialogs.close()");

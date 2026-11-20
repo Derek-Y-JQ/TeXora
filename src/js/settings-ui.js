@@ -2,6 +2,7 @@
  * Settings dialog — six categories matching the product spec:
  * editor/block, build & preview, packages & TeX, AI, appearance & keys, files.
  */
+import { bindAgentModel, renderAgentModels } from './agent-model-picker.js';
 import { ctx } from './ctx.js';
 import { $, $$, icon, escapeHtml, toast, formatBytes, debounce } from './util.js';
 import { CODE_THEMES } from './code-themes.js';
@@ -253,9 +254,9 @@ export function createSettingsUI() {
       <h3>默认模型</h3>
       <div class="setting-card">
         ${harnesses.map(([id,label]) => `<label class="setting-row">
-          <span class="setting-main"><span class="setting-name">${label}</span></span>
-          <span class="setting-control"><input class="input input-mono" type="text" maxlength="120" autocomplete="off"
-            placeholder="沿用本机工具默认值" data-setting="agent.models.${id}" value="${escapeHtml(settingValue('agent.models.'+id) || '')}"></span>
+          <span class="setting-main"><span class="setting-name">${label}</span>
+            <small class="setting-desc" data-agent-model-status="${id}" aria-live="polite"></small></span>
+          <span class="setting-control"><select class="input" aria-label="${label} 默认模型" data-agent-model="${id}"></select></span>
         </label>`).join('')}
       </div>
       <h3>本机环境</h3>
@@ -546,16 +547,6 @@ export function createSettingsUI() {
         node.addEventListener('change', () => set(path, coerce(node.value, path)));
       } else if (node.tagName === 'TEXTAREA') {
         node.addEventListener('change', () => set(path, node.value));
-      } else if (path.startsWith('agent.models.')) {
-        node.addEventListener('change', () => {
-          const model = node.value.trim();
-          if (model && !/^[a-z0-9][a-z0-9._:/-]{0,119}$/i.test(model)) {
-            node.value = settingValue(path) || '';
-            toast({type:'error',title:'模型 ID 格式无效'});
-            return;
-          }
-          set(path,model);
-        });
       } else if (node.tagName === 'INPUT') {
         node.addEventListener(type === 'number' ? 'change' : 'input', debounce(() => set(path, coerce(node.value, path)), type === 'number' ? 0 : 260));
       }
@@ -585,7 +576,28 @@ export function createSettingsUI() {
       });
     }
 
+    const modelPickers = $$('[data-agent-model]', body);
+    const refreshModels = force => {
+      for (const picker of modelPickers) {
+        const id = picker.dataset.agentModel;
+        const status = body.querySelector(`[data-agent-model-status="${id}"]`);
+        status.textContent = '正在读取模型…';
+        void ctx.api.agent.models(id,force).then(catalog=>{
+          if (!picker.isConnected) return;
+          renderAgentModels(picker,catalog,settingValue('agent.models.'+id) || '');
+          status.textContent = catalog?.error || (catalog?.source === 'codex' && !catalog.models?.length ? 'Codex 未列出可选择的模型' : '');
+        });
+      }
+    };
+    for (const picker of modelPickers) {
+      const path = 'agent.models.'+picker.dataset.agentModel;
+      renderAgentModels(picker,undefined,settingValue(path) || '');
+      bindAgentModel(picker,value=>set(path,value));
+    }
+    refreshModels(false);
+
     body.querySelector('#agentCheck')?.addEventListener('click', async event => {
+      refreshModels(true);
       const button = event.currentTarget;
       const target = body.querySelector('#agentEnvironment');
       button.disabled = true;

@@ -8,6 +8,14 @@ if (args.includes('app-server')) {
   require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
     const request=JSON.parse(line);
     if(request.method==='initialize') output({id:request.id,result:{}});
+    if(request.method==='model/list') {
+      const first = !request.params.cursor;
+      const data = first ? [
+        {model:'fixture-sol',displayName:'Fixture Sol',isDefault:true},
+        {model:'hidden-test',displayName:'Hidden Test',hidden:true}
+      ] : [{model:'fixture-model',displayName:'Fixture Astra'}];
+      output({id:request.id,result:{data,nextCursor:first ? 'next' : null}});
+    }
     if(request.method==='account/login/start') {
       const scenario=process.env.TEXORA_LOGIN_FIXTURE;
       if (scenario==='port' && request.params.type==='chatgpt')

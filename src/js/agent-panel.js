@@ -1,3 +1,4 @@
+import { bindAgentModel, renderAgentModels } from './agent-model-picker.js';
 import { ctx } from './ctx.js';
 import { icon } from './util.js';
 import { renderMarkdown } from './markdown.js';
@@ -16,11 +17,12 @@ export function setupAgentPanel(panel, api) {
       <button class="btn btn-sm" data-stop hidden>结束</button></div>
     <form class="agent-code" hidden><input type="password" autocomplete="off" aria-label="授权码" placeholder="浏览器如有提供，请粘贴授权码"><button class="btn btn-sm">确认</button></form>
     <form class="agent-compose"><textarea aria-label="消息" placeholder="给 Agent 发消息…" rows="2"></textarea>
-      <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><input class="agent-model input" list="agent-models" aria-label="选择模型" title="选择模型或输入模型 ID" maxlength="120" placeholder="工具默认模型" autocomplete="off"><datalist id="agent-models"></datalist><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
+      <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><select class="agent-model input" aria-label="选择模型"></select><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
   const find = q => agent.querySelector(q);
-  const select = find('select'), frame = find('.agent-web'), status = find('[role=status]');
+  const select = find('.agent-head select'), frame = find('.agent-web'), status = find('[role=status]');
   const model = find('.agent-model');
   const modelChoices = new Map();
+  const catalogs = new Map();
   const input = find('textarea'), form = find('.agent-compose'), scroll = find('.agent-scroll');
   const historyBox = find('.agent-recent'), messages = find('.agent-messages');
   const login = find('[data-login]'), browser = find('[data-browser]'), stop = find('[data-stop]');
@@ -47,14 +49,11 @@ export function setupAgentPanel(panel, api) {
     find('[data-account]').textContent = dsh ? '' : auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
   }
   function syncModel() {
-    const provider = providers.find(p => p.id === select.value);
     const preferred = ctx.state.settings.agent?.models?.[select.value] || '';
-    model.value = modelChoices.get(select.value) ?? preferred;
-    const choices = [...new Set([preferred,...(provider?.models || [])].filter(Boolean))];
-    find('#agent-models').replaceChildren(...choices.map(id=>new Option(id,id)));
+    renderAgentModels(model,catalogs.get(select.value),modelChoices.get(select.value) ?? preferred);
   }
-  model.onchange = () => modelChoices.set(select.value,model.value.trim());
-  model.onkeydown = event => { if (event.key === 'Enter') event.preventDefault(); event.stopPropagation(); };
+  bindAgentModel(model,value=>modelChoices.set(select.value,value));
+  model.onkeydown = event => event.stopPropagation();
   find('[data-settings]').onclick = () => ctx.settingsUI.open('agent');
   ctx.on('settings:changed', syncModel);
 
@@ -136,7 +135,7 @@ export function setupAgentPanel(panel, api) {
     }
     if (!showingHistory) scroll.scrollTop = scroll.scrollHeight;
   }
-  async function refresh() {
+  async function refresh(forceModels = false) {
     const ticket = ++generation;
     const id = select.value || ctx.state.settings.agent?.provider;
     const list = await api.agent.list();
@@ -147,6 +146,13 @@ export function setupAgentPanel(panel, api) {
     const provider = providers.find(p=>p.id===select.value);
     syncModel();
     auth = false; status.textContent = '正在检测…'; controls();
+    if (provider?.installed) {
+      void api.agent.models(provider.id,forceModels === true).then(catalog=>{
+        if (ticket !== generation || select.value !== provider.id) return;
+        catalogs.set(provider.id,catalog);
+        syncModel();
+      });
+    }
     const [account, records, project] = await Promise.all([
       provider?.installed ? api.agent.status(provider.id) : {},
       api.agent.history(select.value), api.project.info()
@@ -165,7 +171,7 @@ export function setupAgentPanel(panel, api) {
   }
   function reset() { current=null; showingHistory=true; expand=false; input.value=''; loginUrl=''; }
   select.onchange = () => { reset(); syncModel(); refresh(); };
-  find('[data-detect]').onclick = refresh;
+  find('[data-detect]').onclick = () => refresh(true);
   find('[data-new]').onclick = () => { reset(); showingHistory=false; status.textContent=''; showChat(); controls(); input.focus(); };
   find('[data-history]').onclick = () => { showingHistory=true; expand=true; showChat(); };
   async function start(kind,text) {
@@ -209,7 +215,7 @@ export function setupAgentPanel(panel, api) {
   };
   form.onsubmit = e => { e.preventDefault(); if (auth && projectRoot && input.value.trim()) start('message',input.value.trim()); };
   api.project.onChange(event => {
-    ++generation; reset();
+    ++generation; reset(); catalogs.clear();
     projectRoot = event.root || '';
     showChat();
     controls();
@@ -244,7 +250,7 @@ export function setupAgentPanel(panel, api) {
     busy=''; loginUrl=''; status.textContent=e.error || '';
     cancelAnimationFrame(layoutFrame); previousBounds=undefined; frame.hidden=true; scroll.hidden=false;
     controls();
-    if (e.kind==='login') { await refresh(); if(e.error) status.textContent=e.error; }
+    if (e.kind==='login') { await refresh(true); if(e.error) status.textContent=e.error; }
     if (e.kind==='message') {
       const ticket = generation;
       const records=await api.agent.history(select.value);
