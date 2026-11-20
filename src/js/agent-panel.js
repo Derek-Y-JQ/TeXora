@@ -6,17 +6,17 @@ import { renderMarkdown } from './markdown.js';
 export function setupAgentPanel(panel, api) {
   const ask = panel.querySelector('.ai-panel');
   const agent = panel.querySelector('.agent-panel');
-  const tool = (action,label,glyph) => `<button type="button" class="icon-btn" data-${action} title="${label}" aria-label="${label}">${icon(glyph)}</button>`;
+  const tool = (action,label,glyph) => `<button type="button" class="icon-btn sm" data-${action} title="${label}" aria-label="${label}">${icon(glyph)}</button>`;
   agent.innerHTML = `
-    <header class="agent-head"><select aria-label="Agent 服务商"></select><span class="spacer"></span>
-      ${tool('history','最近对话','history')}${tool('new','新对话','plus')}${tool('detect','重新检测账号和工具','refresh')}${tool('settings','Agent 模式 AI 设置','sliders')}</header>
+    <header class="agent-head"><select aria-label="Agent 服务商"></select><div class="agent-head-actions">${tool('history','最近对话','history')}${tool('new','新对话','plus')}${tool('detect','重新检测账号和工具','refresh')}${tool('settings','Agent 模式 AI 设置','sliders')}</div></header>
     <div class="agent-scroll"><div class="agent-recent"></div><div class="agent-messages" role="log" aria-live="polite"></div></div>
-    <div class="agent-account"><span role="status"></span><button class="btn btn-sm" data-login hidden></button>
-      <button class="btn btn-sm" data-browser hidden>打开登录页面</button><button class="btn btn-sm" data-copy hidden>复制链接</button>
-      <button class="btn btn-sm" data-stop hidden>结束</button></div>
-    <form class="agent-code" hidden><input type="password" autocomplete="off" aria-label="授权码" placeholder="浏览器如有提供，请粘贴授权码"><button class="btn btn-sm">确认</button></form>
+    <div class="agent-account"><span role="status"></span><div class="agent-account-actions"><button type="button" class="btn btn-sm" data-login hidden></button><button type="button" class="btn btn-sm" data-browser hidden>打开登录页面</button><button type="button" class="btn btn-sm" data-copy hidden>复制链接</button><button type="button" class="btn btn-sm" data-stop hidden>结束</button></div></div>
+    <form class="agent-code" hidden><input class="input input-sm" type="password" autocomplete="off" aria-label="授权码" placeholder="浏览器如有提供，请粘贴授权码"><button type="submit" class="btn btn-sm">确认</button></form>
     <form class="agent-compose"><textarea aria-label="消息" placeholder="给 Agent 发消息…" rows="2"></textarea>
-      <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><select class="agent-model input" aria-label="选择模型"></select><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
+      <footer>
+        <div class="agent-compose-meta"><span class="agent-project">${icon('folder')}<span></span></span><span class="agent-account-badge" data-account hidden></span></div>
+        <div class="agent-compose-actions"><select class="agent-model input" aria-label="选择模型"></select><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></div>
+      </footer></form>`;
   const find = q => agent.querySelector(q);
   const select = find('.agent-head select'), status = find('[role=status]');
   const model = find('.agent-model');
@@ -44,7 +44,10 @@ export function setupAgentPanel(panel, api) {
     stop.textContent = busy === 'message' ? '停止生成' : '取消登录';
     input.disabled = !auth || !projectRoot;
     form.querySelector('[type=submit]').disabled = input.disabled || !!busy || !input.value.trim();
-    find('[data-account]').textContent = auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
+    const accountBadge = find('[data-account]');
+    accountBadge.textContent = auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
+    accountBadge.title = accountBadge.textContent;
+    accountBadge.hidden = !auth;
   }
   function syncModel() {
     const preferred = ctx.state.settings.agent?.models?.[select.value] || '';

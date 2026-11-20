@@ -2,52 +2,243 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { stripVTControlCharacters } = require('node:util');
+const { spawn, execFile, execFileSync } = require('node:child_process');
+const { createInterface } = require('node:readline');
+const { randomUUID, createHash } = require('node:crypto');
+const { killTree } = require('./run');
+const { snapshotProject, compareProject } = require('./agent-changes');
+const { listCodexModels } = require('./codex-models');
+const { listClaudeModels, DEFAULT_CLAUDE_MODELS } = require('./claude-models');
+const { startCodexLogin, safeError } = require('./codex-login');
 
 const providers = [
   { id: 'codex', label: 'Codex', pkg: '@openai/codex', models: [] },
-  { id: 'claude', label: 'Claude Code', pkg: '@anthropic-ai/claude-code', models: ['sonnet','opus','haiku'] },
+  { id: 'claude', label: 'Claude Code', pkg: '@anthropic-ai/claude-code', models: ['sonnet', 'opus', 'haiku'] },
   { id: 'agy', label: 'Google Antigravity', models: [] }
 ];
 
-function launchSpec(provider) {
-  const home = os.homedir(), win = process.platform === 'win32';
-  const dirs = (process.env.PATH || '').split(path.delimiter);
-  dirs.push(path.join(home, '.local', 'bin'), path.join(home, '.volta', 'bin'));
-  if (win && process.env.APPDATA) dirs.push(path.join(process.env.APPDATA, 'npm'));
-  if (win && provider.id === 'agy' && process.env.LOCALAPPDATA) dirs.push(path.join(process.env.LOCALAPPDATA,'agy','bin'));
-  if (!win) {
-    const versions = path.join(home, '.nvm', 'versions', 'node');
-    try { for (const version of fs.readdirSync(versions).reverse()) dirs.push(path.join(versions, version, 'bin')); } catch {}
+let cachedLoginShellDirs = null;
+function loginShellDirs() {
+  if (process.platform === 'win32') return [];
+  if (cachedLoginShellDirs) return cachedLoginShellDirs;
+  const shell = process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh');
+  try {
+    const out = execFileSync(shell, ['-lc', 'printf "%s" "$PATH"'], {
+      timeout: 2500,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    cachedLoginShellDirs = String(out || '')
+      .split(path.delimiter)
+      .map(d => d.trim())
+      .filter(d => path.isAbsolute(d));
+  } catch {
+    cachedLoginShellDirs = [];
   }
-  const search = [...new Set(dirs.filter(dir => path.isAbsolute(dir)))];
+  return cachedLoginShellDirs;
+}
+
+function collectSearchDirs(provider, { includeShell = false, env = process.env, platform = process.platform, home = os.homedir() } = {}) {
+  const win = platform === 'win32';
+  const sep = win ? ';' : ':';
+  const join = win ? path.win32.join : path.join;
+  const isAbs = win ? path.win32.isAbsolute : path.isAbsolute;
+  const dirs = String(env.PATH || '').split(sep);
+
+  if (includeShell && !win) dirs.push(...loginShellDirs());
+
+  dirs.push(
+    join(home, '.local', 'bin'),
+    join(home, '.volta', 'bin'),
+    join(home, '.bun', 'bin'),
+    join(home, '.cargo', 'bin'),
+    join(home, '.npm-global', 'bin'),
+    join(home, '.codex', 'bin'),
+    join(home, '.claude', 'local'),
+    join(home, '.claude', 'bin')
+  );
+
+  if (win) {
+    if (env.APPDATA) {
+      dirs.push(join(env.APPDATA, 'npm'));
+      const nvmWin = join(env.APPDATA, 'nvm');
+      try {
+        for (const entry of fs.readdirSync(nvmWin).reverse()) {
+          if (/^v?\d/.test(entry)) dirs.push(join(nvmWin, entry));
+        }
+      } catch {}
+    }
+    if (env.NVM_SYMLINK) dirs.push(env.NVM_SYMLINK);
+    if (env.LOCALAPPDATA) {
+      dirs.push(
+        join(env.LOCALAPPDATA, 'pnpm'),
+        join(env.LOCALAPPDATA, 'Yarn', 'bin'),
+        join(env.LOCALAPPDATA, 'Microsoft', 'WinGet', 'Links'),
+        join(env.LOCALAPPDATA, 'Programs', 'nodejs'),
+        join(env.LOCALAPPDATA, 'Programs', 'codex'),
+        join(env.LOCALAPPDATA, 'Programs', 'claude')
+      );
+      if (provider.id === 'agy') {
+        dirs.push(
+          join(env.LOCALAPPDATA, 'agy', 'bin'),
+          join(env.LOCALAPPDATA, 'Programs', 'agy'),
+          join(env.LOCALAPPDATA, 'Programs', 'Antigravity', 'bin')
+        );
+      }
+    }
+    if (env.ProgramFiles) dirs.push(join(env.ProgramFiles, 'nodejs'));
+    dirs.push(join(home, 'scoop', 'shims'));
+  } else {
+    dirs.push(
+      '/opt/homebrew/bin',
+      '/opt/homebrew/sbin',
+      '/usr/local/bin',
+      join(home, '.fnm', 'current', 'bin'),
+      join(home, '.local', 'share', 'mise', 'shims'),
+      join(home, '.asdf', 'shims'),
+      join(home, '.local', 'share', 'pnpm'),
+      join(home, '.yarn', 'bin'),
+      join(home, '.config', 'yarn', 'global', 'node_modules', '.bin'),
+      join(home, '.antigravity', 'bin')
+    );
+    if (platform === 'darwin') {
+      dirs.push(
+        join(home, 'Library', 'pnpm'),
+        join(home, 'Library', 'Application Support', 'fnm', 'aliases', 'default', 'bin')
+      );
+      if (provider.id === 'codex') {
+        dirs.push(
+          '/Applications/Codex.app/Contents/Resources',
+          '/Applications/ChatGPT.app/Contents/Resources'
+        );
+      }
+      if (provider.id === 'agy') {
+        dirs.push('/Applications/Antigravity.app/Contents/Resources/app/bin');
+      }
+    } else {
+      dirs.push(join(home, '.local', 'share', 'fnm', 'aliases', 'default', 'bin'));
+    }
+    const versions = join(home, '.nvm', 'versions', 'node');
+    try {
+      for (const version of fs.readdirSync(versions).reverse()) dirs.push(join(versions, version, 'bin'));
+    } catch {}
+  }
+
+  return [...new Set(dirs.filter(dir => dir && isAbs(dir)))];
+}
+
+function findInDirs(provider, search, win) {
+  const pathStr = search.join(path.delimiter);
   for (const dir of search) {
     const exe = path.join(dir, provider.id + (win ? '.exe' : ''));
     try {
       fs.accessSync(exe, fs.constants.X_OK);
-      if (fs.statSync(exe).isFile()) return { exe, args: [], path: search.join(path.delimiter) };
+      if (fs.statSync(exe).isFile()) return { exe, args: [], path: pathStr };
     } catch {}
     if (!win || !provider.pkg) continue;
-    // Invoke npm's declared bin with node, bypassing cmd.exe shell parsing.
-    const root = path.join(dir, 'node_modules', provider.pkg);
-    try {
-      const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-      const entry = path.resolve(root, typeof manifest.bin === 'string' ? manifest.bin : manifest.bin[provider.id]);
-      const node = search.map(d => path.join(d, 'node.exe')).find(f => fs.existsSync(f));
-      if (manifest.name !== provider.pkg || !entry.startsWith(root + path.sep) || !fs.statSync(entry).isFile()) continue;
-      if (/\.exe$/i.test(entry)) return {exe:entry, args:[], path:search.join(path.delimiter)};
-      if (node) return {exe:node, args:[entry], path:search.join(path.delimiter)};
-    } catch {}
+    // Invoke npm/pnpm's declared bin with node, bypassing cmd.exe shell parsing.
+    const roots = [
+      path.join(dir, 'node_modules', provider.pkg),
+      path.join(dir, 'global', '5', 'node_modules', provider.pkg)
+    ];
+    for (const root of roots) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+        const binField = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin?.[provider.id];
+        if (!binField) continue;
+        const entry = path.resolve(root, binField);
+        const node = search.map(d => path.join(d, 'node.exe')).find(f => fs.existsSync(f));
+        if (manifest.name !== provider.pkg || !entry.startsWith(root + path.sep) || !fs.statSync(entry).isFile()) continue;
+        if (/\.exe$/i.test(entry)) return { exe: entry, args: [], path: pathStr };
+        if (node) return { exe: node, args: [entry], path: pathStr };
+      } catch {}
+    }
   }
   return null;
 }
 
-const {spawn, execFile} = require('node:child_process');
-const {createInterface} = require('node:readline');
-const {randomUUID, createHash} = require('node:crypto');
-const {killTree} = require('./run');
-const {snapshotProject,compareProject} = require('./agent-changes');
-const {listCodexModels} = require('./codex-models');
-const {startCodexLogin,safeError} = require('./codex-login');
+function launchSpec(provider, opts = {}) {
+  const win = (opts.platform || process.platform) === 'win32';
+  const primary = collectSearchDirs(provider, { ...opts, includeShell: false });
+  const found = findInDirs(provider, primary, win);
+  if (found) return found;
+  if (!win && opts.probeShell !== false) {
+    const extended = collectSearchDirs(provider, { ...opts, includeShell: true });
+    if (extended.length > primary.length) return findInDirs(provider, extended, win);
+  }
+  return null;
+}
+
+function parseAntigravityModels(rawOutput) {
+  const clean = stripVTControlCharacters(String(rawOutput || ''));
+  const lines = clean.split(/\r?\n/);
+  const models = new Map();
+  const displayCandidates = [];
+
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+    if (/^[-=─━]{3,}$/.test(line)) continue;
+    if (/^(?:model(?:\s+id|\s+slug)?(?:\s+name|\s+display|\s+label)?|available\s+models:?|usage:|tip:|run\s+agy|note:)/i.test(line)) continue;
+
+    let isDefault = false;
+    if (/^\*\s+/.test(line)) {
+      isDefault = true;
+      line = line.replace(/^\*\s+/, '').trim();
+    } else {
+      line = line.replace(/^(?:[-•▸>])\s+/, '').trim();
+    }
+    if (/\(default\)$/i.test(line) || /\bdefault\s*$/i.test(line) && /\s{2,}default$/i.test(line)) {
+      isDefault = true;
+      line = line.replace(/\s*\(default\)$/i, '').replace(/\s{2,}default$/i, '').trim();
+    }
+
+    // 1. Two columns separated by tab or 2+ spaces: "gemini-4-neon-high   Gemini 4 Neon (High)"
+    let match = line.match(/^([a-z0-9][a-z0-9._:/-]*)(?:\t+|[ ]{2,})(\S.*)$/i);
+    if (match) {
+      const id = match[1];
+      const label = match[2].trim();
+      if (!/^(?:id|slug|model|name)$/i.test(id)) {
+        models.set(id, { id, label, isDefault });
+      }
+      continue;
+    }
+
+    // 2. Single-space separated where first token is clearly a slug (contains -, _, ., :, or /)
+    match = line.match(/^([a-z0-9][a-z0-9._:/-]*(?:[-._:/][a-z0-9._:/-]+)+)[ ]+(\S.*)$/);
+    if (match) {
+      const id = match[1];
+      const label = match[2].trim();
+      models.set(id, { id, label, isDefault });
+      continue;
+    }
+
+    // 3. Single-column model slug: "gemini-3.8-flash-high"
+    match = line.match(/^([a-z0-9][a-z0-9._:/-]*(?:[-._:/][a-z0-9._:/-]+)+)$/);
+    if (match) {
+      const id = match[1];
+      models.set(id, { id, label: id, isDefault });
+      continue;
+    }
+
+    // 4. Collect display-name-only lines (e.g. "Gemini 3.5 Flash (High)") as fallback
+    if (/^[A-Za-z][A-Za-z0-9 .()/_-]{2,80}$/.test(line) && !/^(?:error|warning|failed|sign in|authentication)/i.test(line)) {
+      displayCandidates.push({ label: line, isDefault });
+    }
+  }
+
+  if (!models.size && displayCandidates.length) {
+    for (const item of displayCandidates) {
+      const slug = item.label.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/^-|-$/g, '');
+      if (slug && /^[a-z0-9][a-z0-9._:/-]{0,119}$/i.test(slug)) {
+        models.set(slug, { id: slug, label: item.label, isDefault: item.isDefault });
+      }
+    }
+  }
+
+  return [...models.values()];
+}
 
 function command(id) {
   const provider = providers.find(p => p.id === id);
@@ -56,7 +247,7 @@ function command(id) {
   return spec;
 }
 function options(spec, cwd) {
-  return {cwd, windowsHide:true, env:{...process.env, PATH:spec.path}};
+  return { cwd, windowsHide: true, env: { ...process.env, PATH: spec.path } };
 }
 
 class AgentSession {
@@ -65,78 +256,112 @@ class AgentSession {
     this.send = send;
     this.dir = path.join(dir, 'agent-chats');
     // This overlay was generated by old TeXora releases.
-    try { fs.rmSync(path.join(this.dir,'dsh-credentials.yml'),{force:true}); } catch {}
+    try { fs.rmSync(path.join(this.dir, 'dsh-credentials.yml'), { force: true }); } catch {}
     this.job = null;
     this.modelCatalog = null;
+    this.claudeCatalog = null;
     this.agyCatalog = null;
   }
-  list() { return providers.map(p => ({id:p.id, label:p.label, models:p.models, installed:!!launchSpec(p)})); }
-  async models(id,cwd,refresh=false) {
-    const provider = this.list().find(item=>item.id===id);
-    if (!provider?.installed) return {models:[],error:'未检测到本机工具'};
+  list() { return providers.map(p => ({ id: p.id, label: p.label, models: p.models, installed: !!launchSpec(p) })); }
+  async models(id, cwd, refresh = false) {
+    const provider = this.list().find(item => item.id === id);
+    if (!provider?.installed) return { models: [], error: '未检测到本机工具' };
     if (id === 'agy') return this.antigravityModels(refresh);
-    if (id !== 'codex') return {models:provider.models.map(id=>({id,label:id})),source:'suggested'};
+    if (id === 'claude') return this.claudeModels(cwd, refresh);
     const spec = command(id);
     const directory = cwd || os.homedir();
     const cached = this.modelCatalog;
     if (cached?.directory === directory && cached.exe === spec.exe && (!cached.expires || (!refresh && cached.expires > Date.now()))) {
       return cached.result;
     }
-    const entry = {directory,exe:spec.exe};
+    const entry = { directory, exe: spec.exe };
     this.modelCatalog = entry;
-    entry.result = listCodexModels(spec,options(spec,directory)).then(models=>{
-      entry.expires = Date.now()+60000;
-      return {models,source:'codex'};
-    }, error=>{
+    entry.result = listCodexModels(spec, options(spec, directory)).then(models => {
+      entry.expires = Date.now() + 60000;
+      return { models, source: 'codex' };
+    }, error => {
       if (this.modelCatalog === entry) this.modelCatalog = null;
-      return {models:[],error:safeError(error.message)};
+      return { models: [], error: safeError(error.message) };
+    });
+    return entry.result;
+  }
+  claudeModels(cwd, refresh = false) {
+    const spec = command('claude');
+    const directory = cwd || os.homedir();
+    const cached = this.claudeCatalog;
+    if (cached?.directory === directory && cached.exe === spec.exe && (!cached.expires || (!refresh && cached.expires > Date.now()))) {
+      return cached.result;
+    }
+    const entry = { directory, exe: spec.exe };
+    this.claudeCatalog = entry;
+    entry.result = listClaudeModels(spec, options(spec, directory)).then(models => {
+      entry.expires = Date.now() + 60000;
+      return { models, source: 'claude' };
+    }, () => {
+      if (this.claudeCatalog === entry) this.claudeCatalog = null;
+      return { models: DEFAULT_CLAUDE_MODELS, source: 'suggested' };
     });
     return entry.result;
   }
   antigravityModels(refresh = false) {
     const spec = command('agy');
     const cached = this.agyCatalog;
-    if (cached?.exe === spec.exe && (!cached.expires || (!refresh && cached.expires > Date.now()))) return cached.result;
-    const entry = {exe:spec.exe};
+    if (!refresh && cached?.exe === spec.exe && (!cached.expires || cached.expires > Date.now())) return cached.result;
+    const entry = { exe: spec.exe };
     this.agyCatalog = entry;
     entry.result = new Promise(resolve => {
-      execFile(spec.exe,[...spec.args,'models'],{...options(spec,os.homedir()),timeout:12000,maxBuffer:128*1024}, (error,out,stderr)=>{
-        entry.expires = Date.now() + (error ? 5000 : 60000);
-        const lines = String(out).split(/\r?\n/);
-        const models = lines.map(line=>line.trim().match(/^([a-z0-9][a-z0-9._:/-]*)[ \t]{2,}(\S.*)$/i))
-          .filter(Boolean).map(([,id,label])=>({id,label}));
-        if (!error) return resolve({models,source:'agy',authenticated:true});
+      execFile(spec.exe, [...spec.args, 'models'], { ...options(spec, os.homedir()), timeout: 20000, maxBuffer: 256 * 1024 }, (error, out, stderr) => {
+        const models = parseAntigravityModels(out);
         const detail = safeError(stderr || out);
-        if (/sign in|authentication required|log in/i.test(detail)) {
-          return resolve({models:[],authenticated:false});
+        if (!error) {
+          if (models.length) {
+            entry.expires = Date.now() + 60000;
+            return resolve({ models, source: 'agy', authenticated: true });
+          }
+          if (this.agyCatalog === entry) this.agyCatalog = null;
+          if (/sign in|authentication required|log in/i.test(detail)) {
+            return resolve({ models: [], authenticated: false });
+          }
+          return resolve({ models: [], source: 'agy', authenticated: true, error: '未解析到 Antigravity 模型列表，请检查 agy CLI 版本或登录状态' });
         }
-        resolve({models:[],error:error.killed ? 'Antigravity 模型查询超时' : detail || '无法读取 Antigravity 模型列表'});
+        if (this.agyCatalog === entry) this.agyCatalog = null;
+        if (/sign in|authentication required|log in/i.test(detail)) {
+          return resolve({ models: [], authenticated: false });
+        }
+        resolve({ models: [], error: error.killed ? 'Antigravity 模型查询超时' : detail || '无法读取 Antigravity 模型列表' });
       });
     });
     return entry.result;
   }
   async environment() {
-    return Promise.all(this.list().map(async provider => {
-      if (!provider.installed) return provider;
-      const spec = launchSpec(providers.find(p=>p.id===provider.id));
-      if (!spec) return {...provider,installed:false};
-      const version = new Promise(resolve => execFile(spec.exe, [...spec.args,'--version'],
-        {...options(spec,os.homedir()),timeout:5000,maxBuffer:32768}, (error,out) => {
-          resolve(error ? '' : String(out).trim().split(/\r?\n/)[0].slice(0,120));
+    cachedLoginShellDirs = null;
+    return Promise.all(providers.map(async p => {
+      const spec = launchSpec(p);
+      const base = { id: p.id, label: p.label, models: p.models, installed: !!spec, platform: process.platform };
+      if (!spec) {
+        const searchedDirs = collectSearchDirs(p, { includeShell: process.platform !== 'win32' }).slice(0, 8);
+        return { ...base, binPath: '', searchedDirs };
+      }
+      const version = new Promise(resolve => execFile(spec.exe, [...spec.args, '--version'],
+        { ...options(spec, os.homedir()), timeout: 5000, maxBuffer: 32768 }, (error, out) => {
+          resolve(error ? '' : stripVTControlCharacters(String(out)).trim().split(/\r?\n/)[0].slice(0, 120));
         }));
-      const [account,details] = await Promise.all([Promise.resolve().then(()=>this.status(provider.id)).catch(()=>({})),version]);
-      return {...provider,...account,version:details};
+      const [account, details] = await Promise.all([
+        Promise.resolve().then(() => this.status(p.id)).catch(() => ({})),
+        version
+      ]);
+      return { ...base, ...account, version: details, binPath: spec.exe };
     }));
   }
   status(id) {
-    if (id === 'agy') return this.antigravityModels().then(({authenticated,error})=>({authenticated,error}));
+    if (id === 'agy') return this.antigravityModels().then(({ authenticated, error }) => ({ authenticated, error }));
     const spec = command(id);
-    const args = id === 'codex' ? ['login','status'] : ['auth','status','--json'];
-    return new Promise(resolve => execFile(spec.exe, [...spec.args,...args], {...options(spec,os.homedir()),timeout:12000}, (error,out) => {
-      if (error?.killed) return resolve({error:'账号检测超时，请重新检测'});
-      if (id === 'codex') return resolve({authenticated:!error});
-      try { resolve({authenticated:JSON.parse(out).loggedIn === true}); }
-      catch { resolve({authenticated:false}); }
+    const args = id === 'codex' ? ['login', 'status'] : ['auth', 'status', '--json'];
+    return new Promise(resolve => execFile(spec.exe, [...spec.args, ...args], { ...options(spec, os.homedir()), timeout: 12000 }, (error, out) => {
+      if (error?.killed) return resolve({ error: '账号检测超时，请重新检测' });
+      if (id === 'codex') return resolve({ authenticated: !error });
+      try { resolve({ authenticated: JSON.parse(out).loggedIn === true }); }
+      catch { resolve({ authenticated: false }); }
     }));
   }
   historyFile(id,cwd) {
@@ -179,7 +404,7 @@ class AgentSession {
         if (!chat?.remote) throw Error('该会话尚未建立，请新建聊天');
       } else chat = {id:randomUUID(),title:prompt.slice(0,80),messages:[]};
       const model = String(request.model || '').trim();
-      if (model && (!/^[a-z0-9][a-z0-9._:/-]{0,119}$/i.test(model))) throw Error('模型 ID 格式无效');
+      if (model && (!/^[a-z0-9][a-z0-9._:/\[\]-]{0,119}$/i.test(model))) throw Error('模型 ID 格式无效');
       const modelArgs = model ? ['--model',model] : [];
       chat.updated = Date.now();
       chat.messages.push({role:'user',text:prompt});
@@ -271,6 +496,7 @@ class AgentSession {
         if (error || cancelled) chat.messages.push({role:'status',text:error || '已停止'});
         try { this.save(job); } catch { error = '会话记录保存失败'; }
       }
+      if (kind === 'login' && id === 'claude') this.claudeCatalog = null;
       emit({ended:true, kind, chatId:chat?.id, error});
       this.job = null;
     };
@@ -289,4 +515,4 @@ class AgentSession {
   }
   stop() { this.job?.cancel(); }
 }
-module.exports = { AgentSession };
+module.exports = { AgentSession, launchSpec, parseAntigravityModels, collectSearchDirs };

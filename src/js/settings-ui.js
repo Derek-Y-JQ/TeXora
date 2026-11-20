@@ -585,7 +585,11 @@ export function createSettingsUI() {
         void ctx.api.agent.models(id,force).then(catalog=>{
           if (!picker.isConnected) return;
           renderAgentModels(picker,catalog,settingValue('agent.models.'+id) || '');
-          status.textContent = catalog?.error || (catalog?.source === 'codex' && !catalog.models?.length ? 'Codex 未列出可选择的模型' : '');
+          if (catalog?.error) status.textContent = catalog.error;
+          else if (catalog?.source === 'suggested') status.textContent = '已加载常用模型别名（可在下拉中手动输入任意模型 ID）';
+          else if (catalog?.authenticated === false) status.textContent = '请先完成账号登录后再读取模型列表';
+          else if (!catalog?.models?.length) status.textContent = '未列出可选择的模型，可点击「检测环境」重试';
+          else status.textContent = `已获取 ${catalog.models.length} 个可用模型`;
         });
       }
     };
@@ -596,24 +600,143 @@ export function createSettingsUI() {
     }
     refreshModels(false);
 
-    body.querySelector('#agentCheck')?.addEventListener('click', async event => {
-      refreshModels(true);
-      const button = event.currentTarget;
-      const target = body.querySelector('#agentEnvironment');
-      button.disabled = true;
-      target.textContent = '正在检测…';
+    const agentCheckBtn = body.querySelector('#agentCheck');
+    const agentEnvBox = body.querySelector('#agentEnvironment');
+    const copyCmdButton = cmd => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-sm agent-env-copy';
+      btn.textContent = '复制';
+      btn.onclick = async () => {
+        const res = await ctx.api.clipboard.writeText(cmd);
+        btn.textContent = res?.ok ? '已复制' : '失败';
+        setTimeout(() => { if (btn.isConnected) btn.textContent = '复制'; }, 1500);
+      };
+      return btn;
+    };
+    const makeCmdLine = (label, cmd) => {
+      const line = document.createElement('div');
+      line.className = 'agent-env-cmd';
+      const tag = document.createElement('span');
+      tag.className = 'agent-env-cmd-label';
+      tag.textContent = label;
+      const code = document.createElement('code');
+      code.textContent = cmd;
+      line.append(tag, code, copyCmdButton(cmd));
+      return line;
+    };
+    const toolGuide = (id, platform) => {
+      const win = platform === 'win32';
+      const mac = platform === 'darwin';
+      const locate = cmd => (win ? `where.exe ${cmd} && ${cmd} --version` : `which ${cmd} && ${cmd} --version`);
+      if (id === 'codex') {
+        return {
+          install: win
+            ? [['npm 安装', 'npm install -g @openai/codex'], ['PowerShell 安装', 'irm https://chatgpt.com/codex/install.ps1 | iex']]
+            : mac
+              ? [['npm 安装', 'npm install -g @openai/codex'], ['Homebrew 安装', 'brew install --cask codex']]
+              : [['npm 安装', 'npm install -g @openai/codex']],
+          verify: locate('codex'),
+          login: 'codex login',
+          tips: win
+            ? '若已通过 npm / nvm / pnpm / Volta 安装仍未检测到，请确认 Node.js 与全局 bin 目录已加入系统 PATH，或重启 TeXora 后点击「检测环境」。'
+            : '若已通过 Homebrew / nvm / fnm / pnpm / Volta 安装仍未检测到，请在终端确认 which codex 输出路径，安装完成后点击「检测环境」或重启 TeXora。'
+        };
+      }
+      if (id === 'claude') {
+        return {
+          install: win
+            ? [['官方脚本', 'irm https://claude.ai/install.ps1 | iex'], ['npm 安装', 'npm install -g @anthropic-ai/claude-code']]
+            : [['官方脚本', 'curl -fsSL https://claude.ai/install.sh | bash'], ['npm 安装', 'npm install -g @anthropic-ai/claude-code']],
+          verify: locate('claude'),
+          login: 'claude auth login',
+          tips: '安装完成后可在终端执行验证命令确认 claude 可用，再点击上方「检测环境」。'
+        };
+      }
+      return {
+        install: win
+          ? [['PowerShell 安装', 'irm https://antigravity.google/install.ps1 | iex']]
+          : [['官方脚本', 'curl -fsSL https://antigravity.google/install.sh | bash']],
+        verify: locate('agy'),
+        login: 'agy',
+        docsUrl: 'https://antigravity.google/docs/cli/getting-started',
+        tips: '安装后请在终端运行一次 agy 完成 Google 账号登录，再回到 TeXora 点击「检测环境」。'
+      };
+    };
+    const runAgentEnvironmentCheck = async (forceModels) => {
+      if (!agentCheckBtn || !agentEnvBox) return;
+      if (forceModels) refreshModels(true);
+      agentCheckBtn.disabled = true;
+      agentEnvBox.textContent = '正在检测…';
       try {
         const tools = await ctx.api.agent.environment();
         if (!Array.isArray(tools)) throw Error(tools?.error || '环境检测失败');
-        target.replaceChildren(...tools.map(tool => {
-          const row = document.createElement('p');
+        if (!agentEnvBox.isConnected) return;
+        agentEnvBox.replaceChildren(...tools.map(tool => {
+          const item = document.createElement('div');
+          item.className = 'agent-env-item';
+          const head = document.createElement('div');
+          head.className = 'agent-env-head';
+          const title = document.createElement('strong');
+          title.textContent = tool.label;
+          const badge = document.createElement('span');
           const account = tool.error || (tool.authenticated ? '已登录' : '未登录');
-          row.textContent = tool.label + ' · ' + (tool.installed ? [tool.version || '已安装',account].join(' · ') : '未检测到');
-          return row;
+          badge.className = 'chip ' + (tool.installed ? (tool.authenticated && !tool.error ? 'ok' : 'warn') : '');
+          badge.textContent = tool.installed ? (tool.authenticated && !tool.error ? '已就绪' : account) : '未检测到';
+          const summary = document.createElement('span');
+          summary.className = 'agent-env-summary';
+          summary.textContent = tool.installed ? [tool.version || '已安装', account].join(' · ') : '未检测到本机命令行工具';
+          head.append(title, badge, summary);
+          item.append(head);
+
+          const guide = toolGuide(tool.id, tool.platform || document.documentElement.dataset.platform);
+          if (tool.installed) {
+            if (tool.binPath) {
+              const pathEl = document.createElement('div');
+              pathEl.className = 'agent-env-path';
+              pathEl.textContent = '路径：' + tool.binPath;
+              item.append(pathEl);
+            }
+            if (!tool.authenticated || tool.error) {
+              const tipBox = document.createElement('div');
+              tipBox.className = 'agent-env-guide';
+              const note = document.createElement('p');
+              note.className = 'agent-env-tip';
+              note.textContent = tool.error ? `检测提示：${tool.error}` : '检测到工具但尚未登录，可在 Agent 侧栏点击登录，或在终端执行：';
+              tipBox.append(note, makeCmdLine('终端登录', guide.login));
+              item.append(tipBox);
+            }
+          } else {
+            const guideBox = document.createElement('div');
+            guideBox.className = 'agent-env-guide';
+            for (const [cmdLabel, cmdText] of guide.install) {
+              guideBox.append(makeCmdLine(cmdLabel, cmdText));
+            }
+            guideBox.append(makeCmdLine('终端验证', guide.verify));
+            const tip = document.createElement('p');
+            tip.className = 'agent-env-tip';
+            tip.textContent = guide.tips;
+            guideBox.append(tip);
+            if (guide.docsUrl) {
+              const linkBtn = document.createElement('button');
+              linkBtn.type = 'button';
+              linkBtn.className = 'btn btn-sm';
+              linkBtn.textContent = '查看官方安装文档';
+              linkBtn.onclick = () => ctx.api.openExternal(guide.docsUrl);
+              guideBox.append(linkBtn);
+            }
+            item.append(guideBox);
+          }
+          return item;
         }));
-      } catch (error) { target.textContent = error.message; }
-      finally { button.disabled = false; }
-    });
+      } catch (error) {
+        if (agentEnvBox.isConnected) agentEnvBox.textContent = error.message;
+      } finally {
+        if (agentCheckBtn.isConnected) agentCheckBtn.disabled = false;
+      }
+    };
+    agentCheckBtn?.addEventListener('click', () => runAgentEnvironmentCheck(true));
+    if (currentSection === 'agent') void runAgentEnvironmentCheck(false);
 
     // specific buttons
     body.querySelector('#setClean')?.addEventListener('click', () => ctx.cmd('build.clean', false));

@@ -42,10 +42,23 @@ export default async function ({evalJs, click, sleep}) {
       await until("document.querySelector('.agent-model').value==='fixture-sol' && document.querySelector('.agent-model').textContent.includes('Fixture Astra')");
       await evalJs("(()=>{const picker=document.querySelector('.agent-model');picker.value='fixture-model';picker.dispatchEvent(new Event('change'));})()");
     }
+    if (id==='claude') {
+      await until("document.querySelector('.agent-model').textContent.includes('Claude Sonnet 5.5') && document.querySelector('.agent-model').textContent.includes('Claude Opus 5.5')");
+      await evalJs("(()=>{const picker=document.querySelector('.agent-model');picker.value='claude-opus-5-5';picker.dispatchEvent(new Event('change'));})()");
+    }
     if (id==='agy') {
       await until("document.querySelector('.agent-model').textContent.includes('Fixture Gemini')");
       await evalJs("(()=>{const picker=document.querySelector('.agent-model');picker.value='fixture-gemini';picker.dispatchEvent(new Event('change'));})()");
     }
+    const layoutOk = await evalJs(`(()=>{
+      const panel=document.querySelector('.agent-panel').getBoundingClientRect();
+      const headItems=[document.querySelector('.agent-head select'),...document.querySelectorAll('.agent-head button')];
+      const footItems=[document.querySelector('.agent-model'),document.querySelector('.agent-submit')];
+      const within=el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&r.left>=panel.left-1&&r.right<=panel.right+1;};
+      const nonOverlap=list=>list.every((a,i)=>i===0||list[i-1].getBoundingClientRect().right<=a.getBoundingClientRect().left+1);
+      return headItems.every(within)&&nonOverlap(headItems)&&footItems.every(within)&&nonOverlap(footItems);
+    })()`);
+    assert.ok(layoutOk, `Agent sidebar controls clipped or overlapped for ${id}`);
     await send('你好');
     await until("document.querySelector('.agent-messages').textContent.includes('收到 你好')");
     if (id==='codex') {

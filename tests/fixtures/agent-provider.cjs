@@ -4,6 +4,30 @@ const args=process.argv.slice(2), claude=__dirname.includes('anthropic-ai');
 const marker=path.join(__dirname,'signed-in');
 const output=value=>console.log(JSON.stringify(value));
 if (args.includes('--version')) { console.log('fixture 1.0'); process.exit(0); }
+if (claude && args.includes('--input-format') && args.includes('stream-json')) {
+  require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
+    let request;
+    try { request = JSON.parse(line); } catch { return; }
+    if (request.type === 'control_request' && request.request?.subtype === 'initialize') {
+      output({
+        type: 'control_response',
+        response: {
+          subtype: 'success',
+          request_id: request.request_id,
+          response: {
+            models: [
+              { value: 'default', displayName: 'Default', resolvedModel: 'claude-sonnet-5-5' },
+              { value: 'claude-sonnet-5-5', displayName: 'Claude Sonnet 5.5' },
+              { value: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' }
+            ]
+          }
+        }
+      });
+      process.exit(0);
+    }
+  });
+  return;
+}
 if (args.includes('app-server')) {
   require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
     const request=JSON.parse(line);

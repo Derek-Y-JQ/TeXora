@@ -28,7 +28,7 @@ export function bindAgentModel(select, onChange) {
     const model = await ctx.dialogs.prompt({title:'输入模型 ID',label:'模型 ID',value:previous,confirmText:'使用模型'});
     if (typeof model !== 'string' || !select.isConnected) return;
     const id = model.trim();
-    if (!/^[a-z0-9][a-z0-9._:/-]{0,119}$/i.test(id)) return;
+    if (!/^[a-z0-9][a-z0-9._:/\[\]-]{0,119}$/i.test(id)) return;
     if (![...select.options].some(option=>option.value===id)) select.add(new Option(id,id),select.length-1);
     select.value = id;
     select.dataset.previous = id;
