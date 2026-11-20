@@ -821,7 +821,7 @@ html[data-platform="darwin"] .window-controls { display: none; }
 .agent-panel { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; padding:6px 12px 12px; }
 .agent-head,.agent-compose footer,.agent-account { display:flex; align-items:center; gap:6px; }
 .agent-head select { min-width:0; max-width:65%; font:inherit; font-weight:600; border:0; background:var(--surface-2); color:var(--text); padding:5px; border-radius:6px; }
-.agent-scroll,.agent-web { flex:1; min-height:0; overflow:auto; }
+.agent-scroll { flex:1; min-height:0; overflow:auto; }
 .agent-recent h3 { font-size:12px; color:var(--text-2); margin:14px 0 6px; }
 .agent-recent p,.agent-account,.agent-compose footer { font-size:12px; color:var(--text-3); }
 .agent-recent button { width:100%; padding:8px 2px; display:flex; gap:10px; align-items:baseline; text-align:left; }

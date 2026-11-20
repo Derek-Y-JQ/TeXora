@@ -11,7 +11,6 @@ export function setupAgentPanel(panel, api) {
     <header class="agent-head"><select aria-label="Agent 服务商"></select><span class="spacer"></span>
       ${tool('history','最近对话','history')}${tool('new','新对话','plus')}${tool('detect','重新检测账号和工具','refresh')}${tool('settings','Agent 模式 AI 设置','sliders')}</header>
     <div class="agent-scroll"><div class="agent-recent"></div><div class="agent-messages" role="log" aria-live="polite"></div></div>
-    <div class="agent-web" hidden></div>
     <div class="agent-account"><span role="status"></span><button class="btn btn-sm" data-login hidden></button>
       <button class="btn btn-sm" data-browser hidden>打开登录页面</button><button class="btn btn-sm" data-copy hidden>复制链接</button>
       <button class="btn btn-sm" data-stop hidden>结束</button></div>
@@ -19,7 +18,7 @@ export function setupAgentPanel(panel, api) {
     <form class="agent-compose"><textarea aria-label="消息" placeholder="给 Agent 发消息…" rows="2"></textarea>
       <footer><span class="agent-project">${icon('folder')}<span></span></span><span data-account></span><select class="agent-model input" aria-label="选择模型"></select><button type="submit" class="agent-submit" title="发送消息" aria-label="发送消息">${icon('arrow-up')}</button></footer></form>`;
   const find = q => agent.querySelector(q);
-  const select = find('.agent-head select'), frame = find('.agent-web'), status = find('[role=status]');
+  const select = find('.agent-head select'), status = find('[role=status]');
   const model = find('.agent-model');
   const modelChoices = new Map();
   const catalogs = new Map();
@@ -30,23 +29,22 @@ export function setupAgentPanel(panel, api) {
   let projectRoot = '';
   let showingHistory = true, expand = false;
   function controls() {
-    const dsh = select.value === 'dsh';
+    const antigravity = select.value === 'agy';
     const installed = providers.some(p => p.id === select.value && p.installed);
     model.disabled = !!busy || !installed;
     select.disabled = !!busy;
     find('[data-detect]').disabled = !!busy;
     for (const key of ['new','history']) find('[data-'+key+']').disabled = !!busy;
-    login.hidden = !installed || !!busy || (!dsh && auth);
-    login.textContent = dsh ? '配置 DeepSeek 账号' : '登录 ' + (select.selectedOptions[0]?.textContent || '');
+    login.hidden = !!busy || (antigravity ? auth : !installed || auth);
+    login.textContent = antigravity ? (installed ? 'Antigravity 登录说明' : '安装 Antigravity') : '登录 ' + (select.selectedOptions[0]?.textContent || '');
     browser.hidden = !loginUrl || busy !== 'login';
     find('[data-copy]').hidden = browser.hidden;
     if (busy !== 'login') find('.agent-code').hidden = true;
     stop.hidden = !busy;
-    stop.textContent = busy === 'message' ? '停止生成' : busy === 'login' ? '取消登录' : '返回聊天';
-    form.hidden = busy === 'web';
+    stop.textContent = busy === 'message' ? '停止生成' : '取消登录';
     input.disabled = !auth || !projectRoot;
     form.querySelector('[type=submit]').disabled = input.disabled || !!busy || !input.value.trim();
-    find('[data-account]').textContent = dsh ? '' : auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
+    find('[data-account]').textContent = auth ? '已登录 · '+select.selectedOptions[0]?.textContent : '';
   }
   function syncModel() {
     const preferred = ctx.state.settings.agent?.models?.[select.value] || '';
@@ -163,10 +161,10 @@ export function setupAgentPanel(panel, api) {
     folder.title = projectRoot || '尚未打开项目';
     folder.querySelector('span').textContent = projectRoot.split(/[\\/]/).filter(Boolean).pop() || folder.title;
     folder.setAttribute('aria-label', projectRoot ? '当前项目 · '+projectRoot : folder.title);
-    auth = !!(account.authenticated || account.local);
+    auth = !!account.authenticated;
     history = Array.isArray(records) ? records : [];
     status.textContent = !provider?.installed ? '未检测到本机 '+(provider?.label || '工具')+'，安装后点击重新检测。' :
-      account.error || (account.local ? '使用本机 Harness 配置。首次使用可配置账号，完成后点「返回聊天」。' : auth ? '' : '使用现有账号登录，完成后回到这里。');
+      account.error || (auth ? '' : provider.id === 'agy' ? '请在终端运行 agy 登录 Google，完成后点右上的刷新。' : '使用现有账号登录，完成后回到这里。');
     controls(); showChat();
   }
   function reset() { current=null; showingHistory=true; expand=false; input.value=''; loginUrl=''; }
@@ -183,7 +181,7 @@ export function setupAgentPanel(panel, api) {
       showingHistory=false; input.value=''; showChat();
     }
     busy=kind; loginUrl=''; controls();
-    status.textContent = kind === 'login' ? '请在浏览器中完成登录…' : kind === 'message' ? '正在处理…' : '正在打开 DeepSeek…';
+    status.textContent = kind === 'login' ? '请在浏览器中完成登录…' : '正在处理…';
     const result = await api.agent.start(select.value,kind,{chatId,text,model:model.value.trim()});
     if (!result?.ok) {
       busy=''; status.textContent=result?.error || '操作失败';
@@ -191,7 +189,10 @@ export function setupAgentPanel(panel, api) {
       controls();
     } else if (kind==='message' && current) current.id=result.chatId;
   }
-  login.onclick = () => start(select.value==='dsh' ? 'web' : 'login');
+  login.onclick = () => {
+    if (select.value === 'agy') return api.openExternal('https://antigravity.google/docs/cli/getting-started');
+    return start('login');
+  };
   find('.agent-code').onsubmit = async event => {
     event.preventDefault();
     const field = find('.agent-code input');
@@ -244,11 +245,8 @@ export function setupAgentPanel(panel, api) {
     if (e.browserError) status.textContent+=' '+e.browserError;
     if (e.message && current) { current.messages.push({role:'assistant',text:e.message,pending:true}); showChat(); }
     if (e.activity) status.textContent = '正在使用工具 · '+e.activity;
-    if (e.webError) status.textContent=e.webError;
-    if (e.web) { frame.hidden=false; scroll.hidden=true; status.textContent=''; layoutWebView(); }
     if (!e.ended) return;
     busy=''; loginUrl=''; status.textContent=e.error || '';
-    cancelAnimationFrame(layoutFrame); previousBounds=undefined; frame.hidden=true; scroll.hidden=false;
     controls();
     if (e.kind==='login') { await refresh(true); if(e.error) status.textContent=e.error; }
     if (e.kind==='message') {
@@ -258,17 +256,4 @@ export function setupAgentPanel(panel, api) {
       history=records; current=history.find(c=>c.id===e.chatId) || current; showChat();
     }
   });
-  let layoutFrame, previousBounds;
-  function layoutWebView() {
-    if (frame.hidden) return;
-    const r = frame.getBoundingClientRect();
-    const container = panel.getBoundingClientRect();
-    const top = Math.max(0, r.top, container.top);
-    const bottom = Math.min(innerHeight, r.bottom, panel.closest('#sidebar').getBoundingClientRect().bottom);
-    const visible = r.width && bottom > top && !document.querySelector('#modalLayer.open, #paletteLayer.open, .menu-open');
-    const rect = visible ? {x:r.x, y:top, width:r.width, height:bottom-top} : null;
-    const value = JSON.stringify(rect);
-    if (value !== previousBounds) { api.agent.bounds(rect); previousBounds = value; }
-    layoutFrame = requestAnimationFrame(layoutWebView);
-  }
 }

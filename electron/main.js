@@ -135,10 +135,7 @@ function send(channel, payload) {
 
 const compiler = new Compiler({ store, project, tex, history, send, fallbackCacheRoot: USER_DATA });
 const { AgentSession } = require('./lib/agent-session');
-const { AgentWebView } = require('./lib/agent-web-view');
-const agentWeb = new AgentWebView(() => win, send);
-const agentSession = new AgentSession(send, agentWeb, USER_DATA, url => shell.openExternal(url));
-ipcMain.on('agent:bounds', (event, rect) => { if (event.senderFrame === win?.webContents.mainFrame) agentWeb.bounds(rect); });
+const agentSession = new AgentSession(send, USER_DATA, url => shell.openExternal(url));
 handle('agent:list', () => agentSession.list());
 handle('agent:models', (id, refresh) => agentSession.models(id,project.root,refresh === true));
 handle('agent:environment', () => agentSession.environment());

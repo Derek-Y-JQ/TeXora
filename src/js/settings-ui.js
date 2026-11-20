@@ -246,7 +246,7 @@ export function createSettingsUI() {
   }
 
   function renderAgent() {
-    const harnesses = [['codex','Codex'],['claude','Claude Code'],['dsh','DeepSeek Harness']];
+    const harnesses = [['codex','Codex'],['claude','Claude Code'],['agy','Google Antigravity']];
     return `<h2 class="settings-section-title">Agent 模式 AI 设置</h2>
       <div class="setting-card">
         ${selectRow('agent.provider','默认工具','新打开的 Agent 栏会优先选用此工具。',[['','自动选择'],...harnesses])}
@@ -607,7 +607,7 @@ export function createSettingsUI() {
         if (!Array.isArray(tools)) throw Error(tools?.error || '环境检测失败');
         target.replaceChildren(...tools.map(tool => {
           const row = document.createElement('p');
-          const account = tool.error || (tool.local ? '账号由本机 Harness 管理' : tool.authenticated ? '已登录' : '未登录');
+          const account = tool.error || (tool.authenticated ? '已登录' : '未登录');
           row.textContent = tool.label + ' · ' + (tool.installed ? [tool.version || '已安装',account].join(' · ') : '未检测到');
           return row;
         }));

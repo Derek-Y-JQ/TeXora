@@ -2,7 +2,7 @@
 
 TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
-- **受控 AI 赋能，主动权仍在自己**：选上下文、选 Skills、检查差异，再决定是否写入；检查与解释作为回答展示。本软件也支持设备安装好的 harness，例如 codex，claude code，dsh 作为 agent。
+- **受控 AI 赋能，主动权仍在自己**：选上下文、选 Skills、检查差异，再决定是否写入；检查与解释作为回答展示。Agent 支持本机安装的 Codex、Claude Code 和 Google Antigravity。
 - **图片、表格、代码块省心插入**：粘贴图片、编辑表格、选择 listings / minted、点选伪代码流程组件；代码块所需宏包自动补入主文档。
 - **归档闹心的中间文件**：编译产物集中在 `.latex_cache/`，主 PDF 可同步到项目目录。
 - **整理闹心的格式不一**：一键整理缩进、段内硬回车、章节分隔与空行，同时保护公式、代码和注释边界。
@@ -20,9 +20,9 @@ TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF�
 
 ## Ask 与 Agent
 
-Ask 保留上下文选择、OCR 和修改确认。打开项目，在 AI 侧栏选择 Agent 和本机安装的 Codex 或 Claude Code，点击登录并在服务商浏览器页面完成授权。已有登录状态会自动识别。可在底部输入框直接发送消息，Shift+Enter 换行；「最近对话」按项目和服务商保存，并可恢复上下文。选择 DeepSeek Harness 后，可直接在同一输入框聊天。首次使用时点「配置 DeepSeek 账号」，在 Harness 自带的界面完成配置后点「返回聊天」。三个 Agent 都会在当前项目目录运行，左下角文件夹显示项目名，悬停可查看完整路径。每次回答完成后会显示分隔线和本地时间。
+Ask 保留上下文选择、OCR 和修改确认。打开项目，在 AI 侧栏切换到 Agent，选择本机的 Codex、Claude Code 或 Google Antigravity。Codex 和 Claude Code 支持从侧栏开始登录。Antigravity 需先安装 Google 的 `agy` CLI，在终端运行 `agy` 完成 Google 登录，再回到 TeXora 点刷新。已有登录状态会自动识别。 [Antigravity CLI 安装与登录](https://antigravity.google/docs/cli/getting-started)
 
-![DeepSeek 项目聊天、项目目录与回答完成时间（示例对话）](docs/screenshots/220-agent.png)
+可在侧栏发送消息、选择模型和查看文件 Diff。Shift+Enter 换行。「最近对话」按项目和服务商保存，并可恢复上下文。左下角显示当前项目名，回答完成后显示时间。
 
 ## macOS 安装与构建
 

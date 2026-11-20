@@ -14,34 +14,8 @@ for (const [id,pkg] of [['codex','@openai/codex'],['claude','@anthropic-ai/claud
   fs.chmodSync(entry,0o755);
   if (!windows) fs.symlinkSync(entry,path.join(root,id));
 }
-// Simulate DSH's documented loopback launch URL and Strict cookie exchange.
-const dshPackage = path.join(root, 'node_modules', '@deepseek-ai', 'dsh');
-fs.mkdirSync(dshPackage, {recursive:true});
-fs.writeFileSync(path.join(dshPackage, 'package.json'), JSON.stringify({name:'@deepseek-ai/dsh',bin:{dsh:'bin.cjs'}}));
-const dsh = path.join(dshPackage, 'bin.cjs');
-fs.writeFileSync(dsh, `#!/usr/bin/env node
-const http = require('node:http'), fs = require('node:fs');
-if (process.argv.includes('headless')) {
-  const args = process.argv.slice(2);
-  const resume = args.includes('--session-id');
-  if (!fs.existsSync('main.tex') || !args.includes('--json') || !fs.existsSync(args[args.indexOf('--patch')+1])) process.exit(2);
-  const text = fs.readFileSync(0,'utf8');
-  console.log(JSON.stringify({type:'session',sessionId:'fixture-dsh'}));
-  console.log(JSON.stringify({type:'final',reason:{kind:'completed'},text:(resume ? '继续 ' : '收到 ')+text}));
-  process.exit(0);
-}
-const server = http.createServer((req,res) => {
-  if (req.url === '/?token=fixture') {
-    res.writeHead(303, {Location:'/', 'Set-Cookie':'dsh-test=ok; Path=/; HttpOnly; SameSite=Strict'});
-  } else if (req.url === '/' && req.headers.cookie?.includes('dsh-test=ok')) {
-    fs.writeFileSync('agent-web-authenticated.txt', 'authenticated');
-    res.writeHead(200, {'Content-Type':'text/html'});
-  } else res.writeHead(401);
-  res.end();
-});
-server.listen(0,'127.0.0.1',() => console.log('dsh web: http://127.0.0.1:'+server.address().port+'/?token=fixture'));
-`, {mode:0o755});
-if (!windows) fs.symlinkSync(dsh,path.join(root,'dsh'));
+if (!windows) fs.copyFileSync(path.join(__dirname,'../tests/fixtures/agy.cjs'),path.join(root,'agy'));
+if (!windows) fs.chmodSync(path.join(root,'agy'),0o755);
 const project = path.join(root,'project');
 fs.mkdirSync(project);
 fs.writeFileSync(path.join(project,'main.tex'),'\\documentclass{article}\n\\begin{document}Test\\end{document}');

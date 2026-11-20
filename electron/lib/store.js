@@ -105,7 +105,7 @@ const DEFAULT_SETTINGS = {
   },
   agent: {
     provider: '',
-    models: {codex:'', claude:'', dsh:''}
+    models: {codex:'', claude:'', agy:''}
   },
   ai: {
     provider: 'deepseek',
@@ -183,6 +183,8 @@ class Store extends EventEmitter {
         this.data = structuredClone(DEFAULT_SETTINGS);
       }
     }
+    if (this.data.agent?.provider === 'dsh') this.data.agent.provider = '';
+    if (this.data.agent?.models) delete this.data.agent.models.dsh;
     const actions = this.data.ai?.blockActions;
     let migrated = false;
     if (!this.data.migrations?.prompts133) {

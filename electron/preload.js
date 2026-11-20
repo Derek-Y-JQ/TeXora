@@ -28,7 +28,7 @@ const api = {
   agent: {
     list: () => invoke('agent:list'), models:(id,refresh) => invoke('agent:models',id,refresh), environment: () => invoke('agent:environment'), loginCode:code => invoke('agent:login-code',code), status:id => invoke('agent:status',id), history:id => invoke('agent:history',id),
     start:(id,kind,request) => invoke('agent:start',id,kind,request), stop:() => invoke('agent:stop'),
-    bounds: rect => ipcRenderer.send('agent:bounds',rect), onEvent: cb => on('agent:event',cb)
+    onEvent: cb => on('agent:event',cb)
   },
   pdf: {open:file=>invoke('pdf:open',file)},
   update: { check: () => invoke('update:check') },

@@ -25,10 +25,14 @@ export default async function ({evalJs, click, sleep}) {
   await click('#agentCheck');
   await until("document.querySelector('#agentEnvironment')?.textContent.includes('fixture 1.0')");
   await click('#settingsClose');
-  for (const id of ['codex','claude','dsh']) {
+  const providers = await evalJs('window.texora.agent.list()');
+  assert.deepEqual(providers.map(item=>item.id),['codex','claude','agy']);
+  for (const {id} of providers.filter(item=>item.installed)) {
     await evalJs(`(()=>{const sel=document.querySelector('.agent-panel select'); sel.value='${id}'; sel.dispatchEvent(new Event('change'));})()`);
-    await until("!document.querySelector('.agent-panel [data-login]').hidden && !document.querySelector('.agent-panel textarea').value");
-    if (id !== 'dsh') await click('.agent-panel [data-login]');
+    if (id !== 'agy') {
+      await until("!document.querySelector('.agent-panel [data-login]').hidden && !document.querySelector('.agent-panel textarea').value");
+      await click('.agent-panel [data-login]');
+    }
     await until("!document.querySelector('.agent-panel textarea').disabled");
     async function send(text) {
       await evalJs(`(()=>{const input=document.querySelector('.agent-panel textarea');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input'));input.form.requestSubmit()})()`);
@@ -37,6 +41,10 @@ export default async function ({evalJs, click, sleep}) {
     if (id==='codex') {
       await until("document.querySelector('.agent-model').value==='fixture-sol' && document.querySelector('.agent-model').textContent.includes('Fixture Astra')");
       await evalJs("(()=>{const picker=document.querySelector('.agent-model');picker.value='fixture-model';picker.dispatchEvent(new Event('change'));})()");
+    }
+    if (id==='agy') {
+      await until("document.querySelector('.agent-model').textContent.includes('Fixture Gemini')");
+      await evalJs("(()=>{const picker=document.querySelector('.agent-model');picker.value='fixture-gemini';picker.dispatchEvent(new Event('change'));})()");
     }
     await send('你好');
     await until("document.querySelector('.agent-messages').textContent.includes('收到 你好')");
@@ -59,13 +67,6 @@ export default async function ({evalJs, click, sleep}) {
     await until("document.querySelectorAll('time.agent-turn-end').length === 2");
     assert.equal(await evalJs("document.querySelector('.agent-project span').textContent"),'project');
   }
-  await evalJs("(()=>{const sel=document.querySelector('.agent-panel select');sel.value='dsh';sel.dispatchEvent(new Event('change'))})()");
-  await until("document.querySelector('.agent-panel [data-login]').textContent==='配置 DeepSeek 账号'");
-  await click('.agent-panel [data-login]');
-  await until("!document.querySelector('.agent-web').hidden");
-  const marker = await evalJs("window.texora.fs.read(window.__texora.state.project.root + '/agent-web-authenticated.txt')");
-  assert.equal(marker.text, 'authenticated', 'local provider view completes the first-party cookie exchange');
-  await click('.agent-panel [data-stop]');
   await click('[data-ai-mode=ask]');
   assert.ok(await evalJs("document.querySelector('#aiPrompt').getClientRects().length > 0"));
 }
