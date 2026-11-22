@@ -172,7 +172,7 @@
         <h2>文稿在你的电脑上，需要时再连接外部</h2>
         <p>编辑、编译、版本管理都在本机完成，可以完全离线。需要协作或自动化时，TeXora 也能接上。</p>
         <ul class="points">
-          <li><strong>Overleaf：</strong>在官方网页登录后加载到本地编辑；回传前逐项列出上传、下载和删除，两端都改过同一文件时阻止同步并先备份。不需要把密码交给 TeXora，也不依赖付费的 Git 接入</li>
+          <li><strong>Overleaf 实时直连：</strong>官方网页登录后可直接秒开云端项目，通过 OT 协议与协作者实时双向同步编辑，显示协作者彩色光标与在线列表，并支持云端编译、双向 SyncTeX 与云端文件管理；也保留「离线副本」供完全离线编辑。不需要把密码交给 TeXora，也不依赖付费的 Git 接入</li>
           <li><strong>本地快照与 Git：</strong>保存和编译后自动记录快照，可比较与恢复；Git 面板查看变更、提交历史并提交</li>
           <li><strong>为 Agent 准备：</strong>外部工具可直接修改项目文件，TeXora 检测磁盘变更且不覆盖未保存内容；命令行编译输出 JSON</li>
         </ul>
@@ -224,11 +224,11 @@
     <table>
       <thead><tr><th scope="col"></th><th scope="col" class="me">TeXora</th><th scope="col">Overleaf</th><th scope="col">TeXstudio</th><th scope="col">VS Code + LaTeX Workshop</th></tr></thead>
       <tbody>
-        <tr><th scope="row">运行方式</th><td class="me">Windows / macOS 桌面应用，本机编译</td><td>浏览器，云端编译</td><td>跨平台桌面应用，本机编译</td><td>通用编辑器 + 扩展，本机编译</td></tr>
+        <tr><th scope="row">运行方式</th><td class="me">Windows / macOS 桌面应用，本机编译；Overleaf 实时模式走云端编译</td><td>浏览器，云端编译</td><td>跨平台桌面应用，本机编译</td><td>通用编辑器 + 扩展，本机编译</td></tr>
         <tr><th scope="row">离线写作</th><td class="me">可以</td><td>需联网；可借 Git 等方式离线后同步</td><td>可以</td><td>可以</td></tr>
-        <tr><th scope="row">上手</th><td class="me">安装后即用，需本机 TeX</td><td>注册即用</td><td>安装后即用，需本机 TeX</td><td>需安装扩展并配置编译方案</td></tr>
+        <tr><th scope="row">上手</th><td class="me">安装后即用（本地编译需本机 TeX；Overleaf 直连免本地 TeX）</td><td>注册即用</td><td>安装后即用，需本机 TeX</td><td>需安装扩展并配置编译方案</td></tr>
         <tr><th scope="row">AI</th><td class="me">自带密钥、任选服务商；改写须逐处确认 Diff</td><td>内置 Overleaf AI，额度随套餐</td><td>4.8 起提供 AI 对话助手</td><td>依赖 Copilot 等扩展</td></tr>
-        <tr><th scope="row">实时多人协作</th><td class="me">不支持；可同步 Overleaf 项目或用 Git</td><td>支持</td><td>不支持</td><td>需借助 Live Share 等扩展</td></tr>
+        <tr><th scope="row">实时多人协作</th><td class="me">支持直连 Overleaf 实时协作（含协作者光标与云端编译）；本地项目可用 Git</td><td>支持</td><td>不支持</td><td>需借助 Live Share 等扩展</td></tr>
         <tr><th scope="row">数学结构导航</th><td class="me">定理、引理、证明、公式按项目一览并跳转</td><td colspan="3" class="na">以章节大纲为主（各工具做法不同）</td></tr>
       </tbody>
     </table>
@@ -295,12 +295,12 @@
   <div class="wrap narrow">
     <p class="label">// 常见问题</p>
     <h2 id="faq-h">常见问题</h2>
-    <details><summary>需要自己安装 TeX 吗？</summary><p>需要。TeXora 调用本机的 MiKTeX 或 TeX Live 编译，宏包能否自动安装取决于本机权限、网络和发行版状态。公式即时预览使用随应用打包的 KaTeX，不需要联网。</p></details>
+    <details><summary>需要自己安装 TeX 吗？</summary><p>本地项目编译需要本机安装 MiKTeX 或 TeX Live，宏包能否自动安装取决于本机权限、网络和发行版状态；如果使用 Overleaf 实时直连模式，则直接使用 Overleaf 云端编译，不需要本机 TeX。公式即时预览使用随应用打包的 KaTeX，不需要联网。</p></details>
     <details><summary>收费吗？</summary><p>TeXora 免费开源，采用 MIT 许可。</p></details>
     <details><summary>AI 需要另外付费吗？</summary><p>TeXora 不内置模型额度。使用 AI 时，在设置中填写你自己的服务商、模型、Base URL 与 API Key，费用由该服务商收取。不用 AI 也不影响其他功能。</p></details>
     <details><summary>支持 macOS 或 Linux 吗？</summary><p>支持 Windows x64 和 macOS 12 及以上版本（Apple 芯片和 Intel）。</p></details>
     <details><summary>安装时 Windows 提示"未知发布者"怎么办？</summary><p>签名类型和 SHA-256 校验值见每个版本的发布说明。Windows SmartScreen 可能给出提示。可以在 Releases 页面核对安装包的 SHA-256 校验值后，选择"仍要运行"。</p></details>
-    <details><summary>能和 Overleaf 上的合作者一起用吗？</summary><p>可以把 Overleaf 项目加载到本地编辑，再检查并同步回去。这是手动文件同步，不提供实时合并；回传期间请暂停对相同文件的在线编辑。</p></details>
+    <details><summary>能和 Overleaf 上的合作者一起用吗？</summary><p>可以。点击 Overleaf → 登录后选择「实时直连」，即可与网页端协作者实时双向同步编辑、查看对方光标与在线位置，并使用 Overleaf 云端编译与双向 SyncTeX；如需彻底离线编辑，也可以选择「离线副本」并在改完后手动检查同步。</p></details>
   </div>
 </section>
 </main>

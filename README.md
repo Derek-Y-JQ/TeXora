@@ -149,11 +149,11 @@ MIT License。依赖许可与致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTI
 
 - 单独输入 `\[` 或 `$$` 后按回车，立即插入配对的结束符并将光标放到公式内部。
 - 行内输入 `$` 后显示浅灰色的结束 `$` 提示；按 `$`、右箭头或 Tab 接受。未接受的提示不会写入文件。
-- 项目文件夹右侧的 **Overleaf** 按钮打开账号与项目窗口。先在独立的官方网页窗口登录，关闭登录窗口后刷新项目，再选择“加载本地编辑”。本地副本保存在 TeXora 用户数据目录中，可离线编辑。
-- 保存仅写本地。回传时点击 **检查并同步**，逐项查看上传、下载和删除，然后点击 **确认同步**。同步前后校验文件；同一文件两端都改变时阻止同步，需先手动合并。替换或删除的本地内容先备份到用户数据目录的 `overleaf/backups`。
-- 这是手动文件同步，不提供协作者同时编辑时的实时合并。回传期间请暂停对相同文件的在线编辑。只读项目可以导入及拉取；没有写入权限时禁止上传。
-- 登录 Cookie 仅保存在独立的本机浏览器会话中，不交给 AI 或应用渲染进程；“退出账号”清除该会话，本地副本保留。Overleaf 对接使用其网页登录与网页接口，网站接口变化、网络限制、验证码或登录策略可能要求重新登录或更新适配。当前实现面向官方 `www.overleaf.com`，不包含自托管实例。
+- 项目文件夹右侧的 **Overleaf** 按钮打开账号与项目窗口。先在独立的官方网页窗口登录（登录完成后自动关闭窗口并刷新项目列表），支持两种工作方式：
+  - **实时直连（推荐）**：无需下载整包 ZIP，直接建立与 `www.overleaf.com` 的实时会话，秒开云端文件树并与网页端及在线协作者通过 OT 协议实时双向同步编辑；支持状态栏在线协作者列表与一键跳转、编辑器内协作者彩色光标与姓名标签；进入实时模式时会提示切换为 **Overleaf 云端编译**，支持云端 PDF 预览、编译日志解析定位与双向 SyncTeX，并可在侧边栏直接新建/重命名/拖拽移动/删除/上传文件及按需预览云端图片。网络断开或只读项目时自动锁定只读以防丢字，重连后自动重同步。
+  - **离线副本**：需要完全离线编辑时可选择“离线副本”下载到 TeXora 用户数据目录；保存仅写本地，回传时点击 **检查并同步** 逐项确认上传、下载和删除，冲突时阻止同步并将替换/删除的本地文件先备份到 `overleaf/backups`。
+- 登录 Cookie 仅保存在独立的本机浏览器会话中，不交给 AI 或应用渲染进程；“退出账号”清除该会话并断开实时连接，已有离线副本保留。Overleaf 对接使用其官方网页登录与实时/编译接口，网站接口变化、网络限制、验证码或登录策略可能要求重新登录或更新适配。当前实现面向官方 `www.overleaf.com`，不包含自托管实例。
 
 ![Overleaf 项目窗口](docs/screenshots/220-overleaf.png)
 
-接口依据：[Overleaf 项目列表](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Project/ProjectController.mjs)、[文件上传](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Uploads/ProjectUploadController.mjs)、[项目连接](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/ide-react/connection/connection-manager.ts)。此接入不要求用户提供 Overleaf 密码给 TeXora，也不依赖付费项目的 Git 接入。
+接口依据：[Overleaf 项目列表](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Project/ProjectController.mjs)、[文件上传](https://github.com/overleaf/overleaf/blob/main/services/web/app/src/Features/Uploads/ProjectUploadController.mjs)、[项目连接](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/ide-react/connection/connection-manager.ts)、[协同文档](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/ide-react/editor/share-js-doc.ts)与[云端编译](https://github.com/overleaf/overleaf/blob/main/services/web/frontend/js/features/pdf-preview/util/compiler.ts)。此接入不要求用户提供 Overleaf 密码给 TeXora，也不依赖付费项目的 Git 接入。
