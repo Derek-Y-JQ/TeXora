@@ -4,6 +4,7 @@ export const ctx = {
   state: {
     settings: null,
     project: { root: '', name: '', rootFile: '', recent: [] },
+    overleafLive: { active: false, projectId: '', name: '', access: 'unknown', writable: false, status: 'disconnected' },
     docs: new Map(),
     activePath: '',
     tree: [],

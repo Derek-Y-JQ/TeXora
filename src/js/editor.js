@@ -846,6 +846,9 @@ export class EditorController {
     this.dropIndicator.className = 'block-drop-indicator hidden';
     host.appendChild(this.dropIndicator);
 
+    this._remoteCursorWidgets = [];
+    this._lastCursorBroadcast = 0;
+
     this.editor.onDidChangeCursorPosition((e) => {
       this.lastCursor = { line: e.position.lineNumber, col: e.position.column };
       this.updateBlocks();
@@ -854,6 +857,14 @@ export class EditorController {
       this.previewState.takeCaret();
       this.updateDollarGhost();
       this.scheduleLiveMath();
+      if (ctx.state.overleafLive?.active && ctx.state.activePath) {
+        const doc = ctx.state.docs.get(ctx.state.activePath);
+        const now = Date.now();
+        if (doc?.isOverleafLive && doc.docId && now - this._lastCursorBroadcast >= 120) {
+          this._lastCursorBroadcast = now;
+          void ctx.api.overleaf.liveUpdatePosition(doc.docId, e.position.lineNumber - 1, e.position.column - 1).catch(() => {});
+        }
+      }
     });
     this.editor.onDidChangeCursorSelection(() => {this.updateSelectionBar();this.refreshFormatState();});
     this.editor.onContextMenu((ev) => this.onEditorContextMenu(ev));
@@ -2090,6 +2101,45 @@ export class EditorController {
 
   gotoBibKey(key) {
     ctx.cmd('insert.cite', key);
+  }
+
+  setRemoteCursors(users) {
+    if (!this.editor) return;
+    for (const w of this._remoteCursorWidgets || []) {
+      try { this.editor.removeContentWidget(w); } catch {}
+    }
+    this._remoteCursorWidgets = [];
+    const model = this.editor.getModel();
+    const activePath = ctx.state.activePath;
+    if (!model || !activePath || !Array.isArray(users)) return;
+
+    const lineCount = model.getLineCount();
+    const others = users.filter((u) => !u.isSelf && u.path === activePath);
+    for (const u of others) {
+      const lineNumber = Math.min(Math.max(1, (Number(u.row) || 0) + 1), lineCount);
+      const maxCol = model.getLineMaxColumn(lineNumber);
+      const column = Math.min(Math.max(1, (Number(u.column) || 0) + 1), maxCol);
+      const color = u.color || '#3b82f6';
+      const domNode = document.createElement('div');
+      domNode.className = 'ol-remote-cursor';
+      domNode.style.backgroundColor = color;
+      const tag = document.createElement('span');
+      tag.className = 'ol-remote-cursor-tag';
+      tag.style.backgroundColor = color;
+      tag.textContent = u.name || '协作者';
+      domNode.appendChild(tag);
+
+      const widget = {
+        getId: () => `ol.cursor.${u.id}`,
+        getDomNode: () => domNode,
+        getPosition: () => ({
+          position: { lineNumber, column },
+          preference: [monaco.editor.ContentWidgetPositionPreference.EXACT]
+        })
+      };
+      this.editor.addContentWidget(widget);
+      this._remoteCursorWidgets.push(widget);
+    }
   }
 
   resize() {

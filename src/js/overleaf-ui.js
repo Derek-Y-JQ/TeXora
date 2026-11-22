@@ -17,11 +17,14 @@ async function refreshProject(root,rows){
 export async function openOverleaf(){
   closeProgressListener();
   const binding=await api().binding();
-  let unsubscribe=()=>{},activeLoad=null,transfer={};
-  const m=ctx.dialogs.modal({title:'Overleaf 项目',width:720,subtitle:'网页登录 · 本地编辑 · 确认后同步原项目',onClose:()=>unsubscribe(),body:`
-    <p>首次使用请在独立窗口登录 Overleaf，完成后关闭登录窗口并点击“刷新项目”。登录状态保存在本机，密码由 Overleaf 网页处理。</p>
+  const live=ctx.state.overleafLive||{};
+  let unsubscribe=()=>{},unsubscribeLogin=()=>{},activeLoad=null,transfer={};
+  const cleanup=()=>{unsubscribe();unsubscribeLogin();};
+  const m=ctx.dialogs.modal({title:'Overleaf 项目',width:760,subtitle:'官方站点直连 · 实时协同编辑 · 云端编译',onClose:cleanup,body:`
+    <p>首次使用请在独立窗口登录 Overleaf（<code>overleaf.com</code>），登录完成后窗口将自动关闭并刷新项目列表。</p>
     <div class="overleaf-actions"><button class="btn btn-primary" data-login>登录账号</button><button class="btn btn-outline" data-refresh>刷新项目</button><button class="btn btn-outline" data-logout>退出账号</button></div>
-    ${binding.binding?`<div class="overleaf-binding">当前连接：${esc(binding.binding.name)} <button class="btn btn-primary" data-sync>检查并同步</button></div>`:''}
+    ${live.active?`<div class="overleaf-binding">当前实时连接：<strong>${esc(live.name||live.projectId)}</strong>（${live.status==='connected'?'已连接':live.status==='reconnecting'?'重连中…':'已断开'}） <button class="btn btn-outline" data-live-disconnect>断开实时连接</button></div>`:''}
+    ${!live.active&&binding.binding?`<div class="overleaf-binding">当前离线副本：${esc(binding.binding.name)} <button class="btn btn-primary" data-sync>检查并同步</button></div>`:''}
     <input class="input" data-filter placeholder="筛选云端项目…" aria-label="筛选 Overleaf 项目"><div data-list class="overleaf-projects">正在读取项目…</div>
     <section class="overleaf-transfer" data-transfer hidden>
       <div class="overleaf-transfer-line"><strong data-transfer-stage role="status" aria-live="polite"></strong><span data-transfer-percent></span></div>
@@ -29,7 +32,7 @@ export async function openOverleaf(){
       <div class="overleaf-transfer-line"><span data-transfer-size>0 B</span><span data-transfer-speed>—</span></div>
       <div class="field-hint" data-transfer-elapsed></div>
     </section>
-    <p class="field-hint">保存仅写入本地。同步会列出上传、下载和删除；有冲突时停止。首次加载后可离线编辑，再次加载会打开已有本地副本。</p>`});
+    <p class="field-hint">「实时直连」无需下载整包 ZIP，可与协作者实时同步编辑并使用 Overleaf 云端编译；如需完全离线编辑，可点击「离线副本」。</p>`});
   const list=m.root.querySelector('[data-list]');let projects=[],busy=false;
   const run=async fn=>{if(busy)return;busy=true;m.root.querySelectorAll('button:not(.modal-close)').forEach(b=>b.disabled=true);try{await fn();}catch(e){error(e);}finally{busy=false;m.root.querySelectorAll('button').forEach(b=>b.disabled=false);}};
   const updateTransfer=event=>{
@@ -55,10 +58,21 @@ export async function openOverleaf(){
     if(!m.root.isConnected){unsubscribe();return;}
     if(activeLoad&&event.requestId===activeLoad)updateTransfer(event);
   })||(()=>{});
-  closeProgressListener=unsubscribe;
+  closeProgressListener=cleanup;
   const render=()=>{
     const q=m.root.querySelector('[data-filter]').value.toLowerCase();
-    list.innerHTML=projects.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`<div class="overleaf-project"><div><strong>${esc(p.name)}</strong><div class="field-hint">${esc(p.id)} · ${p.access==='unknown'?'权限未识别，请刷新项目':['owner','readAndWrite','read-write'].includes(p.access)?'可编辑同步':'云端只读'}</div></div><button class="btn btn-outline" data-load="${esc(p.id)}">加载本地编辑</button></div>`).join('')||'<p>没有匹配的项目。</p>';
+    list.innerHTML=projects.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`<div class="overleaf-project"><div><strong>${esc(p.name)}</strong><div class="field-hint">${esc(p.id)} · ${p.access==='unknown'?'权限未识别，请刷新项目':['owner','readAndWrite','read-write'].includes(p.access)?'可编辑协作':'云端只读'}</div></div><div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-primary" data-live="${esc(p.id)}" data-name="${esc(p.name)}">实时直连</button><button class="btn btn-outline" data-load="${esc(p.id)}">离线副本</button></div></div>`).join('')||'<p>没有匹配的项目。</p>';
+    list.querySelectorAll('[data-live]').forEach(b=>b.onclick=()=>run(async()=>{
+      const ok=await ctx.dialogs.confirm({
+        title:'切换到 Overleaf 实时协作模式',
+        message:`即将直连「${b.dataset.name||'Overleaf 项目'}」：文档将与 Overleaf 云端及在线协作者实时同步（无需下载到本地），编译将使用 Overleaf 云端编译服务。是否继续？`,
+        confirmText:'进入实时协作',
+        cancelText:'取消'
+      });
+      if(!ok)return;
+      m.close();
+      await ctx.app.openOverleafLive(b.dataset.live);
+    }));
     list.querySelectorAll('[data-load]').forEach(b=>b.onclick=()=>run(async()=>{
       activeLoad=crypto.randomUUID();transfer={receivedBytes:0,totalBytes:null,elapsedSeconds:0};updateTransfer({phase:'checking'});
       try{
@@ -70,9 +84,11 @@ export async function openOverleaf(){
     }));
   };
   const refresh=async()=>{try{projects=check(await api().projects()).projects;render();}catch(e){list.textContent=e.message;}};
+  unsubscribeLogin=api().onLoginComplete?.(()=>{if(m.root.isConnected)void run(refresh);})||(()=>{});
   m.root.querySelector('[data-login]').onclick=()=>run(async()=>check(await api().login()));
   m.root.querySelector('[data-refresh]').onclick=()=>run(refresh);
-  m.root.querySelector('[data-logout]').onclick=()=>run(async()=>{check(await api().logout());projects=[];list.textContent='已退出登录。本地副本仍可编辑。';});
+  m.root.querySelector('[data-logout]').onclick=()=>run(async()=>{check(await api().logout());if(ctx.state.overleafLive?.active)await ctx.app.disconnectOverleafLive();projects=[];list.textContent='已退出登录。';});
+  m.root.querySelector('[data-live-disconnect]')?.addEventListener('click',()=>run(async()=>{m.close();await ctx.app.disconnectOverleafLive();}));
   m.root.querySelector('[data-sync]')?.addEventListener('click',()=>run(async()=>{await ctx.app.saveAll();if([...ctx.state.docs.values()].some(d=>d.dirty))throw Error('有文件保存失败，请保存后重试');const root=ctx.state.project.root;const plan=check(await api().plan());if(root!==ctx.state.project.root)throw Error('项目已切换，请重新检查');m.close();showPlan(plan,root);}));
   m.root.querySelector('[data-filter]').oninput=render;
   await run(refresh);

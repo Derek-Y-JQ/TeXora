@@ -30,9 +30,23 @@ class OverleafSession {
     win.webContents.on('will-navigate',(e,url)=>{if(!url.startsWith('https://'))e.preventDefault();});
     return win;
   }
-  async login(){
+  async login(onLoginSuccess){
     if(this.loginWindow&&!this.loginWindow.isDestroyed()){this.loginWindow.show();this.loginWindow.focus();return;}
     const win=this.window(true);this.loginWindow=win;
+    let notified=false;
+    const checkLoggedIn=(url)=>{
+      if(notified||!url)return;
+      try{
+        const u=new URL(url);
+        if(u.origin===ORIGIN&&/^\/project(?:\/|$)/.test(u.pathname)){
+          notified=true;
+          try{onLoginSuccess?.();}catch{}
+          setTimeout(()=>{if(!win.isDestroyed())win.close();},400);
+        }
+      }catch{}
+    };
+    win.webContents.on('did-navigate',(_e,url)=>checkLoggedIn(url));
+    win.webContents.on('did-navigate-in-page',(_e,url)=>checkLoggedIn(url));
     win.on('closed',()=>{this.loginWindow=null;});
     await win.loadURL(ORIGIN+'/login');
   }

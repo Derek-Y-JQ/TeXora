@@ -105,6 +105,20 @@ async function boot() {
   api.systemFonts().then((res) => (ctx.state.systemFonts = res.fonts || [])).catch(() => {});
   loadPackages();
   api.project.onFsChange((payload) => onExternalChange(payload));
+  api.overleaf?.onLiveEvent?.((event) => onOverleafLiveEvent(event));
+  $('#sbOverleafUsers')?.addEventListener('click', () => {
+    const users = (ctx.state.overleafLive?.users || []).filter((u) => !u.isSelf);
+    const items = users.length
+      ? [{ group: '在线协作者（点击跳转到对方位置）' }, ...users.map((u) => ({
+          label: `${u.name}${u.fileName ? ` · ${u.fileName}:${(u.row || 0) + 1}` : ''}`,
+          icon: 'target',
+          onClick: () => {
+            if (u.path) void openDocument(u.path, { line: (u.row || 0) + 1, column: (u.column || 0) + 1, flash: true });
+          }
+        }))]
+      : [{ group: '当前仅你一人在线' }];
+    openMenu($('#sbOverleafUsers'), items, { align: 'left', minWidth: 240 });
+  });
 
   if (info.capture?.enabled) await applyCaptureView();
 
@@ -755,6 +769,12 @@ async function openProject(path) {
     const ok = await ctx.dialogs.confirm({ title: '切换项目', message: '当前项目有未保存的修改，保存全部文件后切换？', confirmText: '保存并切换' });
     if (!ok || !(await saveAll())) return;
   }
+  if (ctx.state.overleafLive?.active) {
+    await api.overleaf.liveDisconnect().catch(() => {});
+    ctx.state.overleafLive = { active: false, projectId: '', name: '', access: 'unknown', writable: false, status: 'disconnected', users: [] };
+    syncOverleafReadOnly();
+    renderOverleafUsers();
+  }
   const request = ++projectOpenRequest;
   resetProjectPreview();
   const res = await api.project.open(path);
@@ -798,7 +818,14 @@ async function closeProject() {
   }
   projectOpenRequest++;
   resetProjectPreview();
-  await api.project.close();
+  if (ctx.state.overleafLive?.active) {
+    await api.overleaf.liveDisconnect().catch(() => {});
+    ctx.state.overleafLive = { active: false, projectId: '', name: '', access: 'unknown', writable: false, status: 'disconnected', users: [] };
+    syncOverleafReadOnly();
+    renderOverleafUsers();
+  } else {
+    await api.project.close();
+  }
   ctx.state.project = { root: '', name: '', rootFile: '', recent: ctx.state.project.recent };
   closeAllDocuments();
   renderTabs();
@@ -807,6 +834,203 @@ async function closeProject() {
   $('#projectName').textContent = '未打开项目';
   ctx.sidebar.refreshAll(true);
   ctx.emit('project:changed', { root: '', reason: 'close' });
+}
+
+function isOverleafLivePath(p) {
+  return typeof p === 'string' && p.startsWith('overleaf://');
+}
+
+function applyRemoteOpToModel(model, op) {
+  for (const c of op || []) {
+    if (typeof c.i === 'string' && c.i.length > 0) {
+      const pos = model.getPositionAt(c.p);
+      model.applyEdits([{
+        range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
+        text: c.i,
+        forceMoveMarkers: true
+      }]);
+    } else if (typeof c.d === 'string' && c.d.length > 0) {
+      const start = model.getPositionAt(c.p);
+      const end = model.getPositionAt(c.p + c.d.length);
+      model.applyEdits([{
+        range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column),
+        text: '',
+        forceMoveMarkers: true
+      }]);
+    }
+  }
+}
+
+async function openOverleafLive(projectId) {
+  if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+    const ok = await ctx.dialogs.confirm({ title: '切换项目', message: '当前本地项目有未保存的修改，保存全部文件后进入 Overleaf 实时模式？', confirmText: '保存并切换' });
+    if (!ok || !(await saveAll())) return;
+  }
+  const request = ++projectOpenRequest;
+  clearMathPreviewCache();
+  resetProjectPreview();
+  setBuildStatus('building', '正在连接 Overleaf…');
+  const res = await api.overleaf.liveConnect(projectId);
+  if (request !== projectOpenRequest) return;
+  if (!res?.ok) {
+    setBuildStatus('idle', '连接失败');
+    return toast({ type: 'error', title: 'Overleaf 实时连接失败', body: res?.error || '请检查登录状态后重试' });
+  }
+  await api.project.close().catch(() => {});
+  closeAllDocuments();
+  ctx.state.overleafLive = {
+    active: true,
+    projectId: res.projectId,
+    name: res.name || 'Overleaf Project',
+    access: res.access || 'unknown',
+    writable: Boolean(res.writable),
+    status: res.status || 'connected',
+    users: Array.isArray(res.users) ? res.users : []
+  };
+  ctx.state.project = {
+    root: res.root,
+    name: `${res.name} (Overleaf)`,
+    rootFile: res.rootFile || '',
+    recent: ctx.state.project.recent || []
+  };
+  ctx.state.tree = res.tree || [];
+  ctx.state.assets = res.assets || { tex: [], images: [], bib: [], all: [] };
+  ctx.state.gitStatus = null;
+  $('#projectName').textContent = `${res.name} · Overleaf 实时`;
+  document.title = `TeXora — ${res.name} (Overleaf 实时)`;
+  $('#sbRootName').textContent = res.rootFile ? baseName(res.rootFile) : '未识别主文档';
+  setBuildStatus('ok', 'Overleaf 实时已连接');
+  previewSuspended = false;
+  syncOverleafReadOnly();
+  renderOverleafUsers();
+  ctx.sidebar.renderTree();
+  if (res.rootFile) {
+    await openDocument(res.rootFile, { silent: true });
+    void runBuild({ background: true });
+  } else {
+    setEmptyState(true);
+  }
+  ctx.emit('project:changed', { ...ctx.state.project, reason: 'overleaf-live' });
+  ctx.sidebar.refreshAll(true);
+  toast({
+    type: 'success',
+    title: '已进入 Overleaf 实时协作模式',
+    body: res.writable
+      ? `已直连「${res.name}」，编辑将实时同步云端，编译将使用 Overleaf 云端编译。`
+      : `已以只读权限直连「${res.name}」，编辑器已锁定为只读。`,
+    timeout: 5000
+  });
+}
+
+function syncOverleafReadOnly() {
+  if (!ctx.editor?.editor) return;
+  const live = ctx.state.overleafLive;
+  if (!live?.active) {
+    ctx.editor.editor.updateOptions({ readOnly: false });
+    return;
+  }
+  const locked = !live.writable || live.status !== 'connected';
+  ctx.editor.editor.updateOptions({ readOnly: locked });
+}
+
+function renderOverleafUsers() {
+  const btn = $('#sbOverleafUsers');
+  const live = ctx.state.overleafLive;
+  const users = Array.isArray(live?.users) ? live.users : [];
+  if (btn) {
+    if (!live?.active) {
+      btn.hidden = true;
+      btn.innerHTML = '';
+    } else {
+      const others = users.filter((u) => !u.isSelf);
+      const count = others.length + 1;
+      btn.hidden = false;
+      btn.innerHTML = `<span class="ol-presence-dot"></span><span>${others.length ? `${count} 人在线` : '1 人在线'}</span>`;
+    }
+  }
+  ctx.editor?.setRemoteCursors?.(live?.active ? users : []);
+}
+
+async function disconnectOverleafLive() {
+  if (!ctx.state.overleafLive?.active) return;
+  await closeProject();
+  syncOverleafReadOnly();
+  renderOverleafUsers();
+  setBuildStatus('idle', '已断开 Overleaf');
+  toast({ type: 'info', title: '已断开 Overleaf 实时连接' });
+}
+
+function onOverleafLiveEvent(event) {
+  if (!event || !ctx.state.overleafLive?.active) return;
+  if (event.type === 'usersChanged') {
+    ctx.state.overleafLive.users = Array.isArray(event.users) ? event.users : [];
+    renderOverleafUsers();
+    return;
+  }
+  if (event.type === 'status') {
+    ctx.state.overleafLive.status = event.status || 'disconnected';
+    syncOverleafReadOnly();
+    if (event.status === 'connected') {
+      setBuildStatus('ok', event.reconnected ? 'Overleaf 已重连' : 'Overleaf 实时已连接');
+      if (event.reconnected) toast({ type: 'success', title: 'Overleaf 已恢复连接', body: '已自动重新同步文档并恢复编辑。' });
+    } else if (event.status === 'reconnecting') {
+      setBuildStatus('building', 'Overleaf 重连中…');
+    } else if (event.status === 'disconnected') {
+      setBuildStatus('warn', 'Overleaf 连接已断开');
+      toast({ type: 'warn', title: 'Overleaf 连接暂时断开', body: event.error || '为防止丢字已暂时锁定编辑，正在等待恢复连接…', timeout: 5000 });
+    }
+    return;
+  }
+  if (event.type === 'treeChanged') {
+    ctx.state.tree = event.tree || [];
+    ctx.state.assets = event.assets || ctx.state.assets;
+    if (event.rootFile) {
+      ctx.state.project.rootFile = event.rootFile;
+      $('#sbRootName').textContent = baseName(event.rootFile);
+    }
+    ctx.sidebar.renderTree();
+    return;
+  }
+  if (event.type === 'remoteOp') {
+    const doc = [...ctx.state.docs.values()].find((d) => d.docId === event.docId || d.path === event.path);
+    if (!doc) return;
+    doc.applyingRemote = true;
+    try {
+      applyRemoteOpToModel(doc.model, event.op);
+      doc.savedText = doc.model.getValue();
+      doc.dirty = false;
+    } finally {
+      doc.applyingRemote = false;
+    }
+    if (ctx.state.activePath === doc.path) {
+      updateStats();
+      refreshOutlineSoon();
+    }
+    return;
+  }
+  if (event.type === 'docResynced') {
+    const doc = [...ctx.state.docs.values()].find((d) => d.docId === event.docId || d.path === event.path);
+    if (!doc) return;
+    doc.applyingRemote = true;
+    try {
+      doc.model.setValue(event.text || '');
+      doc.savedText = doc.model.getValue();
+      doc.dirty = false;
+    } finally {
+      doc.applyingRemote = false;
+    }
+    toast({ type: 'info', title: 'Overleaf 文档已重新同步', body: doc.name });
+    return;
+  }
+  if (event.type === 'docSyncState') {
+    if (ctx.state.overleafLive.status === 'connected') {
+      setBuildStatus('ok', event.pending ? 'Overleaf 同步中…' : 'Overleaf 实时已同步');
+    }
+    return;
+  }
+  if (event.type === 'error' && event.message) {
+    toast({ type: 'error', title: 'Overleaf 实时协作', body: event.message });
+  }
 }
 
 async function refreshAssets() {
@@ -828,6 +1052,13 @@ async function reloadOpenDocuments() {
 
 async function refreshBibEntries() {
   const entries = [];
+  if (ctx.state.overleafLive?.active) {
+    for (const [p, doc] of ctx.state.docs) {
+      if (/\.bib$/i.test(p) && doc?.model) entries.push(...parseBib(doc.model.getValue()));
+    }
+    ctx.state.bibEntries = entries;
+    return;
+  }
   for (const file of ctx.state.assets.bib || []) {
     const full = joinPath(ctx.state.project.root, file);
     const res = await api.fs.read(full);
@@ -929,6 +1160,18 @@ async function removeRecentProject(path) {
 async function openDocument(path, opts = {}) {
   const generation = previewGeneration;
   if (!path) return;
+  if (isOverleafLivePath(path) && /\.(pdf|png|jpg|jpeg|gif|svg|webp)$/i.test(path)) {
+    const res = await api.overleaf.liveFetchFile(path);
+    if (!res?.ok) return toast({ type: 'error', title: '无法加载云端文件', body: res?.error || '' });
+    if (/\.pdf$/i.test(path)) return openPdf(res.localPath);
+    ctx.dialogs.modal({
+      title: res.name || baseName(path),
+      width: 760,
+      subtitle: 'Overleaf 云端图片预览',
+      body: `<div style="display:flex;justify-content:center;align-items:center;max-height:70vh;overflow:auto"><img src="${escapeHtml(api.assetUrl(res.localPath))}" alt="${escapeHtml(res.name || '')}" style="max-width:100%;max-height:66vh;object-fit:contain" /></div>`
+    });
+    return;
+  }
   if(/\.pdf$/i.test(path))return openPdf(path);
   if (!/\.(tex|ltx|sty|cls|bib|md|txt|cfg|def|dtx|ins|json|latexmkrc|bst)$/i.test(path) && extOf(path)) {
     if (['png', 'jpg', 'jpeg', 'pdf', 'gif', 'svg', 'webp', 'eps'].includes(extOf(path))) {
@@ -937,21 +1180,58 @@ async function openDocument(path, opts = {}) {
   }
   let doc = ctx.state.docs.get(path);
   if (!doc) {
-    const res = await api.fs.read(path);
-    if (generation !== previewGeneration) return;
-    if (!res.ok) return toast({ type: 'error', title: '读取失败', body: res.error || '' });
-    if (res.binary) return toast({ type: 'info', title: '暂不支持预览此类型', body: baseName(path) });
-    const model = ctx.editor.createModel(path, res.text);
-    doc = { path, name: baseName(path), model, dirty: false, mtime: res.mtime, viewState: null, savedText: res.text };
-    ctx.state.docs.set(path, doc);
-    model.onDidChangeContent(() => {
-      doc.dirty = doc.model.getValue() !== doc.savedText;
-      scheduleAutosave(doc);
-      scheduleLivePreview();
-      refreshOutlineSoon();
-      renderTabs();
-      updateStats();
-    });
+    if (isOverleafLivePath(path)) {
+      const res = await api.overleaf.liveJoinDoc(path);
+      if (generation !== previewGeneration) return;
+      if (!res?.ok) return toast({ type: 'error', title: '打开 Overleaf 文档失败', body: res?.error || '' });
+      const model = ctx.editor.createModel(path, res.text || '');
+      model.setEOL(monaco.editor.EndOfLineSequence.LF);
+      doc = {
+        path,
+        name: res.name || baseName(path),
+        model,
+        dirty: false,
+        mtime: Date.now(),
+        viewState: null,
+        savedText: res.text || '',
+        isOverleafLive: true,
+        docId: res.docId,
+        applyingRemote: false
+      };
+      ctx.state.docs.set(path, doc);
+      model.onDidChangeContent((event) => {
+        if (doc.applyingRemote) return;
+        const changes = (event?.changes || []).map((c) => ({
+          rangeOffset: c.rangeOffset,
+          rangeLength: c.rangeLength,
+          text: c.text
+        }));
+        const finalText = doc.model.getValue();
+        doc.savedText = finalText;
+        doc.dirty = false;
+        void api.overleaf.liveApplyChanges(doc.docId, changes, finalText).then((r) => {
+          if (r && !r.ok) toast({ type: 'error', title: 'Overleaf 同步失败', body: r.error || '' });
+        });
+        refreshOutlineSoon();
+        updateStats();
+      });
+    } else {
+      const res = await api.fs.read(path);
+      if (generation !== previewGeneration) return;
+      if (!res.ok) return toast({ type: 'error', title: '读取失败', body: res.error || '' });
+      if (res.binary) return toast({ type: 'info', title: '暂不支持预览此类型', body: baseName(path) });
+      const model = ctx.editor.createModel(path, res.text);
+      doc = { path, name: baseName(path), model, dirty: false, mtime: res.mtime, viewState: null, savedText: res.text };
+      ctx.state.docs.set(path, doc);
+      model.onDidChangeContent(() => {
+        doc.dirty = doc.model.getValue() !== doc.savedText;
+        scheduleAutosave(doc);
+        scheduleLivePreview();
+        refreshOutlineSoon();
+        renderTabs();
+        updateStats();
+      });
+    }
   }
   ctx.state.activePath = path;
   ctx.editor.attach(doc, doc.viewState);
@@ -964,8 +1244,9 @@ async function openDocument(path, opts = {}) {
   if (ctx.state.previewMode === 'markdown') showMarkdownPane();
   else restorePdfPane();
   if (opts.line) ctx.editor.revealLine(opts.line, opts.column || 1, opts.flash);
+  renderOverleafUsers();
   ctx.sidebar.refreshLive();
-  api.settings.set('ui.lastFile.' + hashRoot(), path);
+  if (!isOverleafLivePath(path)) api.settings.set('ui.lastFile.' + hashRoot(), path);
   return doc;
 }
 
@@ -1005,6 +1286,14 @@ function saveDocument(path = ctx.state.activePath, options = {}) {
 async function saveDocumentNow(path, { silent = false } = {}) {
   const doc = ctx.state.docs.get(path);
   if (!doc) return false;
+  if (doc.isOverleafLive) {
+    doc.dirty = false;
+    if (!silent) {
+      setBuildStatus('ok', '已实时同步到 Overleaf');
+      if (ctx.state.settings.build.buildOnSave) ctx.cmd('build.run', { background: true });
+    }
+    return true;
+  }
   const text = doc.model.getValue();
   const res = await api.fs.write(path, text);
   if (!res.ok) {
@@ -1049,6 +1338,9 @@ async function closeDocument(path = ctx.state.activePath) {
     if (!keep) return;
     const ok = await saveDocument(path, { silent: true });
     if (!ok || doc.dirty) return;
+  }
+  if (doc.isOverleafLive && doc.docId) {
+    void api.overleaf.liveLeaveDoc(doc.docId).catch(() => {});
   }
   const paths = Array.from(ctx.state.docs.keys());
   const idx = paths.indexOf(path);
@@ -1283,6 +1575,30 @@ async function checkUpdates(manual = false) {
 async function runBuild(opts = {}) {
   const generation = previewGeneration;
   if (buildPreparing || ctx.state.build.running) return;
+  if (ctx.state.overleafLive?.active) {
+    if (opts.live) return;
+    buildPreparing = true;
+    try {
+      buildStartedAt = Date.now();
+      ctx.state.log = '';
+      setBuildStatus('building', 'Overleaf 云端编译中…');
+      ctx.preview.setBusy(true);
+      const res = await api.overleaf.liveCompile({ stopOnFirstError: false });
+      if (generation !== previewGeneration) return;
+      ctx.state.log = res?.log || '';
+      handleBuildDone({
+        ...res,
+        ok: Boolean(res?.ok),
+        rootFile: res?.rootFile || ctx.state.project.rootFile,
+        live: Boolean(opts.background)
+      });
+    } catch (err) {
+      handleBuildDone({ ok: false, error: err.message, rootFile: ctx.state.project.rootFile });
+    } finally {
+      buildPreparing = false;
+    }
+    return;
+  }
   if (!ctx.state.project.root) {
     toast({ type: 'warn', title: '请先打开项目', body: '编译需要一个包含主文档的项目文件夹' });
     return;
@@ -1326,6 +1642,13 @@ async function stopBuild() {
   ctx.state.build.stopping = true;
   ctx.ribbon.refresh();
   try {
+    if (ctx.state.overleafLive?.active) {
+      await api.overleaf.liveStopCompile();
+      setBuildStatus('idle', '云端编译已停止');
+      if (ctx.preview.currentPdf()) ctx.preview.updateDocumentStatus('编译已停止 · 当前显示上次成功的 PDF');
+      ctx.preview.setBusy(false);
+      return;
+    }
     await api.build.stop();
     if (!(await api.build.state()).running) {
       setBuildStatus('idle', '已停止');
@@ -2102,6 +2425,8 @@ async function applyCaptureView() {
 ctx.app = {
   // projects
   openProject,
+  openOverleafLive,
+  disconnectOverleafLive,
   openTarget,
   openPdf,
   closeProject,
@@ -2172,7 +2497,9 @@ ctx.app = {
     const file = ctx.state.activePath || ctx.state.project.rootFile;
     const target = line || ctx.editor.lastCursor.line;
     const generation = previewGeneration;
-    const res = await api.tex.synctexForward(file, target, 1);
+    const res = ctx.state.overleafLive?.active
+      ? await api.overleaf.liveSyncForward(file, target, 1)
+      : await api.tex.synctexForward(file, target, 1);
     if (generation !== previewGeneration) return;
     if (!res.ok) return toast({ type: 'warn', title: '正向定位失败', body: res.error || '请确认使用 -synctex=1 编译' });
     ctx.preview.flashAt(res.page, res.x, res.y, res.height || 12, res.width || 0);

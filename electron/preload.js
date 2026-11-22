@@ -4,6 +4,33 @@
  */
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+function applyBootAppearance() {
+  const root = typeof document !== 'undefined' ? document.documentElement : null;
+  if (!root || typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  const style = params.get('bootStyle');
+  const theme = params.get('bootTheme');
+  if (!style && !theme) return true;
+  if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
+  if (style === 'endfield' || style === 'studio') {
+    root.dataset.style = style;
+    root.dataset.efVariant = 'standard';
+    const efAccent = params.get('bootEfAccent');
+    if (efAccent) root.dataset.efAccent = efAccent;
+    if (style === 'endfield') root.removeAttribute('data-accent');
+    else if (params.get('bootAccent')) root.setAttribute('data-accent', params.get('bootAccent'));
+  }
+  if (params.get('bootCompact') === '1') root.setAttribute('data-compact', '');
+  if (params.get('bootReduceMotion') === '1') root.setAttribute('data-reduce-motion', '1');
+  return true;
+}
+
+if (!applyBootAppearance() && typeof document !== 'undefined') {
+  const onReady = () => { if (applyBootAppearance()) document.removeEventListener('readystatechange', onReady); };
+  document.addEventListener('readystatechange', onReady);
+  document.addEventListener('DOMContentLoaded', applyBootAppearance, { once: true });
+}
+
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 
 function assetUrl(p) {
@@ -34,10 +61,31 @@ const api = {
   update: { check: () => invoke('update:check') },
   overleaf: {
     login: () => invoke('overleaf:login'), logout: () => invoke('overleaf:logout'),
+    onLoginComplete: cb => on('overleaf:loginComplete',cb),
     projects: () => invoke('overleaf:projects'), load: (id,requestId) => invoke('overleaf:load',id,requestId),
     onLoadProgress: cb => on('overleaf:loadProgress',cb),
     binding: () => invoke('overleaf:binding'), plan: () => invoke('overleaf:plan'),
-    apply: token => invoke('overleaf:apply',token)
+    apply: token => invoke('overleaf:apply',token),
+    liveConnect: id => invoke('overleaf:liveConnect',id),
+    liveDisconnect: () => invoke('overleaf:liveDisconnect'),
+    liveState: () => invoke('overleaf:liveState'),
+    liveJoinDoc: docIdOrPath => invoke('overleaf:liveJoinDoc',docIdOrPath),
+    liveLeaveDoc: docIdOrPath => invoke('overleaf:liveLeaveDoc',docIdOrPath),
+    liveApplyChanges: (docIdOrPath,changes,finalText) => invoke('overleaf:liveApplyChanges',docIdOrPath,changes,finalText),
+    liveCompile: opts => invoke('overleaf:liveCompile',opts),
+    liveStopCompile: () => invoke('overleaf:liveStopCompile'),
+    liveSyncForward: (file,line,col) => invoke('overleaf:liveSyncForward',file,line,col),
+    liveSyncInverse: (page,x,y) => invoke('overleaf:liveSyncInverse',page,x,y),
+    liveUpdatePosition: (docIdOrPath,row,col) => invoke('overleaf:liveUpdatePosition',docIdOrPath,row,col),
+    liveCreateDoc: (parent,name) => invoke('overleaf:liveCreateDoc',parent,name),
+    liveCreateFolder: (parent,name) => invoke('overleaf:liveCreateFolder',parent,name),
+    liveRename: (target,newName) => invoke('overleaf:liveRename',target,newName),
+    liveMove: (target,destFolder) => invoke('overleaf:liveMove',target,destFolder),
+    liveDelete: target => invoke('overleaf:liveDelete',target),
+    liveSetRootDoc: target => invoke('overleaf:liveSetRootDoc',target),
+    liveUploadFile: (parent,localPath) => invoke('overleaf:liveUploadFile',parent,localPath),
+    liveFetchFile: target => invoke('overleaf:liveFetchFile',target),
+    onLiveEvent: cb => on('overleaf:liveEvent',cb)
   },
   systemFonts: () => invoke('app:systemFonts'),
   ready: () => ipcRenderer.send('app:renderer-ready'),

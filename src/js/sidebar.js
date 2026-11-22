@@ -62,6 +62,7 @@ export class Sidebar {
       this.expanded.clear();
       this.structureCache.clear();
       this.structureGeneration.math++; this.structureGeneration.labels++;
+      this.refreshActions();
       this.refreshAll(true);
     });
     ctx.on('settings:changed', () => { this.refreshAiStatus(); this.refreshAiContext(); });
@@ -108,6 +109,7 @@ export class Sidebar {
       case 'files':
         mk('plus', '新建文件', () => this.newFile());
         mk('folder', '新建文件夹', () => this.newFolder());
+        if (ctx.state.overleafLive?.active) mk('upload', '上传文件/图片到 Overleaf', () => this.uploadFile());
         mk('refresh', '刷新文件树', () => this.refreshFiles());
         break;
       case 'outline':
@@ -218,6 +220,15 @@ export class Sidebar {
       this.panels.files.querySelector('[data-open-project]')?.addEventListener('click', () => ctx.cmd('project.open'));
       return;
     }
+    if (ctx.state.overleafLive?.active) {
+      const res = await ctx.api.overleaf.liveState();
+      if (res && res.ok && Array.isArray(res.tree)) {
+        ctx.state.tree = res.tree;
+        if (res.rootFile) ctx.state.project.rootFile = res.rootFile;
+      }
+      this.renderTree();
+      return;
+    }
     const res = await ctx.api.project.tree();
     if (res && res.tree) {
       ctx.state.tree = res.tree;
@@ -306,10 +317,12 @@ export class Sidebar {
           if (!src) return;
           const parent = src.replace(/[\\/][^\\/]+$/, '');
           if (parent === path) return;
-          const res = await ctx.api.fs.moveInto(src, path);
+          const res = ctx.state.overleafLive?.active
+            ? await ctx.api.overleaf.liveMove(src, path)
+            : await ctx.api.fs.moveInto(src, path);
           if (res.ok) {
             toast({ type: 'success', title: '已移动文件', body: baseName(src) });
-            if (ctx.state.activePath === src) ctx.cmd('doc.open', res.path);
+            if (ctx.state.activePath === src && res.path) ctx.cmd('doc.open', res.path);
             this.expanded.add(path);
             this.refreshFiles();
             ctx.emit('project:refresh');
@@ -333,28 +346,31 @@ export class Sidebar {
 
   fileContextMenu(e, path, type) {
     const isRoot = path === ctx.state.project.rootFile;
+    const isLive = Boolean(ctx.state.overleafLive?.active);
     const items = [
       { label: '打开', icon: 'file', onClick: () => (type === 'dir' ? this.expanded.add(path) || this.renderTree() : ctx.cmd('doc.open', path)) },
       { separator: true }
     ];
     if (type === 'file') {
       items.push({ label: '设为主文档', icon: 'target', checked: isRoot, onClick: async () => {
-        await ctx.api.project.setRootFile(path);
-        ctx.state.project.rootFile = path;
+        const res = isLive ? await ctx.api.overleaf.liveSetRootDoc(path) : await ctx.api.project.setRootFile(path);
+        if (res && res.ok === false) return toast({ type: 'error', title: '切换主文档失败', body: res.error || '' });
+        ctx.state.project.rootFile = res?.rootFile || path;
         toast({ type: 'success', title: '主文档已切换', body: baseName(path) });
         this.renderTree();
         ctx.cmd('status.refresh');
       } });
-      items.push({ label: '编译此文件', icon: 'play', onClick: () => ctx.cmd('build.run', { file: path }) });
+      items.push({ label: isLive ? '云端编译' : '编译此文件', icon: 'play', onClick: () => ctx.cmd('build.run', { file: path }) });
       items.push({ label: '复制文件名', icon: 'copy', onClick: () => copyText(baseName(path)) });
     }
     if (type === 'dir') {
       items.push({ label: '在此新建文件', icon: 'plus', onClick: () => this.newFile(path) });
       items.push({ label: '在此新建文件夹', icon: 'folder', onClick: () => this.newFolder(path) });
+      if (isLive) items.push({ label: '上传文件到此文件夹', icon: 'upload', onClick: () => this.uploadFile(path) });
     }
     items.push({ separator: true });
     items.push({ label: '重命名', icon: 'pencil', onClick: () => this.rename(path, type) });
-    items.push({ label: '在资源管理器中显示', icon: 'external', onClick: () => ctx.api.showItemInFolder(path) });
+    if (!isLive) items.push({ label: '在资源管理器中显示', icon: 'external', onClick: () => ctx.api.showItemInFolder(path) });
     items.push({ separator: true });
     items.push({ label: '删除', icon: 'trash', danger: true, onClick: () => this.remove(path) });
     openMenu({ getBoundingClientRect: () => ({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY, width: 0, height: 0 }), contains: () => false }, items, { align: 'left' });
@@ -365,13 +381,39 @@ export class Sidebar {
     const parent = typeof dir === 'string' ? dir : ctx.state.project.root;
     const name = await ctx.dialogs.prompt({ title: '新建文件', label: '文件名（含扩展名）', value: 'untitled.tex', confirmText: '创建' });
     if (!name) return;
-    const res = await ctx.api.fs.createFile(parent, name, this.defaultContentFor(name));
+    const res = ctx.state.overleafLive?.active
+      ? await ctx.api.overleaf.liveCreateDoc(parent, name)
+      : await ctx.api.fs.createFile(parent, name, this.defaultContentFor(name));
     if (res.ok) {
       this.expanded.add(parent);
       await this.refreshFiles();
-      ctx.cmd('doc.open', res.path);
+      if (res.path) ctx.cmd('doc.open', res.path);
       toast({ type: 'success', title: '已创建', body: name });
     } else toast({ type: 'error', title: '创建失败', body: res.error });
+  }
+
+  async uploadFile(dir) {
+    if (!ctx.state.overleafLive?.active) return;
+    const parent = typeof dir === 'string' ? dir : ctx.state.project.root;
+    const picked = await ctx.api.dialog.openFiles({
+      title: '上传文件或图片到 Overleaf',
+      filters: [
+        { name: '常见学术资源', extensions: ['png', 'jpg', 'jpeg', 'pdf', 'eps', 'svg', 'bib', 'tex', 'sty', 'cls', 'csv', 'txt'] },
+        { name: '所有文件', extensions: ['*'] }
+      ]
+    });
+    if (!picked?.ok || !picked.paths?.length) return;
+    let uploaded = 0;
+    for (const localPath of picked.paths) {
+      const res = await ctx.api.overleaf.liveUploadFile(parent, localPath);
+      if (res?.ok) uploaded++;
+      else toast({ type: 'error', title: '上传失败', body: `${baseName(localPath)}: ${res?.error || ''}` });
+    }
+    if (uploaded > 0) {
+      this.expanded.add(parent);
+      await this.refreshFiles();
+      toast({ type: 'success', title: '上传成功', body: `已上传 ${uploaded} 个文件到 Overleaf` });
+    }
   }
 
   defaultContentFor(name) {
@@ -390,7 +432,9 @@ export class Sidebar {
     const parent = typeof dir === 'string' ? dir : ctx.state.project.root;
     const name = await ctx.dialogs.prompt({ title: '新建文件夹', label: '文件夹名称', value: 'figures', confirmText: '创建' });
     if (!name) return;
-    const res = await ctx.api.fs.createDir(parent, name);
+    const res = ctx.state.overleafLive?.active
+      ? await ctx.api.overleaf.liveCreateFolder(parent, name)
+      : await ctx.api.fs.createDir(parent, name);
     if (res.ok) {
       this.expanded.add(parent);
       await this.refreshFiles();
@@ -401,9 +445,11 @@ export class Sidebar {
   async rename(path, type) {
     const name = await ctx.dialogs.prompt({ title: '重命名', label: '新名称', value: baseName(path), confirmText: '重命名' });
     if (!name || name === baseName(path)) return;
-    const res = await ctx.api.fs.rename(path, name);
+    const res = ctx.state.overleafLive?.active
+      ? await ctx.api.overleaf.liveRename(path, name)
+      : await ctx.api.fs.rename(path, name);
     if (res.ok) {
-      if (ctx.state.activePath === path) {
+      if (ctx.state.activePath === path && res.path) {
         const doc = ctx.state.docs.get(path);
         if (doc) {
           ctx.state.docs.delete(path);
@@ -420,11 +466,24 @@ export class Sidebar {
   }
 
   async remove(path) {
-    const res = await ctx.api.fs.delete(path);
+    if (ctx.state.overleafLive?.active) {
+      const ok = await ctx.dialogs.confirm({
+        title: '删除 Overleaf 云端文件',
+        message: `确认从 Overleaf 项目中删除「${baseName(path)}」？此操作会立即同步给所有协作者。`,
+        confirmText: '删除',
+        danger: true
+      });
+      if (!ok) return;
+    }
+    const res = ctx.state.overleafLive?.active
+      ? await ctx.api.overleaf.liveDelete(path)
+      : await ctx.api.fs.delete(path);
     if (res.ok) {
       if (ctx.state.activePath === path) ctx.cmd('doc.close', path);
       await this.refreshFiles();
       toast({ type: 'success', title: '已删除', body: baseName(path) });
+    } else {
+      toast({ type: 'error', title: '删除失败', body: res.error || '' });
     }
   }
 

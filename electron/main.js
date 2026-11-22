@@ -21,6 +21,7 @@ const { AiService } = require('./lib/ai');
 const { AiHistory } = require('./lib/ai-history');
 const { Overleaf } = require('./lib/overleaf');
 const { OverleafSession } = require('./lib/overleaf-session');
+const { OverleafLiveManager } = require('./lib/overleaf-live');
 const { GitService, findGit } = require('./lib/git');
 const { searchProject, replaceProject } = require('./lib/search');
 const { checkForUpdates } = require('./lib/updater');
@@ -133,6 +134,12 @@ function send(channel, payload) {
   }
 }
 
+const overleafLive = new OverleafLiveManager({
+  session: overleafSession,
+  cacheDir: path.join(USER_DATA, 'overleaf', 'compile'),
+  emitToRenderer: (event) => send('overleaf:liveEvent', event)
+});
+
 const compiler = new Compiler({ store, project, tex, history, send, fallbackCacheRoot: USER_DATA });
 const { AgentSession } = require('./lib/agent-session');
 const agentSession = new AgentSession(send, USER_DATA, url => shell.openExternal(url));
@@ -153,6 +160,19 @@ function createWindow() {
     ? { width: capture.width, height: capture.height }
     : { width: saved?.width || 1480, height: saved?.height || 920, x: saved?.x, y: saved?.y };
 
+  const appearance = store.get('appearance') || {};
+  const initialStyle = appearance.uiStyle === 'endfield' ? 'endfield' : 'studio';
+  const rawTheme = (capture.enabled && capture.theme) || appearance.theme || 'dark';
+  const initialTheme = rawTheme === 'system'
+    ? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+    : (rawTheme === 'light' ? 'light' : 'dark');
+  const rawEfAccent = appearance.endfieldColor === 'cyan' ? 'ice' : appearance.endfieldColor;
+  const initialEfAccent = ['yellow', 'lime', 'ice', 'amber'].includes(rawEfAccent) ? rawEfAccent : 'yellow';
+  const initialAccent = appearance.accent || 'blue';
+  const initialBg = initialStyle === 'endfield'
+    ? (initialTheme === 'light' ? '#f4f4f2' : '#191919')
+    : (initialTheme === 'light' ? '#f4f5f8' : '#0d0f16');
+
   win = new BrowserWindow({
     ...bounds,
     minWidth: 900,
@@ -160,7 +180,7 @@ function createWindow() {
     show: false,
     frame: isMac,
     ...(isMac && { titleBarStyle: 'hiddenInset' }),
-    backgroundColor: store.get('appearance.theme') === 'light' ? '#f4f5f8' : '#0d0f16',
+    backgroundColor: initialBg,
     title: 'TeXora',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     webPreferences: {
@@ -175,6 +195,12 @@ function createWindow() {
   });
 
   const query = new URLSearchParams();
+  query.set('bootStyle', initialStyle);
+  query.set('bootTheme', initialTheme);
+  query.set('bootEfAccent', initialEfAccent);
+  query.set('bootAccent', initialAccent);
+  if (appearance.compact) query.set('bootCompact', '1');
+  if (appearance.reduceMotion) query.set('bootReduceMotion', '1');
   if (capture.enabled) {
     query.set('capture', '1');
     if (capture.view) query.set('view', capture.view);
@@ -189,9 +215,19 @@ function createWindow() {
     if (capture.enabled) console.log('[renderer]', level, message, line ? sourceId + ':' + line : '');
   });
   win.webContents.on('render-process-gone', (e, details) => console.error('[renderer-gone]', details));
-  win.once('ready-to-show', () => {
+
+  let shown = false;
+  let showFallback = null;
+  const revealWindow = () => {
+    if (shown || !win || win.isDestroyed()) return;
+    shown = true;
+    if (showFallback) { clearTimeout(showFallback); showFallback = null; }
     win.show();
     if (capture.enabled) win.setBounds({ x: 0, y: 0, width: capture.width, height: capture.height });
+  };
+  win._revealWindow = revealWindow;
+  win.once('ready-to-show', () => {
+    if (!shown && !showFallback) showFallback = setTimeout(revealWindow, 1200);
   });
 
   const persist = () => {
@@ -205,6 +241,7 @@ function createWindow() {
   win.webContents.on('did-start-navigation', (_event,_url,inPlace,mainFrame) => { if (mainFrame && !inPlace) agentSession.stop(); });
   win.on('closed', () => {
     agentSession.stop();
+    void overleafLive.disconnect().catch(() => {});
     win = null;
     ready = false;
   });
@@ -346,8 +383,8 @@ function broadcastSettings() {
   send('settings:changed', store.all());
 }
 
-handle('overleaf:login',async()=>{if(overleaf.busy)throw Error('请等待当前 Overleaf 操作完成');await overleafSession.login();return {ok:true};});
-handle('overleaf:logout',async()=>{if(overleaf.busy)throw Error('请等待同步完成');await overleafSession.logout();overleaf.plans.clear();return {ok:true};});
+handle('overleaf:login',async()=>{if(overleaf.busy)throw Error('请等待当前 Overleaf 操作完成');await overleafSession.login(()=>send('overleaf:loginComplete',{ok:true}));return {ok:true};});
+handle('overleaf:logout',async()=>{if(overleaf.busy)throw Error('请等待同步完成');await overleafLive.disconnect();await overleafSession.logout();overleaf.plans.clear();return {ok:true};});
 handle('overleaf:projects',async()=>({ok:true,projects:await overleaf.projects()}));
 handle('overleaf:load',async (id,requestId)=>{
   if(typeof requestId!=='string'||!/^[\w-]{1,80}$/.test(requestId))throw Error('无效的项目加载请求');
@@ -356,6 +393,25 @@ handle('overleaf:load',async (id,requestId)=>{
 handle('overleaf:binding',async()=>({ok:true,binding:await overleaf.binding(project.root)}));
 handle('overleaf:plan',async()=>({ok:true,...await overleaf.plan(project.root)}));
 handle('overleaf:apply',async token=>{if(overleafSession.loginWindow)throw Error('请先关闭 Overleaf 登录窗口，再确认同步');const plan=overleaf.plans.get(token);if(plan?.root!==project.root)throw Error('当前项目已切换，请重新检查');return {ok:true,...await overleaf.apply(token)};});
+handle('overleaf:liveConnect',async id=>({ok:true,...await overleafLive.connect(id)}));
+handle('overleaf:liveDisconnect',async()=>{await overleafLive.disconnect();return {ok:true};});
+handle('overleaf:liveState',async()=>({ok:true,...overleafLive.state()}));
+handle('overleaf:liveJoinDoc',async docIdOrPath=>({ok:true,...await overleafLive.joinDoc(docIdOrPath)}));
+handle('overleaf:liveLeaveDoc',async docIdOrPath=>({ok:true,...await overleafLive.leaveDoc(docIdOrPath)}));
+handle('overleaf:liveApplyChanges',async (docIdOrPath,changes,finalText)=>({ok:true,...overleafLive.applyLocalChanges(docIdOrPath,changes,finalText)}));
+handle('overleaf:liveCompile',async opts=>await overleafLive.compile(opts||{}));
+handle('overleaf:liveStopCompile',async()=>await overleafLive.stopCompile());
+handle('overleaf:liveSyncForward',async (file,line,col)=>await overleafLive.synctexForward(file,line,col));
+handle('overleaf:liveSyncInverse',async (page,x,y)=>await overleafLive.synctexInverse(page,x,y));
+handle('overleaf:liveUpdatePosition',async (docIdOrPath,row,col)=>overleafLive.updatePosition(docIdOrPath,row,col));
+handle('overleaf:liveCreateDoc',async (parent,name)=>await overleafLive.createDoc(parent,name));
+handle('overleaf:liveCreateFolder',async (parent,name)=>await overleafLive.createFolder(parent,name));
+handle('overleaf:liveRename',async (target,newName)=>await overleafLive.renameEntity(target,newName));
+handle('overleaf:liveMove',async (target,destFolder)=>await overleafLive.moveEntity(target,destFolder));
+handle('overleaf:liveDelete',async target=>await overleafLive.deleteEntity(target));
+handle('overleaf:liveSetRootDoc',async target=>await overleafLive.setRootDoc(target));
+handle('overleaf:liveUploadFile',async (parent,localPath)=>await overleafLive.uploadFile(parent,localPath));
+handle('overleaf:liveFetchFile',async target=>await overleafLive.fetchFile(target));
 
 // ----------------------------------------------------------------- app / window
 handle('app:systemFonts', async () => {
@@ -817,5 +873,6 @@ async function runCapture() {
 }
 
 ipcMain.on('app:renderer-ready', () => {
+  win?._revealWindow?.();
   if (capture.enabled) runCapture();
 });

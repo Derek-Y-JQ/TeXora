@@ -405,3 +405,10 @@
 html[data-style="endfield"] .pdf-present .pp-progress span { background:var(--ef-signal); }
 html[data-style="endfield"] .pdf-present :is(.pp-count,.pp-bar) { font-family:var(--font-display); font-stretch:112%; }
 @media (prefers-reduced-motion:reduce) { .pdf-present :is(.pp-bar,.pp-progress,.pp-progress span) { transition:none; } }
+
+/* --------------------------------------------------- Overleaf collaborators */
+.sb-overleaf-users { display:inline-flex; align-items:center; gap:6px; font-weight:500; }
+.sb-overleaf-users[hidden] { display:none; }
+.sb-overleaf-users .ol-presence-dot { width:7px; height:7px; border-radius:999px; background:#10b981; display:inline-block; flex-shrink:0; }
+.ol-remote-cursor { position:relative; width:2px; height:18px; pointer-events:none; z-index:40; }
+.ol-remote-cursor-tag { position:absolute; left:0; bottom:100%; padding:1px 5px; font-size:10px; line-height:1.35; font-weight:600; color:#fff; white-space:nowrap; border-radius:3px 3px 3px 0; box-shadow:0 1px 4px rgba(0,0,0,.22); opacity:.92; }
