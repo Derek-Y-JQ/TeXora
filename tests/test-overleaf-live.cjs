@@ -5,10 +5,20 @@ const {
   OverleafLiveManager,
   buildTreeFromProject,
   buildBridgeScript,
-  overleafRoot
+  overleafRoot,
+  decodeOverleafUtf8
 } = require('../electron/lib/overleaf-live');
 
 (async () => {
+  // 0. UTF-8 decoding for Overleaf Latin-1-packed joinDoc lines (Chinese / CJK)
+  {
+    const sample = '\\section{引言} 中文测试 — Overleaf 实时同步';
+    const latin1Packed = Buffer.from(sample, 'utf8').toString('latin1');
+    assert.notEqual(latin1Packed, sample);
+    assert.equal(decodeOverleafUtf8(latin1Packed), sample);
+    assert.equal(decodeOverleafUtf8(sample), sample);
+    assert.equal(decodeOverleafUtf8('plain ascii 123'), 'plain ascii 123');
+  }
   const projectId = 'abcdef0123456789abcdef01';
   const rootFolderId = '111111111111111111111111';
   const subFolderId = '222222222222222222222222';
@@ -238,16 +248,18 @@ const {
         if (route.startsWith(`/project/${projectId}/compile`)) {
           return new Response(JSON.stringify({
             status: compileStatus,
+            compileGroup: 'standard',
+            clsiServerId: 'clsi-9',
             outputFiles: [
               { url: `/project/${projectId}/build/b-42/output/output.pdf`, type: 'pdf', path: 'output.pdf', build: 'b-42' },
               { url: `/project/${projectId}/build/b-42/output/output.log`, type: 'log', path: 'output.log', build: 'b-42' }
             ]
           }), { headers: { 'content-type': 'application/json' } });
         }
-        if (route.endsWith('/output.log')) {
+        if (route.includes('/output.log')) {
           return new Response('./sections/intro.tex:12: Undefined control sequence.\n', { headers: { 'content-type': 'text/plain' } });
         }
-        if (route.endsWith('/output.pdf')) {
+        if (route.includes('/output.pdf')) {
           return new Response(Buffer.from('%PDF-1.7\n%mock\n'), { headers: { 'content-type': 'application/pdf' } });
         }
         if (route.startsWith(`/project/${projectId}/sync/code`)) {
@@ -282,11 +294,13 @@ const {
     assert.equal((await fsp.readFile(compiled.pdf, 'utf8')).startsWith('%PDF-1.7'), true);
     assert.equal(compiled.problems[0].file, `${overleafRoot(projectId)}/sections/intro.tex`);
     assert.equal(httpCalls[0].options.headers['X-CSRF-Token'], 'csrf-compile');
+    assert.equal(JSON.parse(httpCalls[0].options.body).rootResourcePath, 'main.tex');
+    assert.ok(httpCalls.some((c) => c.route.includes('/output.pdf?') && c.route.includes('compileGroup=standard') && c.route.includes('clsiserverid=clsi-9')));
 
     // Forward SyncTeX
     const fwd = await manager.synctexForward(`${overleafRoot(projectId)}/sections/intro.tex`, 12, 1);
     assert.deepEqual(fwd, { ok: true, page: 2, x: 72.5, y: 210.25, width: 320, height: 14 });
-    assert.ok(httpCalls.some((c) => c.route.includes('/sync/code?') && c.route.includes('file=sections%2Fintro.tex') && c.route.includes('buildId=b-42')));
+    assert.ok(httpCalls.some((c) => c.route.includes('/sync/code?') && c.route.includes('file=sections%2Fintro.tex') && c.route.includes('buildId=b-42') && c.route.includes('clsiserverid=clsi-9')));
 
     // Inverse SyncTeX
     const inv = await manager.synctexInverse(2, 72.5, 210.25);
@@ -300,7 +314,7 @@ const {
 
     // Stop compile
     await manager.stopCompile();
-    assert.ok(httpCalls.some((c) => c.route === `/project/${projectId}/compile/stop` && c.options.method === 'POST'));
+    assert.ok(httpCalls.some((c) => c.route === `/project/${projectId}/compile/stop?clsiserverid=clsi-9` && c.options.method === 'POST'));
 
     await manager.disconnect();
   }

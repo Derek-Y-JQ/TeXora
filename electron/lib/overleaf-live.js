@@ -24,6 +24,31 @@ function colorForUser(key) {
   return USER_COLORS[Math.abs(h) % USER_COLORS.length];
 }
 
+const utf8FatalDecoder = new TextDecoder('utf-8', { fatal: true });
+
+/**
+ * Overleaf's `joinDoc` transmits UTF-8 bytes packed into Latin-1 JS strings.
+ * Safely decodes Latin-1-packed UTF-8 while leaving ASCII or already-decoded
+ * Unicode strings untouched.
+ */
+function decodeOverleafUtf8(str) {
+  const s = String(str ?? '');
+  let hasHighByte = false;
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (code > 0xff) return s; // Already decoded Unicode
+    if (code >= 0x80) hasHighByte = true;
+  }
+  if (!hasHighByte) return s; // Pure ASCII
+  try {
+    const bytes = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    return utf8FatalDecoder.decode(bytes);
+  } catch {
+    return s;
+  }
+}
+
 function overleafRoot(projectId) {
   return `overleaf://${projectId}`;
 }
@@ -366,6 +391,8 @@ class OverleafLiveManager {
     this.pendingRequests = new Map(); // requestId -> { resolve, reject, timer }
     this._connectDeferred = null;
     this.lastBuildId = '';
+    this.lastClsiServerId = '';
+    this.lastCompileGroup = '';
     this.lastPdfPath = '';
     this.compiling = false;
   }
@@ -586,6 +613,8 @@ class OverleafLiveManager {
     this.docs.clear();
     this.users.clear();
     this.lastBuildId = '';
+    this.lastClsiServerId = '';
+    this.lastCompileGroup = '';
     this.lastPdfPath = '';
     this.compiling = false;
     this.status = 'disconnected';
@@ -597,7 +626,8 @@ class OverleafLiveManager {
     let s = String(rawFile).replace(/\\/g, '/').trim();
     const prefix = `${overleafRoot(this.projectId)}/`;
     if (s.startsWith(prefix)) s = s.slice(prefix.length);
-    s = s.replace(/^\/?(?:var\/lib\/sharelatex\/data\/compiles\/[^/]+\/|compile\/)/, '');
+    s = s.replace(/^.*\/compiles\/[0-9a-f]{24}(?:-[0-9a-f]{24})?\/(?:\.\/)?/i, '');
+    s = s.replace(/^\/?compile\//, '');
     s = s.replace(/^\.\//, '').replace(/^\/+/, '');
     return s;
   }
@@ -625,6 +655,15 @@ class OverleafLiveManager {
     }
   }
 
+  _buildOutputRoute(rawUrl, { compileGroup, clsiServerId, enableCaching = false } = {}) {
+    if (!rawUrl) return '';
+    const u = new URL(rawUrl, ORIGIN);
+    if (compileGroup && !u.searchParams.has('compileGroup')) u.searchParams.set('compileGroup', compileGroup);
+    if (clsiServerId && !u.searchParams.has('clsiserverid')) u.searchParams.set('clsiserverid', clsiServerId);
+    if (enableCaching && !u.searchParams.has('enable_pdf_caching')) u.searchParams.set('enable_pdf_caching', 'true');
+    return u.pathname + u.search;
+  }
+
   async compile({ stopOnFirstError = false } = {}) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
     if (!this.session || typeof this.session.request !== 'function') throw new Error('Overleaf 网络会话不可用');
@@ -634,20 +673,24 @@ class OverleafLiveManager {
     this.compiling = true;
     const started = Date.now();
     try {
-      const rootDocId = this.project?.rootDoc_id || this.pathToEntity.get(this.rootFile)?.id || undefined;
+      const rootEntity = this.pathToEntity.get(this.rootFile) || (this.project?.rootDoc_id ? this.idToEntity.get(this.project.rootDoc_id) : null);
+      const rootDocId = rootEntity?.id || this.project?.rootDoc_id || undefined;
+      const rootResourcePath = rootEntity?.rel || this._normalizeRelPath(this.rootFile) || undefined;
       const body = {
         check: 'silent',
         draft: false,
         incrementalCompilesEnabled: true,
         stopOnFirstError: Boolean(stopOnFirstError),
-        ...(rootDocId ? { rootDoc_id: rootDocId } : {})
+        ...(rootDocId ? { rootDoc_id: rootDocId } : {}),
+        ...(rootResourcePath ? { rootResourcePath } : {})
       };
       const res = await this.session.request(`/project/${this.projectId}/compile?enable_pdf_caching=true`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          'X-CSRF-Token': this.csrf
+          'X-CSRF-Token': this.csrf,
+          Referer: `${ORIGIN}/project/${this.projectId}`
         },
         body: JSON.stringify(body)
       });
@@ -656,6 +699,10 @@ class OverleafLiveManager {
       }
       const data = await res.json();
       const status = String(data?.status || 'failure');
+      const compileGroup = data?.compileGroup ? String(data.compileGroup) : '';
+      const clsiServerId = data?.clsiServerId ? String(data.clsiServerId) : '';
+      if (compileGroup) this.lastCompileGroup = compileGroup;
+      if (clsiServerId) this.lastClsiServerId = clsiServerId;
       const files = Array.isArray(data?.outputFiles) ? data.outputFiles : [];
 
       const logFile = files.find((f) => f.type === 'log' || f.path === 'output.log' || /\.log$/i.test(f.path || ''));
@@ -664,7 +711,8 @@ class OverleafLiveManager {
       let logText = '';
       if (logFile?.url) {
         try {
-          const logRes = await this.session.request(logFile.url);
+          const logRoute = this._buildOutputRoute(logFile.url, { compileGroup, clsiServerId });
+          const logRes = await this.session.request(logRoute);
           logText = await logRes.text();
         } catch {}
       }
@@ -677,20 +725,26 @@ class OverleafLiveManager {
       }));
 
       let pdfPath = '';
+      let pdfDownloadError = '';
       if (pdfFile?.url && status === 'success') {
-        const pdfRes = await this.session.request(pdfFile.url);
-        const buf = Buffer.from(await pdfRes.arrayBuffer());
-        if (buf.length > 0 && this.cacheDir) {
-          const dir = path.join(this.cacheDir, this.projectId);
-          await fsp.mkdir(dir, { recursive: true });
-          const target = path.join(dir, 'output.pdf');
-          const tmp = `${target}.${crypto.randomUUID()}.tmp`;
-          await fsp.writeFile(tmp, buf);
-          await replaceFile(tmp, target);
-          pdfPath = target;
-          this.lastPdfPath = target;
+        try {
+          const pdfRoute = this._buildOutputRoute(pdfFile.url, { compileGroup, clsiServerId, enableCaching: true });
+          const pdfRes = await this.session.request(pdfRoute);
+          const buf = Buffer.from(await pdfRes.arrayBuffer());
+          if (buf.length > 0 && this.cacheDir) {
+            const dir = path.join(this.cacheDir, this.projectId);
+            await fsp.mkdir(dir, { recursive: true });
+            const target = path.join(dir, 'output.pdf');
+            const tmp = `${target}.${crypto.randomUUID()}.tmp`;
+            await fsp.writeFile(tmp, buf);
+            await replaceFile(tmp, target);
+            pdfPath = target;
+            this.lastPdfPath = target;
+          }
+          if (pdfFile.build) this.lastBuildId = String(pdfFile.build);
+        } catch (err) {
+          pdfDownloadError = err.message || String(err);
         }
-        if (pdfFile.build) this.lastBuildId = String(pdfFile.build);
       }
 
       const statusMessages = {
@@ -716,7 +770,7 @@ class OverleafLiveManager {
         rootFile: this.rootFile,
         buildId: this.lastBuildId,
         at: Date.now(),
-        ...(ok ? {} : { error: statusMessages[status] || 'Overleaf 云端编译未生成 PDF' })
+        ...(ok ? {} : { error: pdfDownloadError ? `PDF 下载失败：${pdfDownloadError}` : (statusMessages[status] || 'Overleaf 云端编译未生成 PDF') })
       };
     } finally {
       this.compiling = false;
@@ -726,7 +780,10 @@ class OverleafLiveManager {
   async stopCompile() {
     if (!this.active || !this.session || !this.csrf) return { ok: true };
     try {
-      await this.session.request(`/project/${this.projectId}/compile/stop`, {
+      const params = new URLSearchParams();
+      if (this.lastClsiServerId) params.set('clsiserverid', this.lastClsiServerId);
+      const qs = params.toString();
+      await this.session.request(`/project/${this.projectId}/compile/stop${qs ? '?' + qs : ''}`, {
         method: 'POST',
         headers: { 'X-CSRF-Token': this.csrf }
       });
@@ -745,6 +802,7 @@ class OverleafLiveManager {
       column: String(Math.max(1, Number(column) || 1))
     });
     if (this.lastBuildId) params.set('buildId', this.lastBuildId);
+    if (this.lastClsiServerId) params.set('clsiserverid', this.lastClsiServerId);
     const res = await this.session.request(`/project/${this.projectId}/sync/code?${params.toString()}`, {
       headers: { Accept: 'application/json' }
     });
@@ -770,6 +828,7 @@ class OverleafLiveManager {
       v: String(Number(y) || 0)
     });
     if (this.lastBuildId) params.set('buildId', this.lastBuildId);
+    if (this.lastClsiServerId) params.set('clsiserverid', this.lastClsiServerId);
     const res = await this.session.request(`/project/${this.projectId}/sync/pdf?${params.toString()}`, {
       headers: { Accept: 'application/json' }
     });
@@ -791,7 +850,7 @@ class OverleafLiveManager {
     if (entity.entityType !== 'doc') throw new Error('该文件为二进制资源，暂不支持直接文本编辑');
 
     const res = await this._requestBridge('joinDoc', { docId: entity.id });
-    const text = (res.docLines || []).join('\n');
+    const text = (res.docLines || []).map((line) => decodeOverleafUtf8(line)).join('\n');
     const version = Number(res.version) || 0;
     const client = new OTClient({ docId: entity.id, text, version, includeHash: true });
     this.docs.set(entity.id, client);
@@ -839,7 +898,7 @@ class OverleafLiveManager {
     if (!entity || !this.active) return;
     try {
       const res = await this._requestBridge('joinDoc', { docId });
-      const text = (res.docLines || []).join('\n');
+      const text = (res.docLines || []).map((line) => decodeOverleafUtf8(line)).join('\n');
       const version = Number(res.version) || 0;
       const client = this.docs.get(docId);
       if (client) client.reset(text, version);
@@ -1233,5 +1292,6 @@ module.exports = {
   OverleafLiveManager,
   buildTreeFromProject,
   buildBridgeScript,
-  overleafRoot
+  overleafRoot,
+  decodeOverleafUtf8
 };

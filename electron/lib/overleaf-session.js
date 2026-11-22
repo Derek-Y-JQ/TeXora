@@ -52,7 +52,7 @@ class OverleafSession {
   }
   async logout(){if(this.active)throw Error('请等待当前 Overleaf 操作完成再退出');this.loginWindow?.close();this.worker?.close();await this.session.clearStorageData();await this.session.clearAuthCache();}
   async request(route,options={}){
-    if(!/^\/(?:user\/projects$|api\/project$|project$|project\/[a-f\d]{24}(?:\/|$))/.test(route))throw Error('无效的 Overleaf 请求');
+    if(!/^\/(?:user\/projects$|api\/project$|project$|(?:download\/)?project\/[a-f\d]{24}(?:\/|$))/.test(route))throw Error('无效的 Overleaf 请求');
     let url=new URL(route,ORIGIN);
     if(url.origin!==ORIGIN)throw Error('无效的 Overleaf 请求');
     const method=(options.method||'GET').toUpperCase();

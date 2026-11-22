@@ -790,6 +790,7 @@ async function openProject(path) {
 }
 
 async function openTarget(file){
+  if(isOverleafLivePath(file))return openDocument(file);
   if(!file){const choice=await api.dialog.openFiles({title:'打开文档或 PDF',filters:[{name:'文档与 PDF',extensions:['tex','ltx','sty','cls','bib','md','txt','pdf']},{name:'所有文件',extensions:['*']}]});if(!choice.ok)return;file=choice.paths[0];}
   const target=await api.resolveOpenTarget(file);if(!target.ok)return toast({type:'error',title:'打开失败',body:target.error});
   if(target.kind==='pdf')return openPdf(target.file);
@@ -1091,18 +1092,26 @@ async function loadPackages() {
 
 async function chooseRootFile() {
   if (!ctx.state.project.root) return;
+  const isLive = Boolean(ctx.state.overleafLive?.active);
+  const fullFor = (f) => (isLive ? `${ctx.state.project.root}/${f}` : joinPath(ctx.state.project.root, f));
   const items = (ctx.state.assets.tex || [])
     .filter((f) => /\.(tex|ltx)$/i.test(f))
     .slice(0, 40)
     .map((f) => ({
       label: f,
       icon: 'paper',
-      checked: ctx.state.project.rootFile === joinPath(ctx.state.project.root, f),
+      checked: ctx.state.project.rootFile === fullFor(f),
       onClick: async () => {
-        const full = joinPath(ctx.state.project.root, f);
-        await api.project.setRootFile(full);
-        ctx.state.project.rootFile = full;
-        $('#sbRootName').textContent = baseName(full);
+        const full = fullFor(f);
+        if (isLive) {
+          const res = await api.overleaf.liveSetRootDoc(full);
+          if (res && res.ok === false) return toast({ type: 'error', title: '切换主文档失败', body: res.error || '' });
+          ctx.state.project.rootFile = res?.rootFile || full;
+        } else {
+          await api.project.setRootFile(full);
+          ctx.state.project.rootFile = full;
+        }
+        $('#sbRootName').textContent = baseName(ctx.state.project.rootFile);
         toast({ type: 'success', title: '主文档已切换', body: f });
         ctx.cmd('build.run');
       }
