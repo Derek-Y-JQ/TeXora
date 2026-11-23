@@ -94,3 +94,44 @@ export function disposeVectorPdf(view){
   const loading=view.loadingTask;view.loadingTask=null;view.pdfDocument=null;
   loading?.destroy().catch(()=>{});
 }
+
+const pdfThumbCache = new Map();
+/** Render the first page of a PDF figure to a cached PNG data URL for hover previews. */
+export async function renderPdfThumbnail(file, cacheKey = '') {
+  const key = cacheKey || file;
+  if (pdfThumbCache.has(key)) return pdfThumbCache.get(key);
+  const pdf = await pdfLibrary();
+  const base = new URL('pdfjs/', document.baseURI).href;
+  const task = pdf.getDocument({
+    url: ctx.api.assetUrl(file),
+    cMapUrl: base + 'cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: base + 'standard_fonts/',
+    wasmUrl: base + 'wasm/',
+    isEvalSupported: false,
+    enableXfa: false
+  });
+  let doc = null;
+  try {
+    doc = await task.promise;
+    const page = await doc.getPage(1);
+    const baseVp = page.getViewport({ scale: 1 });
+    const maxDim = 640;
+    const scale = Math.min(2, maxDim / Math.max(baseVp.width || 1, baseVp.height || 1));
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(viewport.width));
+    canvas.height = Math.max(1, Math.ceil(viewport.height));
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport, background: 'white' }).promise;
+    const url = canvas.toDataURL('image/png');
+    canvas.width = 0;
+    canvas.height = 0;
+    if (pdfThumbCache.size > 60) pdfThumbCache.delete(pdfThumbCache.keys().next().value);
+    pdfThumbCache.set(key, url);
+    return url;
+  } finally {
+    await doc?.destroy().catch(() => {});
+    await task?.destroy().catch(() => {});
+  }
+}
+

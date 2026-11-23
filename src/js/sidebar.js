@@ -284,7 +284,7 @@ export class Sidebar {
           else this.expanded.add(path);
           this.renderTree();
         } else {
-          ctx.cmd('doc.open', path);
+          ctx.app.openDocument(path);
         }
       });
       row.addEventListener('contextmenu', (e) => {
@@ -325,7 +325,7 @@ export class Sidebar {
             : await ctx.api.fs.moveInto(src, path);
           if (res.ok) {
             toast({ type: 'success', title: '已移动文件', body: baseName(src) });
-            if (ctx.state.activePath === src && res.path) ctx.cmd('doc.open', res.path);
+            if (ctx.state.activePath === src && res.path) ctx.app.openDocument(res.path);
             this.expanded.add(path);
             this.refreshFiles();
             ctx.emit('project:refresh');
@@ -351,7 +351,7 @@ export class Sidebar {
     const isRoot = path === ctx.state.project.rootFile;
     const isLive = Boolean(ctx.state.overleafLive?.active);
     const items = [
-      { label: '打开', icon: 'file', onClick: () => (type === 'dir' ? this.expanded.add(path) || this.renderTree() : ctx.cmd('doc.open', path)) },
+      { label: '打开', icon: 'file', onClick: () => (type === 'dir' ? this.expanded.add(path) || this.renderTree() : ctx.app.openDocument(path)) },
       { separator: true }
     ];
     if (type === 'file') {
@@ -390,7 +390,7 @@ export class Sidebar {
     if (res.ok) {
       this.expanded.add(parent);
       await this.refreshFiles();
-      if (res.path) ctx.cmd('doc.open', res.path);
+      if (res.path) ctx.app.openDocument(res.path);
       toast({ type: 'success', title: '已创建', body: name });
     } else toast({ type: 'error', title: '创建失败', body: res.error });
   }
@@ -799,7 +799,7 @@ export class Sidebar {
       });
     }
     for (const head of $$('.search-file-head', box)) {
-      head.addEventListener('click', () => ctx.cmd('doc.open', head.dataset.file));
+      head.addEventListener('click', () => ctx.app.openDocument(head.dataset.file));
     }
   }
 

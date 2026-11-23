@@ -26,7 +26,7 @@ import { parseBib } from './js/bib.js';
 import { beautify, normalizePunctuation, applyDisplayStyle, splitLines, ENVIRONMENTS } from './js/latex.js';
 import { renderMarkdown } from './js/markdown.js';
 import {
-  $, $$, el, icon, escapeHtml, toast, joinPath, baseName, extOf, relPath, debounce, clamp, textStats, formatBytes, copyText, openMenu, openPopover, fileIcon } from './js/util.js';
+  $, $$, el, icon, escapeHtml, toast, joinPath, baseName, extOf, relPath, isPathInside, debounce, clamp, textStats, formatBytes, copyText, openMenu, openPopover, fileIcon } from './js/util.js';
 
 const api = window.texora;
 ctx.api = api;
@@ -875,6 +875,10 @@ async function openProject(path) {
 async function openTarget(file){
   if(isOverleafLivePath(file))return openDocument(file);
   if(!file){const choice=await api.dialog.openFiles({title:'打开文档或 PDF',filters:[{name:'文档与 PDF',extensions:['tex','ltx','sty','cls','bib','md','txt','pdf']},{name:'所有文件',extensions:['*']}]});if(!choice.ok)return;file=choice.paths[0];}
+  if(ctx.state.project.root&&isPathInside(file,ctx.state.project.root)){
+    const st=await api.fs.stat(file).catch(()=>null);
+    if(st?.ok&&!st.dir)return openDocument(file);
+  }
   const target=await api.resolveOpenTarget(file);if(!target.ok)return toast({type:'error',title:'打开失败',body:target.error});
   if(target.kind==='pdf')return openPdf(target.file);
   const same=(a,b)=>String(a||'').replace(/\\/g,'/').toLowerCase()===String(b||'').replace(/\\/g,'/').toLowerCase();
@@ -1371,6 +1375,9 @@ async function openDocument(path, opts = {}) {
       });
     }
   }
+  if (ctx.state.activePath && ctx.state.activePath !== path) {
+    ctx.editor.saveViewState();
+  }
   ctx.state.activePath = path;
   ctx.editor.attach(doc, doc.viewState);
   setEmptyState(false);
@@ -1501,6 +1508,7 @@ async function closeDocument(path = ctx.state.activePath) {
     } else {
       ctx.editor.editor.setModel(null);
       ctx.editor.model = null;
+      ctx.editor.activeDoc = null;
       ctx.editor.blocks = [];
       setEmptyState(true);
     }
@@ -1520,6 +1528,7 @@ function closeAllDocuments() {
   ctx.state.activePath = '';
   ctx.editor.editor.setModel(null);
   ctx.editor.model = null;
+  ctx.editor.activeDoc = null;
 }
 
 async function reloadDocument(path = ctx.state.activePath) {

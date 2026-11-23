@@ -117,6 +117,30 @@ export function relPath(root, full) {
 export function normalizeRel(p) {
   return String(p || '').replace(/\\/g, '/');
 }
+export function isPathInside(target, root) {
+  if (!target || !root) return false;
+  const norm = (p) => {
+    const slash = String(p).replace(/\\/g, '/');
+    let prefix = '';
+    let rest = slash;
+    const drive = rest.match(/^([a-zA-Z]:)\//);
+    if (drive) { prefix = drive[1].toLowerCase() + '/'; rest = rest.slice(prefix.length); }
+    else if (rest.startsWith('//')) { prefix = '//'; rest = rest.slice(2); }
+    else if (rest.startsWith('/')) { prefix = '/'; rest = rest.slice(1); }
+    const stack = [];
+    for (const seg of rest.split('/')) {
+      if (!seg || seg === '.') continue;
+      if (seg === '..') { if (stack.length) stack.pop(); }
+      else stack.push(seg);
+    }
+    return prefix + stack.join('/');
+  };
+  const r = norm(root).replace(/\/+$/, '');
+  const t = norm(target).replace(/\/+$/, '');
+  if (!r || !t || r.toLowerCase() === t.toLowerCase()) return false;
+  const rPrefix = r.endsWith('/') ? r.toLowerCase() : r.toLowerCase() + '/';
+  return t.toLowerCase().startsWith(rPrefix);
+}
 export function extOf(p) {
   const m = String(p || '').match(/\.([a-z0-9]+)$/i);
   return m ? m[1].toLowerCase() : '';

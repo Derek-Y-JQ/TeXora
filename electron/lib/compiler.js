@@ -970,19 +970,54 @@ class Compiler {
     const needsTikz = kind === 'tikz' || /\\(?:begin\{tikzpicture\}|tikzset|pgfplotsset|begin\{axis\})/.test(body);
     const tikzPkg = needsTikz ? '\\usepackage{tikz}\n' : '';
     const base = '\\usepackage{amsmath,amssymb,amsthm,mathtools}\n\\usepackage{xcolor}\n\\usepackage{graphicx}\n\\usepackage{array}\n' + tikzPkg;
+    const resolveGraphicsDirs = (src, docDir, projectDir) => {
+      const dirs = [];
+      const push = (d) => {
+        if (!d) return;
+        const norm = String(d).replace(/\\/g, '/').replace(/\/+$/, '') + '/';
+        if (!dirs.includes(norm)) dirs.push(norm);
+      };
+      const cleaned = String(src || '').replace(/(^|[^\\])%[^\r\n]*/g, '$1');
+      const re = /\\graphicspath\s*\{/g;
+      let m;
+      while ((m = re.exec(cleaned))) {
+        let depth = 0, i = m.index + m[0].length - 1, end = -1;
+        for (; i < cleaned.length; i++) {
+          if (cleaned[i] === '\\') { i++; continue; }
+          if (cleaned[i] === '{') depth++;
+          else if (cleaned[i] === '}' && --depth === 0) { end = i; break; }
+        }
+        if (end < 0) break;
+        const inner = cleaned.slice(m.index + m[0].length, end);
+        for (const gm of inner.matchAll(/\{([^{}]+)\}/g)) {
+          const raw = gm[1].trim();
+          if (!raw) continue;
+          if (path.isAbsolute(raw)) push(raw);
+          else {
+            if (docDir) push(path.resolve(docDir, raw));
+            if (projectDir && projectDir !== docDir) push(path.resolve(projectDir, raw));
+          }
+        }
+        re.lastIndex = end + 1;
+      }
+      if (docDir) push(docDir);
+      if (projectDir) push(projectDir);
+      return dirs;
+    };
     const build = (pre, faithful = false) => {
       const docDir = path.dirname(rootFile || '').replace(/\\/g, '/');
       const projectDir = String(projectRoot || '').replace(/\\/g, '/');
-      const graphics = '\\graphicspath{{' + docDir + '/}{' + projectDir + '/}}\n';
-      const head = docClass + base + graphics + (kind === 'table' ? '\\usepackage{booktabs}\n\\usepackage{array}\n' : '');
+      const gDirs = resolveGraphicsDirs(originalPreamble + '\n' + pre, docDir, projectDir);
+      const graphics = '\\graphicspath{' + gDirs.map((d) => '{' + d + '}').join('') + '}\n';
+      const head = docClass + base + (kind === 'table' ? '\\usepackage{booktabs}\n\\usepackage{array}\n' : '');
       let bodyBlock;
       if (kind === 'math') bodyBlock = `\\ensuremath{${displayMode ? '\\displaystyle ' : ''}${body}}`;
       else if (kind === 'displayblock') bodyBlock = `\\[\n${body}\n\\]`;
       else bodyBlock = body;
       if (faithful && /\\documentclass\b/.test(pre)) {
-        return `${pre}\n${graphics}\n\\usepackage[active,tightpage]{preview}\n\\setlength{\\PreviewBorder}{2pt}\n\\begin{document}\n\\begin{preview}\n${bodyBlock}\n\\end{preview}\n\\end{document}\n`;
+        return `${pre}\n${graphics}\\usepackage[active,tightpage]{preview}\n\\setlength{\\PreviewBorder}{2pt}\n\\begin{document}\n\\begin{preview}\n${bodyBlock}\n\\end{preview}\n\\end{document}\n`;
       }
-      return `${head}\\makeatletter\n${pre}\n\\makeatother\n\\begin{document}\n${bodyBlock}\n\\end{document}\n`;
+      return `${head}\\makeatletter\n${pre}\n\\makeatother\n${graphics}\\begin{document}\n${bodyBlock}\n\\end{document}\n`;
     };
     const workDir = path.join(outDir, hash);
     await fsp.mkdir(workDir, { recursive: true });

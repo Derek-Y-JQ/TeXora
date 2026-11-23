@@ -23,11 +23,37 @@ async function resolveOpenTarget(target){
   const head=(await fs.readFile(full,'utf8')).slice(0,16384);
   const magic=head.match(/^\s*%\s*!\s*TeX\s+root\s*=\s*(.+)$/im);
   if(magic){const main=path.resolve(root,magic[1].trim());if(await fs.stat(main).then(s=>s.isFile()).catch(()=>false))return {kind:'source',root:path.dirname(main),file:full,rootFile:main};}
-  if(/^[^%\n]*\\documentclass\b/m.test(head))return {kind:'source',root,file:full,rootFile:full};
+  const subfile=head.match(/^[^%\n]*\\documentclass\s*\[([^\]]+)\]\s*\{subfiles\}/m);
+  if(subfile){
+   const raw=subfile[1].trim(),cand=path.resolve(root,/\.(tex|ltx)$/i.test(raw)?raw:raw+'.tex');
+   if(await fs.stat(cand).then(s=>s.isFile()).catch(()=>false))return {kind:'source',root:path.dirname(cand),file:full,rootFile:cand};
+  }
+  const isSubfilesClass=/^[^%\n]*\\documentclass(?:\s*\[[^\]]*\])?\s*\{subfiles\}/m.test(head);
+  if(/^[^%\n]*\\documentclass\b/m.test(head)&&!isSubfilesClass)return {kind:'source',root,file:full,rootFile:full};
+  const preferred=['main.tex','root.tex','thesis.tex','paper.tex','document.tex','master.tex','book.tex'];
   for(let dir=root,depth=0;depth<6;depth++,dir=path.dirname(dir)){
-   for(const name of ['main.tex','root.tex','thesis.tex','paper.tex','document.tex','master.tex','book.tex']){
+   for(const name of preferred){
     const main=path.join(dir,name),text=await fs.readFile(main,'utf8').catch(()=>'');
     if(/^[^%\n]*\\documentclass\b/m.test(text))return {kind:'source',root:dir,file:full,rootFile:main};
+   }
+   if(depth>0){
+    const entries=await fs.readdir(dir,{withFileTypes:true}).catch(()=>[]);
+    const relNoExt=path.relative(dir,full).replace(/\\/g,'/').replace(/\.(tex|ltx)$/i,'');
+    const escaped=relNoExt.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const includeRe=new RegExp('\\\\(?:input|include|subfile)\\s*\\{\\s*(?:\\./)?'+escaped+'(?:\\.(?:tex|ltx))?\\s*\\}');
+    const roots=[];
+    for(const e of entries){
+     if(!e.isFile()||!/\.(tex|ltx)$/i.test(e.name))continue;
+     const main=path.join(dir,e.name);
+     const text=(await fs.readFile(main,'utf8').catch(()=>'')).slice(0,32768);
+     if(!/^[^%\n]*\\documentclass\b/m.test(text)||/^[^%\n]*\\documentclass(?:\s*\[[^\]]*\])?\s*\{subfiles\}/m.test(text))continue;
+     const includesTarget=includeRe.test(text);
+     roots.push({main,includesTarget,score:(includesTarget?100:0)+(text.includes('\\begin{document}')?10:0)+(text.match(/\\(?:input|include|subfile)\b/g)||[]).length});
+    }
+    if(roots.length){
+     roots.sort((a,b)=>b.score-a.score);
+     if(roots[0].includesTarget||roots.length===1)return {kind:'source',root:dir,file:full,rootFile:roots[0].main};
+    }
    }
    if(path.dirname(dir)===dir)break;
   }

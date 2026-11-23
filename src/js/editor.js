@@ -14,7 +14,9 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { ctx } from './ctx.js';
 import { toggleFormat, formatContext } from './format-toggle.js';
-import { debounce, escapeHtml, icon, joinPath, baseName, relPath, extOf, openMenu } from './util.js';
+import { debounce, escapeHtml, icon, joinPath, dirName, baseName, relPath, extOf, openMenu } from './util.js';
+import { extractGraphicsConfig, matchGraphicsAtOffset, resolveAssetPath, resolveRelativePath } from './asset-resolver.js';
+import { renderPdfThumbnail } from './pdf-viewer.js';
 import {
   COMMANDS, ENVIRONMENTS, SNIPPETS, ENUMITEM_OPTIONS, wrapCommandFor, splitLines,
   stripComment, detectBlocks, parseDocument
@@ -259,7 +261,7 @@ function lineBeforeCursor(model, position) {
 
 function registerCompletions() {
   monaco.languages.registerCompletionItemProvider('latex', {
-    triggerCharacters: ['\\', '{', '['],
+    triggerCharacters: ['\\', '{', '[', ','],
     async provideCompletionItems(model, position) {
       const before = lineBeforeCursor(model, position);
       const word = model.getWordUntilPosition(position);
@@ -362,6 +364,8 @@ function registerCompletions() {
       // refs
       m = before.match(/\\(ref|eqref|autoref|cref|Cref|pageref|nameref)\{([^}]*)$/);
       if (m) {
+        const refTyped = ((m[2] || '').split(',').pop() || '').trimStart();
+        const refRange = new monaco.Range(position.lineNumber, position.column - refTyped.length, position.lineNumber, position.column);
         const seen = new Set();
         for (const label of ctx.state.parsed?.labels || []) {
           seen.add(label.name);
@@ -370,7 +374,7 @@ function registerCompletions() {
             insertText: ins(label.name),
             kind: monaco.languages.CompletionItemKind.Reference,
             detail: `${label.env || 'label'} · 第 ${label.line} 行`,
-            range,
+            range: refRange,
             documentation: { value: `\\\\label{${label.name}}` }
           });
         }
@@ -382,7 +386,7 @@ function registerCompletions() {
             insertText: ins(name),
             kind: monaco.languages.CompletionItemKind.Reference,
             detail: `项目标签 · ${rel} : ${info.line}`,
-            range,
+            range: refRange,
             sortText: '1' + name,
             documentation: { value: `\\\\label{${name}}` }
           });
@@ -390,16 +394,23 @@ function registerCompletions() {
         return { suggestions: items };
       }
       // citations
-      m = before.match(/\\(cite[a-zA-Z]*|parencite|textcite|autocite|footcite)\*?\s*(?:\[[^\]]*\]\s*){0,2}\{([^}]*)$/);
+      m = before.match(/\\([a-zA-Z]*cite[a-zA-Z]*)\*?\s*(?:\[[^\]]*\]\s*){0,2}\{([^}]*)$/);
       if (m) {
+        if (!(ctx.state.bibEntries && ctx.state.bibEntries.length) && ctx.app?.refreshBibEntries) {
+          await ctx.app.refreshBibEntries().catch(() => {});
+        }
+        const rawTail = (m[2] || '').split(',').pop() || '';
+        const typed = rawTail.trimStart();
+        const citeRange = new monaco.Range(position.lineNumber, position.column - typed.length, position.lineNumber, position.column);
         for (const entry of ctx.state.bibEntries || []) {
           items.push({
             label: entry.key,
             insertText: ins(entry.key),
+            filterText: `${entry.key} ${entry.authorShort || entry.author || ''} ${entry.title || ''} ${entry.year || ''}`,
             kind: monaco.languages.CompletionItemKind.Value,
             detail: `${entry.authorShort || entry.author || ''} ${entry.year || ''}`.trim() || '文献',
             documentation: { value: `**${escapeHtml(entry.title || entry.key)}**\n\n${escapeHtml(entry.author || '')}\n\n_${escapeHtml(entry.journal || entry.booktitle || '')}_ ${entry.year || ''}` },
-            range: new monaco.Range(position.lineNumber, position.column - (m[2] || '').length, position.lineNumber, position.column)
+            range: citeRange
           });
         }
         return { suggestions: items };
@@ -410,6 +421,11 @@ function registerCompletions() {
       if (m && m[1].length >= 1) {
         const prefix = m[1];
         const cmdRange = new monaco.Range(position.lineNumber, position.column - prefix.length, position.lineNumber, position.column);
+        const autoSuggestCmds = new Set([
+          '\\begin', '\\end', '\\cite', '\\citep', '\\citet',
+          '\\ref', '\\eqref', '\\pageref', '\\input', '\\include',
+          '\\bibliography', '\\addbibresource', '\\usepackage', '\\includegraphics'
+        ]);
         for (const [label, body, detail] of COMMANDS) {
           if (!label.startsWith(prefix)) continue;
           items.push({
@@ -420,8 +436,8 @@ function registerCompletions() {
             range: cmdRange,
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             sortText: '0' + label,
-            ...(label === '\\begin' ? {
-              command: { id: 'editor.action.triggerSuggest', title: '选择环境' }
+            ...(autoSuggestCmds.has(label) ? {
+              command: { id: 'editor.action.triggerSuggest', title: '展开补全' }
             } : {})
           });
         }
@@ -547,21 +563,12 @@ function registerHovers() {
 
       // images
       const cfgEd = ctx.state.settings?.editor || {};
-      const imgMatch = line.match(/\\includegraphics\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
-      if (imgMatch && cfgEd.imagePreview !== false && col >= imgMatch.index && col <= imgMatch.index + imgMatch[0].length) {
-        const file = imgMatch[1].trim();
-        const abs = resolveAsset(file);
-        let stat = null;
-        if (abs) stat = await ctx.api.fs.stat(abs);
-        if (abs && stat?.ok) {
-          const html = `<div class="hover-card"><div class="hc-title">${icon('image')} 插图预览</div>
-            <img class="hc-image" src="${ctx.api.assetUrl(abs)}" />
-            <div class="hc-meta">${escapeHtml(file)} · ${Math.round(stat.size / 1024)} KB</div></div>`;
-          return hoverResult(html, imgMatch.index, imgMatch[0].length);
-        }
-        return {
-          contents: [{ value: `<div class="hover-card"><div class="hc-title">${icon('alert')} 未找到图片</div><div class="hc-text">${escapeHtml(file)}</div><div class="hc-meta">请检查相对路径或 figures/ 目录</div></div>`, isTrusted: true, supportHtml: true }]
-        };
+      const imgHit = cfgEd.imagePreview !== false ? matchGraphicsAtPosition(model, position) : null;
+      if (imgHit) {
+        const resolved = await resolveAsset(imgHit.file, model);
+        const html = await renderAssetHoverHtml(imgHit.file, resolved, { showMetaHint: true });
+        if (resolved) return hoverResult(html, imgHit.colStart, imgHit.colLength);
+        return { contents: [{ value: html, isTrusted: true, supportHtml: true }] };
       }
 
       // refs
@@ -660,6 +667,14 @@ async function renderTargetPreview(target) {
   if (mathEnvs.includes(env)) kind = 'math';
   else if (env === 'table' || env === 'table*' || env === 'longtable') kind = 'table';
   else if (env === 'tikzpicture') kind = 'tikz';
+  else if (env === 'figure' || env === 'wrapfigure' || env === 'subfigure') {
+    const body = lines.slice(entry.line - 1, entry.endLine).join('\n');
+    const img = body.match(/\\(?:includegraphics|includesvg)\*?\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}/);
+    if (!img) return '';
+    const resolved = await resolveAsset(img[1].trim(), null, target.file);
+    if (!resolved) return '';
+    return await renderAssetImageTag(resolved);
+  }
   if (!kind) return '';
   let body = lines.slice(entry.line - 1, entry.endLine).join('\n');
   let renderKind = kind;
@@ -681,17 +696,10 @@ async function buildHoverContent(model, position) {
   const line = model.getLineContent(position.lineNumber);
   const col = position.column;
 
-  const imgMatch = line.match(/\\includegraphics\s*(?:\[[^\]]*\])?\{([^}]+)\}/);
-  if (imgMatch && ed.imagePreview !== false && col >= imgMatch.index && col <= imgMatch.index + imgMatch[0].length) {
-    const file = imgMatch[1].trim();
-    const abs = resolveAsset(file);
-    const stat = abs ? await ctx.api.fs.stat(abs) : null;
-    if (abs && stat?.ok) {
-      return '<div class="hover-card"><div class="hc-title">' + icon('image') + ' 插图预览</div>' +
-        '<img class="hc-image" src="' + ctx.api.assetUrl(abs) + '" />' +
-        '<div class="hc-meta">' + escapeHtml(file) + ' · ' + Math.round(stat.size / 1024) + ' KB</div></div>';
-    }
-    return '<div class="hover-card"><div class="hc-title">' + icon('alert') + ' 未找到图片</div><div class="hc-text">' + escapeHtml(file) + '</div></div>';
+  const imgHit = ed.imagePreview !== false ? matchGraphicsAtPosition(model, position) : null;
+  if (imgHit) {
+    const resolved = await resolveAsset(imgHit.file, model);
+    return await renderAssetHoverHtml(imgHit.file, resolved);
   }
 
   const block = previewEnvironmentAt(model.getValue(), model.getOffsetAt(position));
@@ -777,14 +785,137 @@ async function buildHoverContent(model, position) {
   return null;
 }
 
-function resolveAsset(rel) {
+let graphicsConfigCache = { key: '', value: null };
+
+function matchGraphicsAtPosition(model, position) {
+  if (!model || !position) return null;
+  const startLine = Math.max(1, position.lineNumber - 2);
+  const endLine = Math.min(model.getLineCount(), position.lineNumber + 2);
+  const lines = [];
+  let offsetInWindow = 0;
+  let lineStartOffset = 0;
+  for (let ln = startLine; ln <= endLine; ln++) {
+    const content = model.getLineContent(ln);
+    if (ln === position.lineNumber) {
+      lineStartOffset = offsetInWindow;
+      offsetInWindow += Math.max(0, position.column - 1);
+    } else if (ln < position.lineNumber) {
+      offsetInWindow += content.length + 1;
+    }
+    lines.push(content);
+  }
+  const hit = matchGraphicsAtOffset(lines.join('\n'), offsetInWindow);
+  if (!hit) return null;
+  const colStart = Math.max(0, hit.start - lineStartOffset);
+  const colLength = Math.max(1, hit.end - Math.max(hit.start, lineStartOffset));
+  return { file: hit.file, colStart, colLength };
+}
+
+async function readTextForConfig(filePath) {
+  if (!filePath) return '';
+  const open = ctx.state.docs.get(filePath);
+  if (open?.model) return open.model.getValue();
+  const res = await ctx.api.fs.read(filePath).catch(() => null);
+  return res?.ok && typeof res.text === 'string' ? res.text : '';
+}
+
+async function collectProjectGraphicsConfig(model) {
+  const root = ctx.state.project.root || '';
+  const rootFile = ctx.state.project.rootFile || '';
+  const activePath = ctx.state.activePath || '';
+  const rootDoc = rootFile ? ctx.state.docs.get(rootFile) : null;
+  const activeDoc = activePath ? ctx.state.docs.get(activePath) : null;
+  const key = [
+    root,
+    rootFile,
+    rootDoc?.model?.getVersionId?.() || '',
+    activePath,
+    model?.getVersionId?.() || activeDoc?.model?.getVersionId?.() || ''
+  ].join('|');
+  if (graphicsConfigCache.key === key && graphicsConfigCache.value) return graphicsConfigCache.value;
+
+  const paths = [];
+  const extensions = [];
+  const addConfig = (cfg) => {
+    for (const p of cfg.paths) if (!paths.includes(p)) paths.push(p);
+    for (const e of cfg.extensions) if (!extensions.includes(e)) extensions.push(e);
+  };
+
+  if (model) addConfig(extractGraphicsConfig(model.getValue()));
+
+  const rootText = rootFile ? await readTextForConfig(rootFile) : '';
+  if (rootText) {
+    const rootCfg = extractGraphicsConfig(rootText);
+    addConfig(rootCfg);
+    const rootDir = dirName(rootFile) || root;
+    const seen = new Set([rootFile.replace(/\\/g, '/').toLowerCase()]);
+    for (const inc of rootCfg.preambleInputs.slice(0, 16)) {
+      const targetRel = /\.(tex|ltx|sty|def|cfg)$/i.test(inc) ? inc : inc + '.tex';
+      const incPath = resolveRelativePath(rootDir, targetRel);
+      const norm = incPath.replace(/\\/g, '/').toLowerCase();
+      if (!incPath || seen.has(norm)) continue;
+      seen.add(norm);
+      const incText = await readTextForConfig(incPath);
+      if (incText) addConfig(extractGraphicsConfig(incText));
+    }
+  }
+
+  const value = { paths, extensions };
+  graphicsConfigCache = { key, value };
+  return value;
+}
+
+async function resolveAsset(rel, model = null, sourceFile = '') {
   const root = ctx.state.project.root;
-  if (!root) return '';
-  const active = ctx.state.docs.get(ctx.state.activePath);
-  const parts = String(rel).replace(/\\/g, '/');
-  if (/^(?:[a-zA-Z]:)?\//.test(parts)) return parts;
-  const clean = parts.replace(/^\.\//, '');
-  return joinPath(root, clean);
+  if (!root || !rel) return null;
+  const cfg = await collectProjectGraphicsConfig(model);
+  const rootFile = ctx.state.project.rootFile || '';
+  const activeFile = sourceFile || ctx.state.activePath || '';
+  const projectAssets = [
+    ...(ctx.state.assets?.images || []),
+    ...(ctx.state.assets?.all || [])
+  ];
+  return resolveAssetPath(
+    rel,
+    {
+      projectRoot: root,
+      rootDir: rootFile ? dirName(rootFile) : root,
+      activeDir: activeFile ? dirName(activeFile) : '',
+      graphicsPaths: cfg.paths,
+      extensions: cfg.extensions,
+      projectAssets
+    },
+    (p) => ctx.api.fs.stat(p)
+  );
+}
+
+async function renderAssetImageTag(resolved) {
+  const { abs, stat } = resolved;
+  if (/\.pdf$/i.test(abs)) {
+    try {
+      const thumb = await renderPdfThumbnail(abs, `${abs}|${stat.size}|${stat.mtime}`);
+      if (thumb) return '<img class="hc-image" src="' + thumb + '" />';
+    } catch {}
+    return '<div class="hc-text">PDF 插图文件（悬浮缩略图渲染失败）</div>';
+  }
+  if (/\.(png|jpe?g|gif|svg|webp|bmp)$/i.test(abs)) {
+    return '<img class="hc-image" src="' + ctx.api.assetUrl(abs) + '" />';
+  }
+  return '<div class="hc-text">已定位附件文件（暂不支持浏览器内直接显示此格式）</div>';
+}
+
+async function renderAssetHoverHtml(file, resolved, { showMetaHint = false } = {}) {
+  if (!resolved) {
+    return '<div class="hover-card"><div class="hc-title">' + icon('alert') + ' 未找到图片</div>' +
+      '<div class="hc-text">' + escapeHtml(file) + '</div>' +
+      (showMetaHint ? '<div class="hc-meta">请检查相对路径或 figures/ 目录</div>' : '') + '</div>';
+  }
+  const { abs, stat } = resolved;
+  const displayRel = relPath(ctx.state.project.root, abs) || file;
+  const media = await renderAssetImageTag(resolved);
+  return '<div class="hover-card"><div class="hc-title">' + icon('image') + ' 插图预览</div>' +
+    media +
+    '<div class="hc-meta">' + escapeHtml(displayRel) + ' · ' + Math.max(1, Math.round(stat.size / 1024)) + ' KB</div></div>';
 }
 
 /* --------------------------------------------------------------- controller */
@@ -987,6 +1118,7 @@ export class EditorController {
       fixedOverflowWidgets: true,
       suggestSelection: 'first',
       quickSuggestions: { other: true, comments: false, strings: false },
+      suggest: { snippetsPreventQuickSuggestions: false },
       wordBasedSuggestions: 'off',
       quickSuggestionsDelay: 120,
       suggestOnTriggerCharacters: true,
@@ -1078,19 +1210,32 @@ export class EditorController {
     this.hideHover(true);
     this.dollarGhost=null;this.dollarGhostDecoration?.clear();
     if (!this.editor) return;
-    if (this.model) this.saveViewState();
+    if (this.model && this.model !== doc.model) this.saveViewState();
+    this.activeDoc = doc;
     this.model = doc.model;
-    this.editor.setModel(doc.model);
-    this.lastCursor = { line: 1, col: 1 };
-    if (viewState) this.editor.restoreViewState(viewState);
+    if (this.editor.getModel() !== doc.model) {
+      this.editor.setModel(doc.model);
+    }
+    const targetState = viewState || doc.viewState;
+    if (targetState) this.editor.restoreViewState(targetState);
+    const pos = this.editor.getPosition();
+    this.lastCursor = pos ? { line: pos.lineNumber, col: pos.column } : { line: 1, col: 1 };
     this.editor.updateOptions(this.editorOptions());
     this.syncWrapClass();
     this.refreshMathZones();
   }
 
   saveViewState() {
-    const doc = ctx.state.docs.get(ctx.state.activePath);
-    if (doc && this.editor && this.editor.getModel() === doc.model) {
+    if (!this.editor) return;
+    const currentModel = this.editor.getModel();
+    if (!currentModel || currentModel.isDisposed?.()) return;
+    let doc = this.activeDoc?.model === currentModel ? this.activeDoc : null;
+    if (!doc) {
+      for (const entry of ctx.state.docs.values()) {
+        if (entry?.model === currentModel) { doc = entry; break; }
+      }
+    }
+    if (doc) {
       doc.viewState = this.editor.saveViewState();
     }
   }
@@ -1403,8 +1548,9 @@ export class EditorController {
         ctx.cmd('insert.cite', cite[1].split(',')[0]);
       } else if (inc) {
         const rel = inc[1].trim();
-        const full = joinPath(ctx.state.project.root, `${rel}${/\.(tex|ltx)$/.test(rel) ? '' : '.tex'}`);
-        ctx.cmd('doc.open', full);
+        const base = ctx.state.project.rootFile ? dirName(ctx.state.project.rootFile) : ctx.state.project.root;
+        const full = resolveRelativePath(base, `${rel}${/\.(tex|ltx)$/.test(rel) ? '' : '.tex'}`);
+        ctx.app.openDocument(full);
       }
     }
   }
