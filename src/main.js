@@ -1672,10 +1672,9 @@ async function openPreviewOnLoad(generation = previewGeneration) {
   }
 }
 
-let updateCheckInFlight = false;
 async function checkUpdates(manual = false) {
-  if (updateCheckInFlight) return;
-  updateCheckInFlight = true;
+  if (checkUpdates._inFlight) return;
+  checkUpdates._inFlight = true;
   try {
     const res = await api.update.check().catch((err) => ({ ok: false, error: err.message }));
     if (!res || !res.ok) {
@@ -1706,7 +1705,7 @@ async function checkUpdates(manual = false) {
     });
     if (go) await openUpdateDownload(api, res, toast);
   } finally {
-    updateCheckInFlight = false;
+    checkUpdates._inFlight = false;
   }
 }
 
