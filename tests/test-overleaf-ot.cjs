@@ -50,7 +50,12 @@ assert.equal(applyOp('hello world', [{ p: 5, d: ' world' }, { p: 5, i: ' TeXora'
 assert.deepEqual(compose([{ p: 0, i: 'ab' }], [{ p: 2, i: 'cd' }]), [{ p: 0, i: 'abcd' }]);
 assert.deepEqual(compose([{ p: 4, d: 'e' }], [{ p: 3, d: 'd' }]), [{ p: 3, d: 'de' }]);
 assert.equal(applyOp('\\section{Old}', diffToOp('\\section{Old}', '\\section{New}')), '\\section{New}');
-assert.equal(sha1Hash('hello'), 'b6fc4c620b67d95f953a5c1c1230aaab5db5a1b0'); // git hash-object for "hello"
+assert.equal(sha1Hash('hello'), 'b6fc4c620b67d95f953a5c1c1230aaab5db5a1b0');
+// Overleaf sharejs.js hashes `"blob " + str.length + "\0" + str` (UTF-16 code units, not UTF-8 byte length)
+assert.equal(
+  sha1Hash('中文'),
+  require('node:crypto').createHash('sha1').update('blob 2\x00中文', 'utf8').digest('hex')
+);
 
 // 2. Monaco multi-cursor changesToOp (reverse document order)
 {

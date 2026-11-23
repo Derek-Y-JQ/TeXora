@@ -43,7 +43,57 @@ let dirtyStatusTimer = null;
 let buildPreparing = false;
 
 /* --------------------------------------------------------------------- boot */
+async function bootPdfPopout() {
+  document.body.classList.add('pdf-popout-mode');
+  ctx.state.isPdfPopout = true;
+  info = await api.info();
+  document.documentElement.dataset.platform = info.platform;
+  ctx.state.settings = info.settings;
+  ctx.state.theme = resolveTheme(info.settings.appearance.theme);
+  applyAppearance({ initial: true });
+  setLanguage(info.settings.general?.language);
+
+  ctx.preview = new PreviewController();
+  ctx.preview.init();
+  ctx.commands = createCommands();
+  initTooltips();
+
+  const applyPdfPayload = async (payload) => {
+    if (!payload?.file) return;
+    ctx.state.overleafLive = { ...(ctx.state.overleafLive || {}), active: Boolean(payload.overleafLive) };
+    if (payload.title) document.title = payload.title;
+    $('#previewPane')?.classList.remove('collapsed');
+    await ctx.preview.openPdf(payload.file, {
+      identity: payload.identity || payload.file,
+      standalone: Boolean(payload.standalone),
+      at: payload.at || Date.now()
+    });
+  };
+
+  api.pdf.onPopoutUpdate?.((payload) => { void applyPdfPayload(payload); });
+  api.pdf.onPopoutFlash?.((target) => {
+    if (target?.page) ctx.preview.flashAt(target.page, target.x, target.y, target.height || 12, target.width || 0);
+  });
+  api.settings.onChange?.((next) => {
+    ctx.state.settings = next;
+    applyAppearance();
+  });
+
+  for (const btn of $$('#previewPane [data-cmd]')) {
+    btn.addEventListener('click', () => ctx.cmd(btn.dataset.cmd));
+  }
+  window.addEventListener('resize', () => ctx.preview.relayout());
+
+  const initial = await api.pdf.popoutState?.().catch(() => null);
+  if (initial?.pdf?.file) await applyPdfPayload(initial.pdf);
+  requestAnimationFrame(() => document.body.classList.add('ready'));
+}
+
 async function boot() {
+  if (new URLSearchParams(window.location.search).get('pdfPopout') === '1') {
+    await bootPdfPopout();
+    return;
+  }
   info = await api.info();
   document.documentElement.dataset.platform = info.platform;
   ctx.state.settings = info.settings;
@@ -111,6 +161,7 @@ async function boot() {
   loadPackages();
   api.project.onFsChange((payload) => onExternalChange(payload));
   api.overleaf?.onLiveEvent?.((event) => onOverleafLiveEvent(event));
+  api.pdf?.onPopoutGoto?.((loc) => { if (loc?.file) void gotoLocation(loc); });
   $('#sbOverleafUsers')?.addEventListener('click', () => {
     const users = (ctx.state.overleafLive?.users || []).filter((u) => !u.isSelf);
     const items = users.length
@@ -522,14 +573,19 @@ function wireSplitters() {
     if (!sp) return;
     sp.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      try { sp.setPointerCapture(e.pointerId); } catch {}
       sp.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
       const startX = e.clientX;
       const sidebar = $('#sidebar');
       const preview = $('#previewPane');
       const start = side === 'sidebar' ? sidebar.getBoundingClientRect().width : preview.getBoundingClientRect().width;
       const move = (ev) => {
+        const wsWidth = ($('.workspace')?.clientWidth || window.innerWidth);
+        const sideW = sidebar && !sidebar.classList.contains('collapsed') ? sidebar.getBoundingClientRect().width : 0;
+        const maxPreview = Math.max(200, wsWidth - 49 - sideW - 242);
         const delta = side === 'sidebar' ? ev.clientX - startX : startX - ev.clientX;
-        const width = side === 'sidebar' ? clamp(start + delta, 220, 520) : clamp(start + delta, 280, 900);
+        const width = side === 'sidebar' ? clamp(start + delta, 180, 520) : clamp(start + delta, 200, maxPreview);
         if (side === 'sidebar') {
           document.documentElement.style.setProperty('--sidebar-w', width + 'px');
           ctx.state.settings.ui.sidebarWidth = Math.round(width);
@@ -539,13 +595,21 @@ function wireSplitters() {
         }
         fitWorkspace();
       };
-      const up = () => {
+      const up = (ev) => {
+        try { sp.releasePointerCapture(ev.pointerId); } catch {}
         sp.classList.remove('dragging');
+        document.body.style.cursor = '';
+        sp.removeEventListener('pointermove', move);
+        sp.removeEventListener('pointerup', up);
+        sp.removeEventListener('pointercancel', up);
         document.removeEventListener('pointermove', move);
         document.removeEventListener('pointerup', up);
         if (side === 'sidebar') api.settings.set('ui.sidebarWidth', ctx.state.settings.ui.sidebarWidth);
         else api.settings.set('ui.previewWidth', ctx.state.settings.ui.previewWidth);
       };
+      sp.addEventListener('pointermove', move);
+      sp.addEventListener('pointerup', up);
+      sp.addEventListener('pointercancel', up);
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     });
@@ -2569,6 +2633,19 @@ ctx.app = {
   triggerSuggest: () => ctx.editor?.editor.trigger('texora', 'editor.action.triggerSuggest', {}),
   toggleComment: () => ctx.editor?.editor.getAction('editor.action.commentLine')?.run(),
   duplicateLine: () => ctx.editor?.editor.getAction('editor.action.copyLinesDownAction')?.run(),
+  openPdfPopout: async () => {
+    const file = ctx.preview?.currentPdf?.() || ctx.state.build?.result?.previewPdf || ctx.state.build?.result?.pdf || ctx.state.externalPdf;
+    if (!file) return toast({ type: 'info', title: '暂无可预览的 PDF', body: '请先编译文档或打开一个 PDF 文件。' });
+    const res = await api.pdf.popoutOpen({
+      file,
+      identity: ctx.preview?.pdfIdentity || ctx.state.project.rootFile || file,
+      standalone: Boolean(ctx.preview?.standalone),
+      at: ctx.preview?.documentAt || Date.now(),
+      title: `${ctx.state.project?.name ? ctx.state.project.name + ' — ' : ''}PDF 预览`,
+      overleafLive: Boolean(ctx.state.overleafLive?.active)
+    });
+    if (!res?.ok) toast({ type: 'error', title: '无法打开独立 PDF 窗口', body: res?.error || '' });
+  },
   synctexForward: async (line) => {
     if (!ctx.state.project.rootFile) return toast({ type: 'warn', title: '尚未识别主文档' });
     const file = ctx.state.activePath || ctx.state.project.rootFile;
@@ -2580,6 +2657,7 @@ ctx.app = {
     if (generation !== previewGeneration) return;
     if (!res.ok) return toast({ type: 'warn', title: '正向定位失败', body: res.error || '请确认使用 -synctex=1 编译' });
     ctx.preview.flashAt(res.page, res.x, res.y, res.height || 12, res.width || 0);
+    void api.pdf.popoutFlash?.({ page: res.page, x: res.x, y: res.y, height: res.height || 12, width: res.width || 0 }).catch?.(() => {});
     toast({ type: 'success', title: '已定位到 PDF', body: '第 ' + res.page + ' 页', timeout: 1500 });
   },
   gotoLocation,

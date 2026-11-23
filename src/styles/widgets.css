@@ -437,3 +437,16 @@ html[data-style="endfield"] .pdf-present :is(.pp-count,.pp-bar) { font-family:va
   .ol-transition, .ol-transition * { transition:none !important; }
   .ol-transition-studio .ol-tr-bar-fill { transform:scaleX(1); }
 }
+
+/* ------------------------------------------------- Detached PDF pop-out */
+body.pdf-popout-mode .titlebar,
+body.pdf-popout-mode .ribbon,
+body.pdf-popout-mode .activity,
+body.pdf-popout-mode #sidebar,
+body.pdf-popout-mode .splitter,
+body.pdf-popout-mode .editor-area,
+body.pdf-popout-mode .statusbar,
+body.pdf-popout-mode #popoutPdfBtn { display:none !important; }
+body.pdf-popout-mode .app,
+body.pdf-popout-mode .workspace { height:100vh !important; width:100vw !important; padding:0 !important; gap:0 !important; }
+body.pdf-popout-mode #previewPane { display:flex !important; width:100vw !important; max-width:none !important; height:100vh !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; }

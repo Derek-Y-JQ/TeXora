@@ -88,6 +88,7 @@ export function createCommands() {
   register({ id: 'preview.present', title: '从当前页演示 PDF', group: '预览', icon: 'present', keys: 'Shift+F5', run: () => startPresentation() });
   register({ id: 'preview.presentStart', title: '从第一页演示 PDF', group: '预览', icon: 'present', run: () => startPresentation(1) });
   register({ id: 'preview.fullscreen', title: '全屏阅读 PDF', group: '预览', icon: 'fullscreen', keys: 'Shift+F11', run: () => togglePdfFullscreen() });
+  register({ id: 'preview.popout', title: '在独立窗口打开 PDF 预览', group: '预览', icon: 'restore', run: () => ctx.app.openPdfPopout?.() });
   register({ id: 'preview.external', title: '用系统默认程序打开 PDF', group: '预览', icon: 'external', run: () => ctx.app.openPdfExternal() });
 
   /* --------------------------------------------------------------- editor */

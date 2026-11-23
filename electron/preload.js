@@ -57,7 +57,18 @@ const api = {
     start:(id,kind,request) => invoke('agent:start',id,kind,request), stop:() => invoke('agent:stop'),
     onEvent: cb => on('agent:event',cb)
   },
-  pdf: {open:file=>invoke('pdf:open',file)},
+  pdf: {
+    open: file => invoke('pdf:open', file),
+    popoutOpen: payload => invoke('pdf:popoutOpen', payload),
+    popoutUpdate: payload => invoke('pdf:popoutUpdate', payload),
+    popoutClose: () => invoke('pdf:popoutClose'),
+    popoutState: () => invoke('pdf:popoutState'),
+    popoutGoto: loc => invoke('pdf:popoutGoto', loc),
+    popoutFlash: target => invoke('pdf:popoutFlash', target),
+    onPopoutUpdate: cb => on('pdf:popoutUpdate', cb),
+    onPopoutGoto: cb => on('pdf:popoutGoto', cb),
+    onPopoutFlash: cb => on('pdf:popoutFlash', cb)
+  },
   update: { check: () => invoke('update:check') },
   overleaf: {
     login: () => invoke('overleaf:login'), logout: () => invoke('overleaf:logout'),

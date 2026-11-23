@@ -249,6 +249,10 @@ export class PreviewController {
       ctx.emit('toast', { type: 'warn', title: '反向定位未命中', body: (res && res.error) || '请确认已使用 -synctex=1 编译' });
       return;
     }
+    if (ctx.state.isPdfPopout) {
+      await ctx.api.pdf.popoutGoto({ file: res.file, line: res.line, column: Math.max(1, res.column || 1), flash: true });
+      return;
+    }
     ctx.cmd('editor.goto', { file: res.file, line: res.line, column: Math.max(1, res.column || 1), flash: true });
   }
 
@@ -283,7 +287,19 @@ export class PreviewController {
     this.stage.scrollTo({top:position&&el?Math.max(0,el.offsetTop+position.ratio*el.offsetHeight):0,left:position?.left||0,behavior:'instant'});
     this.current=page;this.pageCurrent.textContent=String(page);this.onScroll();
   }
-  openPdf(file,options={}){return openVectorPdf(this,file,options);}
+  openPdf(file,options={}){
+    if (!ctx.state.isPdfPopout && file) {
+      void ctx.api.pdf?.popoutUpdate?.({
+        file,
+        identity: options.identity || file,
+        standalone: Boolean(options.standalone),
+        at: options.at || Date.now(),
+        title: `${ctx.state.project?.name ? ctx.state.project.name + ' — ' : ''}PDF 预览`,
+        overleafLive: Boolean(ctx.state.overleafLive?.active)
+      }).catch?.(() => {});
+    }
+    return openVectorPdf(this,file,options);
+  }
   updateDocumentStatus(text,at){
     const status=$('#pdfDocumentStatus');if(!status)return;
     if(at!==undefined)this.documentAt=at;

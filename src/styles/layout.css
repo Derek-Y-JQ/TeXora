@@ -434,7 +434,7 @@
 .splitter:hover::after, .splitter.dragging::after { background: var(--accent-border); }
 
 .preview {
-  width: var(--preview-w, 468px); flex: none; min-width: 260px; display: flex; flex-direction: column;
+  width: var(--preview-w, 468px); flex: none; min-width: 200px; display: flex; flex-direction: column;
   background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-lg);
   overflow: hidden; box-shadow: var(--shadow-sm); position: relative;
 }

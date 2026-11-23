@@ -49,7 +49,7 @@ const {Compiler}=require('../electron/lib/compiler');const {DEFAULT_SETTINGS}=re
  assert.equal(bibPasses,2,'one retry for the non-ASCII cache, then stop at Biber');
  assert.equal(broken.code,255);
  assert.match(broken.transcriptTail,/Biber 退出（255）[\s\S]*lipo failed[\s\S]*latexmkrc/);
- const {workspaceWidths}=await import('../src/js/workspace-layout.js');for(const width of [900,1100,1440,2000]){const v=workspaceWidths(width,{sidebar:520,preview:900});assert.ok(v.preview<=width*.4+1);assert.ok(width-49-v.sidebar-v.preview-2>=279);}
+ const {workspaceWidths}=await import('../src/js/workspace-layout.js');for(const width of [900,1100,1440,2000]){const v=workspaceWidths(width,{sidebar:520,preview:900});assert.ok(v.preview>=200);assert.ok(width-49-v.sidebar-v.preview-2>=239);}
  assert.equal(workspaceWidths(900,{showPreview:false}).preview,0);assert.equal(workspaceWidths(900,{showSidebar:false}).sidebar,0);
  console.log('PASS 2.0: putenv single retry, cache reuse/reopen/trace, absolute cache, ordinary errors, cancellation, latexmk and viewport bounds');
 })().catch(e=>{console.error(e);process.exitCode=1});

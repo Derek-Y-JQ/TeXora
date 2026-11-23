@@ -123,6 +123,8 @@ const ai = new AiService(store);
 const aiHistory = new AiHistory(path.join(USER_DATA, 'ai-history.json'));
 let git = new GitService(project);
 let win = null;
+let pdfPopoutWin = null;
+let lastPopoutPdf = null;
 let ready = false;
 let windowInitialized = false;
 const overleafSession = new OverleafSession(() => win,path.join(USER_DATA,'overleaf','browser'));
@@ -242,6 +244,10 @@ function createWindow() {
   win.on('closed', () => {
     agentSession.stop();
     void overleafLive.disconnect().catch(() => {});
+    if (pdfPopoutWin && !pdfPopoutWin.isDestroyed()) {
+      try { pdfPopoutWin.close(); } catch {}
+    }
+    pdfPopoutWin = null;
     win = null;
     ready = false;
   });
@@ -370,7 +376,9 @@ function setupMenu() {
 function handle(channel, fn) {
   ipcMain.handle(channel, async (event, ...args) => {
     try {
-      if (!win || event.senderFrame !== win.webContents.mainFrame) throw Error('无效的窗口请求');
+      const fromMain = win && event.senderFrame === win.webContents.mainFrame;
+      const fromPopout = pdfPopoutWin && !pdfPopoutWin.isDestroyed() && event.senderFrame === pdfPopoutWin.webContents.mainFrame;
+      if (!fromMain && !fromPopout) throw Error('无效的窗口请求');
       return await fn(...args);
     } catch (err) {
       console.error(`[ipc] ${channel}`, err);
@@ -379,9 +387,118 @@ function handle(channel, fn) {
   });
 }
 
+function sendToPopout(channel, payload) {
+  if (pdfPopoutWin && !pdfPopoutWin.isDestroyed()) {
+    try { pdfPopoutWin.webContents.send(channel, payload); } catch {}
+  }
+}
+
+function openPdfPopoutWindow(payload = {}) {
+  lastPopoutPdf = { ...payload };
+  if (pdfPopoutWin && !pdfPopoutWin.isDestroyed()) {
+    if (pdfPopoutWin.isMinimized()) pdfPopoutWin.restore();
+    pdfPopoutWin.show();
+    pdfPopoutWin.focus();
+    if (payload.title) pdfPopoutWin.setTitle(payload.title);
+    sendToPopout('pdf:popoutUpdate', lastPopoutPdf);
+    return { ok: true };
+  }
+
+  const saved = store.get('ui.pdfPopoutWindow', null);
+  const appearance = store.get('appearance') || {};
+  const style = appearance.uiStyle === 'endfield' ? 'endfield' : 'studio';
+  const rawTheme = appearance.theme || 'dark';
+  const theme = rawTheme === 'system'
+    ? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+    : (rawTheme === 'light' ? 'light' : 'dark');
+  const rawEfAccent = appearance.endfieldColor === 'cyan' ? 'ice' : appearance.endfieldColor;
+  const efAccent = ['yellow', 'lime', 'ice', 'amber'].includes(rawEfAccent) ? rawEfAccent : 'yellow';
+  const bg = style === 'endfield'
+    ? (theme === 'light' ? '#f4f4f2' : '#191919')
+    : (theme === 'light' ? '#f4f5f8' : '#0d0f16');
+
+  pdfPopoutWin = new BrowserWindow({
+    width: saved?.width || 880,
+    height: saved?.height || 980,
+    ...(typeof saved?.x === 'number' && typeof saved?.y === 'number' ? { x: saved.x, y: saved.y } : {}),
+    minWidth: 420,
+    minHeight: 420,
+    show: false,
+    frame: true,
+    autoHideMenuBar: true,
+    backgroundColor: bg,
+    title: payload.title || 'PDF 预览 — TeXora',
+    icon: path.join(__dirname, '..', 'build', 'icon.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false,
+      webviewTag: false,
+      backgroundThrottling: false
+    }
+  });
+
+  const query = new URLSearchParams({
+    pdfPopout: '1',
+    bootStyle: style,
+    bootTheme: theme,
+    bootEfAccent: efAccent,
+    bootAccent: appearance.accent || 'blue'
+  });
+  if (appearance.compact) query.set('bootCompact', '1');
+  if (appearance.reduceMotion) query.set('bootReduceMotion', '1');
+  pdfPopoutWin.loadURL('app://texora/index.html?' + query.toString());
+
+  pdfPopoutWin.once('ready-to-show', () => {
+    pdfPopoutWin?.show();
+  });
+  pdfPopoutWin.webContents.once('did-finish-load', () => {
+    if (lastPopoutPdf) sendToPopout('pdf:popoutUpdate', lastPopoutPdf);
+  });
+
+  const persistPopout = () => {
+    if (!pdfPopoutWin || pdfPopoutWin.isDestroyed() || pdfPopoutWin.isMaximized() || pdfPopoutWin.isFullScreen()) return;
+    store.set('ui.pdfPopoutWindow', pdfPopoutWin.getBounds());
+  };
+  pdfPopoutWin.on('resize', debounce(persistPopout, 400));
+  pdfPopoutWin.on('move', debounce(persistPopout, 400));
+  pdfPopoutWin.on('closed', () => { pdfPopoutWin = null; });
+  return { ok: true };
+}
+
 function broadcastSettings() {
   send('settings:changed', store.all());
+  sendToPopout('settings:changed', store.all());
 }
+
+handle('pdf:popoutOpen', async (payload) => openPdfPopoutWindow(payload || {}));
+handle('pdf:popoutUpdate', async (payload) => {
+  lastPopoutPdf = payload || lastPopoutPdf;
+  if (pdfPopoutWin && !pdfPopoutWin.isDestroyed()) {
+    if (payload?.title) pdfPopoutWin.setTitle(payload.title);
+    sendToPopout('pdf:popoutUpdate', lastPopoutPdf);
+  }
+  return { ok: true, open: Boolean(pdfPopoutWin && !pdfPopoutWin.isDestroyed()) };
+});
+handle('pdf:popoutClose', async () => {
+  if (pdfPopoutWin && !pdfPopoutWin.isDestroyed()) pdfPopoutWin.close();
+  return { ok: true };
+});
+handle('pdf:popoutState', async () => ({ ok: true, pdf: lastPopoutPdf }));
+handle('pdf:popoutGoto', async (loc) => {
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+    send('pdf:popoutGoto', loc);
+  }
+  return { ok: true };
+});
+handle('pdf:popoutFlash', async (target) => {
+  sendToPopout('pdf:popoutFlash', target);
+  return { ok: true };
+});
 
 handle('overleaf:login',async()=>{if(overleaf.busy)throw Error('请等待当前 Overleaf 操作完成');await overleafSession.login(()=>send('overleaf:loginComplete',{ok:true}));return {ok:true};});
 handle('overleaf:logout',async()=>{if(overleaf.busy)throw Error('请等待同步完成');await overleafLive.disconnect();await overleafSession.logout();overleaf.plans.clear();return {ok:true};});

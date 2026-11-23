@@ -294,12 +294,13 @@ function changesToOp(shadowText, changes, finalText) {
 }
 
 /**
- * Overleaf's git-blob style SHA-1 document hash.
+ * Overleaf's ShareJS SHA-1 document hash.
+ * Overleaf's browser client (`sharejs.js`) computes `"blob " + str.length + "\x00" + str`
+ * using JavaScript's UTF-16 `.length` (not UTF-8 byte length).
  */
 function sha1Hash(text) {
   const body = String(text ?? '');
-  const bytes = Buffer.byteLength(body, 'utf8');
-  return crypto.createHash('sha1').update(`blob ${bytes}\x00${body}`, 'utf8').digest('hex');
+  return crypto.createHash('sha1').update(`blob ${body.length}\x00${body}`, 'utf8').digest('hex');
 }
 
 /**
@@ -313,6 +314,7 @@ class OTClient {
     this.docId = docId;
     this.text = String(text);
     this.version = Number(version) || 0;
+    this.lastVersion = undefined;
     this.includeHash = includeHash;
     this.inFlight = null;
     this.buffer = null;
@@ -327,15 +329,16 @@ class OTClient {
     return this.inFlight !== null || this.buffer !== null;
   }
 
-  _makePacket(op) {
-    const packet = { doc: this.docId, op, v: this.version };
-    if (this.includeHash) {
-      // Hash represents the document state AFTER applying `op` to the server's
-      // current version (which equals `this.text` when buffer is empty).
-      const targetText = this.buffer ? applyOp(this._serverBaseText(), op) : this.text;
-      packet.hash = sha1Hash(targetText);
-    }
-    return packet;
+  _buildPacket(op) {
+    const lastV = this.lastVersion;
+    this.lastVersion = this.version;
+    return {
+      doc: this.docId,
+      op,
+      v: this.version,
+      ...(lastV !== undefined ? { lastV } : {}),
+      ...(this.includeHash ? { hash: sha1Hash(this.text) } : {})
+    };
   }
 
   /**
@@ -349,12 +352,7 @@ class OTClient {
 
     if (!this.inFlight) {
       this.inFlight = op;
-      return {
-        doc: this.docId,
-        op,
-        v: this.version,
-        ...(this.includeHash ? { hash: sha1Hash(this.text) } : {})
-      };
+      return this._buildPacket(op);
     }
 
     this.buffer = this.buffer ? compose(this.buffer, op) : op;
@@ -394,12 +392,7 @@ class OTClient {
         this.buffer = null;
         return {
           kind: 'ack',
-          nextPacket: {
-            doc: this.docId,
-            op: nextOp,
-            v: this.version,
-            ...(this.includeHash ? { hash: sha1Hash(this.text) } : {})
-          }
+          nextPacket: this._buildPacket(nextOp)
         };
       }
       this.inFlight = null;
@@ -432,6 +425,7 @@ class OTClient {
   reset(text, version) {
     this.text = String(text ?? '');
     this.version = Number(version) || 0;
+    this.lastVersion = undefined;
     this.inFlight = null;
     this.buffer = null;
   }

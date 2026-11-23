@@ -244,7 +244,11 @@ function buildBridgeScript(token) {
         });
       } else if (type === 'applyOtUpdate') {
         const { docId, update } = payload || {};
-        socket.emit('applyOtUpdate', docId, update);
+        socket.emit('applyOtUpdate', docId, update, (err) => {
+          if (err) {
+            emit('otUpdateError', { doc: docId, error: String(err.message || err) });
+          }
+        });
       } else if (type === 'updatePosition') {
         socket.emit('clientTracking.updatePosition', payload);
       } else if (type === 'getConnectedUsers') {
@@ -1480,11 +1484,16 @@ class OverleafLiveManager {
     }
 
     if (type === 'otUpdateApplied') {
-      const docId = payload?.doc;
-      const client = this.docs.get(docId);
+      let docId = payload?.doc;
+      if (!docId) {
+        const inflight = [...this.docs.entries()].filter(([, c]) => c.inFlight);
+        if (inflight.length === 1) docId = inflight[0][0];
+      }
+      const client = docId ? this.docs.get(docId) : null;
       if (!client) return;
       try {
         const res = client.receiveServerUpdate(payload);
+        this.docTextCache.set(docId, client.text);
         if (res.kind === 'ack' && res.nextPacket) {
           this._sendBridgeCmd('applyOtUpdate', { docId, update: res.nextPacket });
         } else if (res.kind === 'remote' && res.remoteOp?.length) {
