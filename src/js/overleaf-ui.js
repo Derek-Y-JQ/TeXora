@@ -71,7 +71,7 @@ export async function openOverleaf(){
       });
       if(!ok)return;
       m.close();
-      await ctx.app.openOverleafLive(b.dataset.live);
+      await ctx.app.openOverleafLive(b.dataset.live, b.dataset.name);
     }));
     list.querySelectorAll('[data-load]').forEach(b=>b.onclick=()=>run(async()=>{
       activeLoad=crypto.randomUUID();transfer={receivedBytes:0,totalBytes:null,elapsedSeconds:0};updateTransfer({phase:'checking'});

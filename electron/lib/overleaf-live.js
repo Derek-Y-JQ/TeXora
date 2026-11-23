@@ -521,10 +521,23 @@ class OverleafLiveManager {
       this.handleBridgeEvent(msg.type, msg.payload);
     };
 
+    // Block Overleaf's own web page inside the hidden bridge window from firing
+    // background auto-compiles that race with TeXora's cloud compile and trigger
+    // `too-recently-compiled` errors. Main-process session.fetch has no webContentsId.
+    const webRequest = this.session?.session?.webRequest;
+    const filter = { urls: [`${ORIGIN}/project/*/compile*`] };
+    if (webRequest?.onBeforeRequest) {
+      webRequest.onBeforeRequest(filter, (details, callback) => {
+        if (details.webContentsId === webContentsId) return callback({ cancel: true });
+        return callback({ cancel: false });
+      });
+    }
+
     ipcMain.handle('overleaf-bridge:handshake', onHandshake);
     ipcMain.on('overleaf-bridge:event', onEvent);
 
     const cleanup = () => {
+      try { webRequest?.onBeforeRequest?.(filter, null); } catch {}
       try { ipcMain.removeHandler('overleaf-bridge:handshake'); } catch {}
       try { ipcMain.removeListener('overleaf-bridge:event', onEvent); } catch {}
     };
@@ -669,7 +682,7 @@ class OverleafLiveManager {
     return u.pathname + u.search;
   }
 
-  async compile({ stopOnFirstError = false } = {}) {
+  async compile({ stopOnFirstError = false, retryOnThrottle = false } = {}) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
     if (!this.session || typeof this.session.request !== 'function') throw new Error('Overleaf 网络会话不可用');
     if (!this.csrf) throw new Error('缺少 Overleaf CSRF 令牌，请重新连接项目');
@@ -689,20 +702,28 @@ class OverleafLiveManager {
         ...(rootDocId ? { rootDoc_id: rootDocId } : {}),
         ...(rootResourcePath ? { rootResourcePath } : {})
       };
-      const res = await this.session.request(`/project/${this.projectId}/compile?enable_pdf_caching=true`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-CSRF-Token': this.csrf,
-          Referer: `${ORIGIN}/project/${this.projectId}`
-        },
-        body: JSON.stringify(body)
-      });
-      if (!res.headers?.get?.('content-type')?.includes('json')) {
-        throw new Error('Overleaf 云端编译未返回 JSON，请检查登录状态');
+      const runPost = async () => {
+        const res = await this.session.request(`/project/${this.projectId}/compile?enable_pdf_caching=true`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-CSRF-Token': this.csrf,
+            Referer: `${ORIGIN}/project/${this.projectId}`
+          },
+          body: JSON.stringify(body)
+        });
+        if (!res.headers?.get?.('content-type')?.includes('json')) {
+          throw new Error('Overleaf 云端编译未返回 JSON，请检查登录状态');
+        }
+        return res.json();
+      };
+      let data = await runPost();
+      if (retryOnThrottle && data?.status === 'too-recently-compiled') {
+        await new Promise((r) => setTimeout(r, 2400));
+        if (!this.active) throw new Error('已断开 Overleaf 实时连接');
+        data = await runPost();
       }
-      const data = await res.json();
       const status = String(data?.status || 'failure');
       const compileGroup = data?.compileGroup ? String(data.compileGroup) : '';
       const clsiServerId = data?.clsiServerId ? String(data.clsiServerId) : '';

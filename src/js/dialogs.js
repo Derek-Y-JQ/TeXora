@@ -205,9 +205,44 @@ export function createDialogs() {
           ignoreTrimWhitespace: false
         });
         diffEditor.setModel({ original: leftModel, modified: rightModel });
+        let changeIndex = 0;
+        let autoRevealed = false;
+        const navWrap = document.createElement('span');
+        navWrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-left:6px';
+        navWrap.innerHTML = `<button class="btn btn-sm" data-diff-prev title="上一处修改">↑ 上一处</button><span class="field-hint" data-diff-count style="min-width:66px;text-align:center"></span><button class="btn btn-sm" data-diff-next title="下一处修改">↓ 下一处</button>`;
+        const revealChange = (idx) => {
+          const changes = diffEditor?.getLineChanges?.() || [];
+          const countEl = navWrap.querySelector('[data-diff-count]');
+          if (!changes.length) {
+            if (countEl) countEl.textContent = '无差异';
+            return;
+          }
+          changeIndex = ((idx % changes.length) + changes.length) % changes.length;
+          const ch = changes[changeIndex];
+          const modLine = ch.modifiedStartLineNumber || ch.modifiedEndLineNumber || 1;
+          const origLine = ch.originalStartLineNumber || ch.originalEndLineNumber || 1;
+          diffEditor.getModifiedEditor().revealLineInCenter(Math.max(1, modLine));
+          diffEditor.getOriginalEditor().revealLineInCenter(Math.max(1, origLine));
+          if (countEl) countEl.textContent = `${changeIndex + 1} / ${changes.length} 处`;
+        };
+        diffEditor.onDidUpdateDiff(() => {
+          const changes = diffEditor?.getLineChanges?.() || [];
+          if (!autoRevealed && changes.length) {
+            autoRevealed = true;
+            setTimeout(() => revealChange(0), 20);
+          } else {
+            const countEl = navWrap.querySelector('[data-diff-count]');
+            if (countEl) countEl.textContent = changes.length ? `${Math.min(changeIndex + 1, changes.length)} / ${changes.length} 处` : '无差异';
+          }
+        });
+        navWrap.querySelector('[data-diff-prev]').addEventListener('click', () => revealChange(changeIndex - 1));
+        navWrap.querySelector('[data-diff-next]').addEventListener('click', () => revealChange(changeIndex + 1));
+
         const toggle = document.createElement('button');
         toggle.className = 'btn btn-sm'; toggle.textContent = '关闭 Diff 高亮'; toggle.setAttribute('aria-pressed', 'true');
-        root.querySelector('.modal-foot').prepend(toggle);
+        const foot = root.querySelector('.modal-foot');
+        foot.prepend(navWrap);
+        foot.prepend(toggle);
         toggle.addEventListener('click', () => {
           const off = root.classList.toggle('diff-highlights-off');
           diffEditor.updateOptions({ renderIndicators: !off, renderMarginRevertIcon: false });

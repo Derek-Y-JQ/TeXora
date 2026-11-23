@@ -1,12 +1,13 @@
 /**
  * Full-screen transition overlay when entering Overleaf Live Collaboration mode.
- * Adapts automatically to Studio and Endfield themes, and respects reduced motion.
+ * Adapts automatically to Studio and Endfield themes, supports live stage updates
+ * while connecting & loading the main document, and respects reduced motion.
  */
 import { escapeHtml as esc } from './util.js';
 
 let activeOverlay = null;
 
-export function playOverleafTransition({ projectName = 'Overleaf', compiler = 'pdflatex', writable = true } = {}) {
+export function playOverleafTransition({ projectName = 'Overleaf', compiler = '', writable = true, stage = '正在建立实时连接…' } = {}) {
   if (activeOverlay) {
     try { activeOverlay.remove(); } catch {}
     activeOverlay = null;
@@ -16,13 +17,15 @@ export function playOverleafTransition({ projectName = 'Overleaf', compiler = 'p
     document.documentElement.getAttribute('data-reduce-motion') === '1' ||
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const isEndfield = document.documentElement.dataset.style === 'endfield';
-  const compilerLabel = String(compiler || 'pdflatex').toUpperCase();
-  const accessLabel = writable ? 'OT 实时协作 · 云端编译' : '只读实时查看 · 云端编译';
+  const startedAt = Date.now();
+  const minVisibleMs = reduced ? 160 : 620;
 
   const overlay = document.createElement('div');
   overlay.className = `ol-transition ${isEndfield ? 'ol-transition-ef' : 'ol-transition-studio'}`;
   overlay.setAttribute('role', 'status');
   overlay.setAttribute('aria-live', 'polite');
+
+  const formatEngine = (c) => (c ? String(c).toUpperCase() : 'CLOUD');
 
   if (isEndfield) {
     overlay.innerHTML = `
@@ -32,12 +35,12 @@ export function playOverleafTransition({ projectName = 'Overleaf', compiler = 'p
         <div class="ol-tr-hatch"></div>
         <div class="ol-tr-head">
           <span class="ol-tr-code">// UPLINK :: OVERLEAF REALTIME</span>
-          <span class="ol-tr-badge">${writable ? 'ONLINE' : 'READ-ONLY'}</span>
+          <span class="ol-tr-badge" data-tr-badge>${writable ? 'ONLINE' : 'READ-ONLY'}</span>
         </div>
-        <div class="ol-tr-title">${esc(projectName)}</div>
+        <div class="ol-tr-title" data-tr-title>${esc(projectName)}</div>
         <div class="ol-tr-meta">
-          <span>MODE: ${esc(accessLabel)}</span>
-          <span>ENGINE: ${esc(compilerLabel)}</span>
+          <span data-tr-stage>${esc(stage)}</span>
+          <span data-tr-engine>ENGINE: ${esc(formatEngine(compiler))}</span>
         </div>
         <div class="ol-tr-bar"><span class="ol-tr-bar-fill"></span></div>
       </div>`;
@@ -51,8 +54,8 @@ export function playOverleafTransition({ projectName = 'Overleaf', compiler = 'p
           </svg>
         </div>
         <div class="ol-tr-kicker">Overleaf 实时协作模式</div>
-        <div class="ol-tr-title">${esc(projectName)}</div>
-        <div class="ol-tr-sub">${esc(accessLabel)} · ${esc(compilerLabel)}</div>
+        <div class="ol-tr-title" data-tr-title>${esc(projectName)}</div>
+        <div class="ol-tr-sub" data-tr-stage>${esc(stage)}</div>
         <div class="ol-tr-bar"><span class="ol-tr-bar-fill"></span></div>
       </div>`;
   }
@@ -61,28 +64,58 @@ export function playOverleafTransition({ projectName = 'Overleaf', compiler = 'p
   activeOverlay = overlay;
 
   let closed = false;
-  const finish = () => {
+  const removeNow = () => {
     if (closed) return;
     closed = true;
+    window.removeEventListener('keydown', onKey);
     overlay.classList.add('leaving');
-    setTimeout(() => {
-      if (activeOverlay === overlay) activeOverlay = null;
-      overlay.remove();
-    }, reduced ? 80 : 280);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (activeOverlay === overlay) activeOverlay = null;
+        overlay.remove();
+        resolve();
+      }, reduced ? 60 : 240);
+    });
   };
 
-  overlay.addEventListener('click', finish, { once: true });
   const onKey = (e) => {
-    if (e.key === 'Escape') {
-      window.removeEventListener('keydown', onKey);
-      finish();
+    if (e.key === 'Escape') void removeNow();
+  };
+  overlay.addEventListener('click', () => void removeNow(), { once: true });
+  window.addEventListener('keydown', onKey);
+  requestAnimationFrame(() => overlay.classList.add('entering'));
+
+  // Safety auto-dismiss in case caller never finishes
+  const safetyTimer = setTimeout(() => void removeNow(), 20000);
+
+  return {
+    update(patch = {}) {
+      if (closed) return;
+      if (patch.projectName) {
+        const el = overlay.querySelector('[data-tr-title]');
+        if (el) el.textContent = patch.projectName;
+      }
+      if (patch.stage) {
+        const el = overlay.querySelector('[data-tr-stage]');
+        if (el) el.textContent = patch.stage;
+      }
+      if (patch.compiler) {
+        const el = overlay.querySelector('[data-tr-engine]');
+        if (el) el.textContent = `ENGINE: ${formatEngine(patch.compiler)}`;
+      }
+      if (typeof patch.writable === 'boolean') {
+        const el = overlay.querySelector('[data-tr-badge]');
+        if (el) el.textContent = patch.writable ? 'ONLINE' : 'READ-ONLY';
+      }
+    },
+    async finish(immediate = false) {
+      clearTimeout(safetyTimer);
+      if (closed) return;
+      if (!immediate) {
+        const wait = Math.max(0, minVisibleMs - (Date.now() - startedAt));
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      }
+      await removeNow();
     }
   };
-  window.addEventListener('keydown', onKey);
-
-  requestAnimationFrame(() => overlay.classList.add('entering'));
-  setTimeout(() => {
-    window.removeEventListener('keydown', onKey);
-    finish();
-  }, reduced ? 320 : 1050);
 }

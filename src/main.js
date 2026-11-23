@@ -870,7 +870,7 @@ function applyRemoteOpToModel(model, op) {
   }
 }
 
-async function openOverleafLive(projectId) {
+async function openOverleafLive(projectId, projectName = '') {
   if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
     const ok = await ctx.dialogs.confirm({ title: '切换项目', message: '当前本地项目有未保存的修改，保存全部文件后进入 Overleaf 实时模式？', confirmText: '保存并切换' });
     if (!ok || !(await saveAll())) return;
@@ -879,9 +879,14 @@ async function openOverleafLive(projectId) {
   clearMathPreviewCache();
   resetProjectPreview();
   setBuildStatus('building', '正在连接 Overleaf…');
+  const transition = playOverleafTransition({ projectName: projectName || 'Overleaf', stage: '正在建立实时连接…' });
   const res = await api.overleaf.liveConnect(projectId);
-  if (request !== projectOpenRequest) return;
+  if (request !== projectOpenRequest) {
+    await transition.finish(true);
+    return;
+  }
   if (!res?.ok) {
+    await transition.finish(true);
     setBuildStatus('idle', '连接失败');
     return toast({ type: 'error', title: 'Overleaf 实时连接失败', body: res?.error || '请检查登录状态后重试' });
   }
@@ -914,18 +919,31 @@ async function openOverleafLive(projectId) {
   setBuildStatus('ok', 'Overleaf 实时已连接');
   previewSuspended = false;
   syncOverleafModeUi();
-  playOverleafTransition({ projectName: res.name || 'Overleaf', compiler: res.compiler || 'pdflatex', writable: Boolean(res.writable) });
   syncOverleafReadOnly();
   renderOverleafUsers();
   ctx.sidebar.renderTree();
+  transition.update({
+    projectName: res.name || projectName || 'Overleaf',
+    compiler: res.compiler || 'pdflatex',
+    writable: Boolean(res.writable),
+    stage: res.rootFile ? `正在加载主文档 ${baseName(res.rootFile)}…` : '已连接云端项目'
+  });
   if (res.rootFile) {
     await openDocument(res.rootFile, { silent: true });
-    void runBuild({ background: true });
+    if (request !== projectOpenRequest) {
+      await transition.finish(true);
+      return;
+    }
+    transition.update({ stage: '文档已就绪 · 准备云端编译' });
   } else {
     setEmptyState(true);
   }
   ctx.emit('project:changed', { ...ctx.state.project, reason: 'overleaf-live' });
   ctx.sidebar.refreshAll(true);
+  await transition.finish();
+  if (res.rootFile && request === projectOpenRequest) {
+    void runBuild({ background: true, retryOnThrottle: true });
+  }
   toast({
     type: 'success',
     title: '已进入 Overleaf 实时协作模式',
@@ -1623,7 +1641,10 @@ async function runBuild(opts = {}) {
       ctx.state.log = '';
       setBuildStatus('building', 'Overleaf 云端编译中…');
       ctx.preview.setBusy(true);
-      const res = await api.overleaf.liveCompile({ stopOnFirstError: Boolean(ctx.state.overleafLive?.stopOnFirstError) });
+      const res = await api.overleaf.liveCompile({
+        stopOnFirstError: Boolean(ctx.state.overleafLive?.stopOnFirstError),
+        retryOnThrottle: Boolean(opts.retryOnThrottle)
+      });
       if (generation !== previewGeneration) return;
       ctx.state.log = res?.log || '';
       handleBuildDone({
