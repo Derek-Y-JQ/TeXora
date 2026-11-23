@@ -32,6 +32,7 @@ export class Sidebar {
     this.structureScopes = { math:ctx.state.settings?.ui?.mathScope || 'file', labels:ctx.state.settings?.ui?.labelsScope || 'file' };
     this.structureGeneration = { math:0, labels:0 };
     this.structureCache = new Map();
+    this.mathFilter = 'all';
     this.ready = false;
   }
 
@@ -61,6 +62,7 @@ export class Sidebar {
     ctx.on('project:changed', () => {
       this.expanded.clear();
       this.structureCache.clear();
+      this.mathFilter = 'all';
       this.structureGeneration.math++; this.structureGeneration.labels++;
       this.refreshActions();
       this.refreshAll(true);
@@ -114,13 +116,13 @@ export class Sidebar {
         mk('refresh', '刷新文件树', () => this.refreshFiles());
         break;
       case 'outline':
-        mk('refresh', '重新解析', () => ctx.editor?.doParse());
+        mk('refresh', '重新解析', () => { ctx.editor?.doParse(); ctx.app.refreshOutline?.(); });
         break;
       case 'math':
-        mk('refresh', '重新解析', () => ctx.editor?.doParse());
+        mk('refresh', '重新解析', () => { this.structureCache.clear(); ctx.editor?.doParse(); this.renderMathPanel(); });
         break;
       case 'labels':
-        mk('refresh', '重新解析', () => ctx.editor?.doParse());
+        mk('refresh', '重新解析', () => { this.structureCache.clear(); ctx.editor?.doParse(); this.renderLabels(); });
         break;
       case 'history':
         if (!ctx.state.overleafLive?.active) mk('plus', '为当前文件创建快照', () => this.snapshotNow());
@@ -501,7 +503,12 @@ export class Sidebar {
   /* ---------------------------------------------------------------- outline */
   renderOutline() {
     const panel = this.panels.outline;
-    const project = ctx.state.projectOutline || [];
+    const rootNorm = String(ctx.state.project?.root || '').replace(/\\/g, '/').toLowerCase();
+    const project = (ctx.state.projectOutline || []).filter((item) => {
+      if (!rootNorm) return true;
+      const fileNorm = String(item.file || '').replace(/\\/g, '/').toLowerCase();
+      return fileNorm === rootNorm || fileNorm.startsWith(rootNorm + '/');
+    });
     const parsed = ctx.state.parsed;
     if (!project.length && (!parsed || !parsed.outline.length)) {
       panel.innerHTML = `<div class="empty-hint">${icon('outline')}<br/>项目中暂无章节结构<br/><span class="muted">支持 part / chapter / section / subsection</span></div>`;
@@ -572,10 +579,34 @@ export class Sidebar {
       const {documents,errors}=await this.structureData();
       if(view.generation!==this.structureGeneration.math || view.root!==ctx.state.project.root)return;
       const index=buildStructureIndex(documents),items=index.math.filter(item=>view.scope==='project'||sameSource(item.file,ctx.state.activePath));
+      const catKey = (item) => String(item.env || '').replace(/\*$/, '');
+      const catStats = new Map();
+      for (const item of items) {
+        const key = catKey(item);
+        const cur = catStats.get(key) || { key, count: 0, theorem: Boolean(item.theorem) };
+        cur.count++;
+        if (item.theorem) cur.theorem = true;
+        catStats.set(key, cur);
+      }
+      const categories = [...catStats.values()].sort((a, b) => Number(b.theorem) - Number(a.theorem) || b.count - a.count || a.key.localeCompare(b.key));
+      if (this.mathFilter !== 'all' && !catStats.has(this.mathFilter)) this.mathFilter = 'all';
+      const filtered = this.mathFilter === 'all' ? items : items.filter((item) => catKey(item) === this.mathFilter);
+      const filterBar = categories.length > 0
+        ? `<div class="math-env-filters" role="group" aria-label="按数学环境类别筛选">
+            <button type="button" class="math-filter-chip ${this.mathFilter === 'all' ? 'active' : ''}" data-math-filter="all">全部<span>${items.length}</span></button>
+            ${categories.map((c) => `<button type="button" class="math-filter-chip ${this.mathFilter === c.key ? 'active' : ''}" data-math-filter="${escapeHtml(c.key)}">${escapeHtml(c.key)}<span>${c.count}</span></button>`).join('')}
+          </div>`
+        : '';
       const group=(title,list)=>!list.length?'':`<div class="section-label">${title} · ${list.length}</div><div class="math-env-list">${list.map(item=>`<div class="math-env" data-source-file="${escapeHtml(item.file)}" data-file="${escapeHtml(item.file)}" data-line="${item.line}" data-end="${item.endLine||item.line}">
         <div class="math-env-head"><span class="math-env-kind">${escapeHtml(item.env)}</span><span class="badge">${(item.endLine||item.line)-item.line+1} 行</span><span class="math-env-line">L${item.line}</span></div>
         ${this.structureSource(item,view.scope)}${item.caption?`<div class="math-env-title">${escapeHtml(item.caption)}</div>`:''}<div class="math-env-snippet">${escapeHtml(item.body.slice(0,100)||'（空环境）')}</div></div>`).join('')}</div>`;
-      view.content.innerHTML=(errors.length?`<div class="structure-warning">${errors.length} 个项目文件无法读取，结果可能不完整</div>`:'')+group('定理类',items.filter(item=>item.theorem))+group('公式类',items.filter(item=>!item.theorem))+(items.length?'':`<div class="empty-hint">${icon('sigma')}<br/>${view.scope==='file'?'本文件':'项目中'}暂无数学环境</div>`);
+      view.content.innerHTML=(errors.length?`<div class="structure-warning">${errors.length} 个项目文件无法读取，结果可能不完整</div>`:'')+filterBar+group('定理类',filtered.filter(item=>item.theorem))+group('公式类',filtered.filter(item=>!item.theorem))+(filtered.length?'':`<div class="empty-hint">${icon('sigma')}<br/>${view.scope==='file'?'本文件':'项目中'}暂无数学环境</div>`);
+      for (const chip of view.content.querySelectorAll('[data-math-filter]')) {
+        chip.onclick = () => {
+          this.mathFilter = chip.dataset.mathFilter || 'all';
+          this.renderMathPanel();
+        };
+      }
       this.bindStructureLocations(view.content);if(this.panel==='math')this.body.scrollTop=view.scroll;
     }catch(error){if(view.generation===this.structureGeneration.math)view.content.innerHTML=`<div class="empty-hint">${escapeHtml(error.message)}</div>`;}
   }

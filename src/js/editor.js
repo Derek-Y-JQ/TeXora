@@ -866,7 +866,11 @@ export class EditorController {
         }
       }
     });
-    this.editor.onDidChangeCursorSelection(() => {this.updateSelectionBar();this.refreshFormatState();});
+    this.editor.onDidChangeCursorSelection(() => {
+      this.updateSelectionBar();
+      this.refreshFormatState();
+      ctx.emit('selection:changed', this.getSelectionText());
+    });
     this.editor.onContextMenu((ev) => this.onEditorContextMenu(ev));
     this.editor.onDidScrollChange(() => {
       this.updateBlocks();

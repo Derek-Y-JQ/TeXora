@@ -300,11 +300,12 @@ const {
     // Forward SyncTeX
     const fwd = await manager.synctexForward(`${overleafRoot(projectId)}/sections/intro.tex`, 12, 1);
     assert.deepEqual(fwd, { ok: true, page: 2, x: 72.5, y: 210.25, width: 320, height: 14 });
-    assert.ok(httpCalls.some((c) => c.route.includes('/sync/code?') && c.route.includes('file=sections%2Fintro.tex') && c.route.includes('buildId=b-42') && c.route.includes('clsiserverid=clsi-9')));
+    assert.ok(httpCalls.some((c) => c.route.includes('/sync/code?') && c.route.includes('file=sections%2Fintro.tex') && c.route.includes('buildId=b-42') && c.route.includes('editorId=') && c.route.includes('clsiserverid=clsi-9')));
 
     // Inverse SyncTeX
     const inv = await manager.synctexInverse(2, 72.5, 210.25);
     assert.deepEqual(inv, { ok: true, file: `${overleafRoot(projectId)}/sections/intro.tex`, line: 42, column: 5 });
+    assert.ok(httpCalls.some((c) => c.route.includes('/sync/pdf?') && c.route.includes('buildId=b-42') && c.route.includes('editorId=') && c.route.includes('h=72.50') && c.route.includes('v=210.25')));
 
     // Rate-limited compile status
     compileStatus = 'too-recently-compiled';

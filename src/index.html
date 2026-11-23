@@ -27,6 +27,7 @@
         <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
         <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></symbol>
         <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="i-overleaf-settings" viewBox="0 0 24 24"><g transform="translate(2.4 -1.4) scale(0.84)"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></g><path d="M3 21c.2-4.2 2.4-6.8 6.8-7.2-.4 4.4-2.8 6.8-6.8 7.2z" fill="#47a141" stroke="#47a141" stroke-width="1.3" stroke-linejoin="round"/><path d="M3 21l3.6-3.6" stroke="#ffffff" stroke-width="1.1" stroke-linecap="round"/></symbol>
         <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
         <symbol id="i-minimize" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
         <symbol id="i-maximize" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/></symbol>
@@ -137,7 +138,7 @@
             <svg aria-hidden="true" class="ico ico-caret"><use href="#i-chevron-down" /></svg>
           </button>
           <button class="project-pill" id="overleafBtn" title="登录 Overleaf、实时直连或离线同步项目"><svg aria-hidden="true" class="ico"><use href="#i-leaf" /></svg><span>Overleaf</span></button>
-          <button class="project-pill" id="overleafSettingsBtn" hidden title="Overleaf 云端项目设置（编译器、TeX Live 版本、主文档）"><svg aria-hidden="true" class="ico"><use href="#i-sliders" /></svg><span>项目设置</span></button>
+          <button class="project-pill" id="overleafSettingsBtn" hidden title="Overleaf 云端项目设置（编译器、TeX Live 版本、主文档）"><svg aria-hidden="true" class="ico"><use href="#i-overleaf-settings" /></svg><span>项目设置</span></button>
         </div>
         <div class="titlebar-center">
           <button class="cmdk" id="commandBar">
@@ -261,7 +262,7 @@
           <button class="act-btn" data-panel="math" title="数学环境" aria-label="数学环境"><svg aria-hidden="true" class="ico"><use href="#i-functions" /></svg></button>
           <button class="act-btn" data-panel="labels" title="标签与引用" aria-label="标签与引用"><svg aria-hidden="true" class="ico"><use href="#i-tags" /></svg></button>
           <button class="act-btn" data-panel="search" title="全局查找" aria-label="全局查找"><svg aria-hidden="true" class="ico"><use href="#i-search" /></svg></button>
-          <button class="act-btn" data-panel="history" title="本地历史" aria-label="本地历史"><svg aria-hidden="true" class="ico"><use href="#i-history" /></svg></button>
+          <button class="act-btn" data-panel="history" title="历史记录" aria-label="历史记录"><svg aria-hidden="true" class="ico"><use href="#i-history" /></svg></button>
           <button class="act-btn" data-panel="git" title="Git 版本控制" aria-label="Git 版本控制"><svg aria-hidden="true" class="ico"><use href="#i-git" /></svg></button>
           <span class="act-spacer"></span>
           <button class="act-btn" data-panel="ai" title="AI 助手" aria-label="AI 助手"><svg aria-hidden="true" class="ico"><use href="#i-assistant" /></svg></button>
@@ -320,7 +321,12 @@
           </div>
         </main>
 
-        <div class="splitter" id="splitterPreview" data-split="preview"></div>
+        <div class="splitter splitter-preview" id="splitterPreview" data-split="preview">
+          <div class="splitter-sync-controls" aria-label="代码与 PDF 双向跳转">
+            <button type="button" class="splitter-sync-btn" id="syncToPdfBtn" title="代码 → PDF 正向定位（将当前光标行定位到 PDF）" aria-label="正向定位到 PDF"><svg aria-hidden="true" class="ico"><use href="#i-chevron-right" /></svg></button>
+            <button type="button" class="splitter-sync-btn" id="syncToCodeBtn" title="PDF → 代码 反向定位（定位到当前 PDF 视图对应的代码）" aria-label="反向定位到代码"><svg aria-hidden="true" class="ico"><use href="#i-chevron-left" /></svg></button>
+          </div>
+        </div>
 
         <section class="preview" id="previewPane">
           <div class="preview-toolbar">
@@ -371,6 +377,7 @@
             <svg aria-hidden="true" class="ico"><use href="#i-alert" /></svg><span id="sbProblemsText">0 个问题</span>
           </button>
           <span class="sb-item" id="sbStats">0 字 · 0 词</span>
+          <span class="sb-item sb-sel-stats" id="sbSelectionStats" hidden></span>
         </div>
         <div class="sb-right">
           <span class="sb-item" id="sbCursor">Ln 1, Col 1</span>

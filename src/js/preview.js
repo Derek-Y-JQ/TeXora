@@ -228,22 +228,16 @@ export class PreviewController {
     this.stage.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
   }
 
-  async onDoubleClick(event) {
-    if(this.standalone)return;
-    const pageEl = event.target.closest('.pdf-page');
-    if (!pageEl) return;
-    const rect = pageEl.getBoundingClientRect();
-    const px = event.clientX - rect.left;
-    const py = event.clientY - rect.top;
-    const widthPt = Number(pageEl.dataset.widthPt) || 1;
-    const heightPt = Number(pageEl.dataset.heightPt) || 1;
-    const xPt = (px / rect.width) * widthPt;
-    const yPt = (py / rect.height) * heightPt;
-    const page = Number(pageEl.dataset.page);
+  async runInverseSync(page, xPt, yPt) {
     const token = this.renderToken;
-    const res = ctx.state.overleafLive?.active
-      ? await ctx.api.overleaf.liveSyncInverse(page, xPt, yPt)
-      : await ctx.api.tex.synctexInverse(page, xPt, yPt);
+    let res;
+    try {
+      res = ctx.state.overleafLive?.active
+        ? await ctx.api.overleaf.liveSyncInverse(page, xPt, yPt)
+        : await ctx.api.tex.synctexInverse(page, xPt, yPt);
+    } catch (err) {
+      res = { ok: false, error: err?.message || String(err) };
+    }
     if (token !== this.renderToken) return;
     if (!res || !res.ok) {
       ctx.emit('toast', { type: 'warn', title: '反向定位未命中', body: (res && res.error) || '请确认已使用 -synctex=1 编译' });
@@ -254,6 +248,43 @@ export class PreviewController {
       return;
     }
     ctx.cmd('editor.goto', { file: res.file, line: res.line, column: Math.max(1, res.column || 1), flash: true });
+  }
+
+  async onDoubleClick(event) {
+    if (this.standalone) return;
+    const pageEl = event.target.closest('.pdf-page');
+    if (!pageEl) return;
+    const rect = pageEl.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const widthPt = Number(pageEl.dataset.widthPt) || 1;
+    const heightPt = Number(pageEl.dataset.heightPt) || 1;
+    const xPt = (px / rect.width) * widthPt;
+    const yPt = (py / rect.height) * heightPt;
+    const page = Number(pageEl.dataset.page);
+    await this.runInverseSync(page, xPt, yPt);
+  }
+
+  async syncInverseFromViewport() {
+    if (this.standalone || !this.stage || !this.pageEls.length) {
+      ctx.emit('toast', { type: 'warn', title: '反向定位不可用', body: '请先编译生成 PDF 预览' });
+      return;
+    }
+    const stageRect = this.stage.getBoundingClientRect();
+    const probeY = stageRect.top + stageRect.height * 0.35;
+    let targetEl = this.pageEls[Math.max(0, (this.current || 1) - 1)] || this.pageEls[0];
+    for (const el of this.pageEls) {
+      const r = el.getBoundingClientRect();
+      if (r.top <= probeY && r.bottom >= probeY) { targetEl = el; break; }
+    }
+    const rect = targetEl.getBoundingClientRect();
+    const widthPt = Number(targetEl.dataset.widthPt) || 595;
+    const heightPt = Number(targetEl.dataset.heightPt) || 842;
+    const relY = clamp((probeY - rect.top) / Math.max(1, rect.height), 0.05, 0.95);
+    const xPt = widthPt * 0.5;
+    const yPt = relY * heightPt;
+    const page = Number(targetEl.dataset.page) || 1;
+    await this.runInverseSync(page, xPt, yPt);
   }
 
   showFailure(message) {

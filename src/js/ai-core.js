@@ -100,7 +100,9 @@ export function createAI() {
   }
 
   async function request(options = {}) {
-    if (options.target === 'block') { ctx.sidebar.show('ai'); ctx.sidebar.panels.ai.querySelector('[data-ai-mode="ask"]')?.click(); ctx.sidebar.scrollAiToLatest(); }
+    ctx.sidebar.show('ai');
+    ctx.sidebar.panels.ai.querySelector('[data-ai-mode="ask"]')?.click();
+    ctx.sidebar.scrollAiToLatest();
     if (active) { toast({ type: 'info', title: 'AI 正在处理上一条请求', body: '完成或取消后可再次发送' }); return null; }
     if (!ensureConfigured()) return null;
     const action = ctx.state.settings.ai.blockActions?.find(a => a.id === options.actionId);

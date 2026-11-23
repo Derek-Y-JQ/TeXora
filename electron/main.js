@@ -734,7 +734,12 @@ handle('project:refreshRoot', async () => {
 });
 
 // ------------------------------------------------------------------- file ops
-handle('fs:read', async (file) => ({ ok: true, ...(await project.read(file)) }));
+handle('fs:read', async (file) => {
+  if (typeof file === 'string' && file.startsWith('overleaf://')) {
+    return await overleafLive.readDocText(file);
+  }
+  return { ok: true, ...(await project.read(file)) };
+});
 handle('pdf:open',async file=>{
   if(!/\.pdf$/i.test(file))throw Error('请选择 PDF 文件');
   const stat=await fsp.stat(file);if(!stat.isFile())throw Error('PDF 文件不存在');

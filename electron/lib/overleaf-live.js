@@ -391,10 +391,13 @@ class OverleafLiveManager {
     this.assets = { tex: [], images: [], bib: [], all: [] };
     this.rootFile = '';
     this.docs = new Map(); // docId -> OTClient
-    this.docTextCache = new Map(); // docId -> cached decoded text for project-wide search
+    this.docTextCache = new Map(); // docId -> cached decoded text for project-wide search/structure
+    this._pendingDocReads = new Map(); // docId -> Promise<string>
     this.users = new Map(); // clientId -> collaborator info
     this.pendingRequests = new Map(); // requestId -> { resolve, reject, timer }
     this._connectDeferred = null;
+    this.editorId = crypto.randomUUID();
+    this.lastEditorId = '';
     this.lastBuildId = '';
     this.lastClsiServerId = '';
     this.lastCompileGroup = '';
@@ -698,11 +701,13 @@ class OverleafLiveManager {
       const rootEntity = this.pathToEntity.get(this.rootFile) || (this.project?.rootDoc_id ? this.idToEntity.get(this.project.rootDoc_id) : null);
       const rootDocId = rootEntity?.id || this.project?.rootDoc_id || undefined;
       const rootResourcePath = rootEntity?.rel || this._normalizeRelPath(this.rootFile) || undefined;
+      this.editorId ||= crypto.randomUUID();
       const body = {
         check: 'silent',
         draft: false,
         incrementalCompilesEnabled: true,
         stopOnFirstError: Boolean(stopOnFirstError),
+        editorId: this.editorId,
         ...(rootDocId ? { rootDoc_id: rootDocId } : {}),
         ...(rootResourcePath ? { rootResourcePath } : {})
       };
@@ -737,6 +742,10 @@ class OverleafLiveManager {
 
       const logFile = files.find((f) => f.type === 'log' || f.path === 'output.log' || /\.log$/i.test(f.path || ''));
       const pdfFile = files.find((f) => f.type === 'pdf' || f.path === 'output.pdf' || /\.pdf$/i.test(f.path || ''));
+      const urlBuildMatch = String(pdfFile?.url || logFile?.url || '').match(/\/build\/([a-f0-9-]+)\//i);
+      const resolvedBuildId = String(pdfFile?.build || data?.buildId || urlBuildMatch?.[1] || '');
+      if (resolvedBuildId) this.lastBuildId = resolvedBuildId;
+      this.lastEditorId = String(pdfFile?.editorId || this.editorId || '');
 
       let logText = '';
       if (logFile?.url) {
@@ -824,17 +833,31 @@ class OverleafLiveManager {
   async synctexForward(fileOrPath, line, column = 1) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
     if (!this.session) throw new Error('Overleaf 网络会话不可用');
-    const rel = this._normalizeRelPath(fileOrPath || this.rootFile);
+    let rel = this._normalizeRelPath(fileOrPath || this.rootFile);
     if (!rel) throw new Error('无法识别当前文件路径');
+    const rootRel = this._normalizeRelPath(this.rootFile);
+    const rootSlash = rootRel.lastIndexOf('/');
+    if (rootSlash > 0) {
+      const rootDir = rootRel.slice(0, rootSlash);
+      if (rel === rootRel || rel.startsWith(rootDir + '/')) {
+        rel = rootDir + '/.' + rel.slice(rootDir.length);
+      }
+    }
+    const editorId = this.lastEditorId || this.editorId;
+    if (!this.lastBuildId) return { ok: false, error: '请先执行一次云端编译后再使用 SyncTeX 定位' };
     const params = new URLSearchParams({
       file: rel,
-      line: String(Math.max(1, Number(line) || 1)),
-      column: String(Math.max(1, Number(column) || 1))
+      line: String(Math.max(1, Math.round(Number(line) || 1))),
+      column: String(Math.max(1, Math.round(Number(column) || 1))),
+      editorId,
+      buildId: this.lastBuildId
     });
-    if (this.lastBuildId) params.set('buildId', this.lastBuildId);
     if (this.lastClsiServerId) params.set('clsiserverid', this.lastClsiServerId);
     const res = await this.session.request(`/project/${this.projectId}/sync/code?${params.toString()}`, {
-      headers: { Accept: 'application/json' }
+      headers: {
+        Accept: 'application/json',
+        Referer: `${ORIGIN}/project/${this.projectId}`
+      }
     });
     const data = await res.json();
     const hit = Array.isArray(data?.pdf) ? data.pdf[0] : null;
@@ -852,22 +875,29 @@ class OverleafLiveManager {
   async synctexInverse(page, x, y) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
     if (!this.session) throw new Error('Overleaf 网络会话不可用');
+    const editorId = this.lastEditorId || this.editorId;
+    if (!this.lastBuildId) return { ok: false, error: '请先执行一次云端编译后再使用 SyncTeX 反向定位' };
     const params = new URLSearchParams({
-      page: String(Math.max(1, Number(page) || 1)),
-      h: String(Number(x) || 0),
-      v: String(Number(y) || 0)
+      page: String(Math.max(1, Math.round(Number(page) || 1))),
+      h: (Number(x) || 0).toFixed(2),
+      v: (Number(y) || 0).toFixed(2),
+      editorId,
+      buildId: this.lastBuildId
     });
-    if (this.lastBuildId) params.set('buildId', this.lastBuildId);
     if (this.lastClsiServerId) params.set('clsiserverid', this.lastClsiServerId);
     const res = await this.session.request(`/project/${this.projectId}/sync/pdf?${params.toString()}`, {
-      headers: { Accept: 'application/json' }
+      headers: {
+        Accept: 'application/json',
+        Referer: `${ORIGIN}/project/${this.projectId}`
+      }
     });
     const data = await res.json();
     const hit = Array.isArray(data?.code) ? data.code[0] : null;
     if (!hit || !hit.file) return { ok: false, error: '云端 SyncTeX 反向定位未命中' };
+    const cleanFile = String(hit.file).replace(/\\/g, '/').replace(/\/\.\//g, '/').replace(/^\.\//, '');
     return {
       ok: true,
-      file: this.resolveVirtualPath(hit.file),
+      file: this.resolveVirtualPath(cleanFile),
       line: Math.max(1, Number(hit.line) || 1),
       column: Math.max(1, Number(hit.column) || 1)
     };
@@ -1278,14 +1308,52 @@ class OverleafLiveManager {
     const activeClient = this.docs.get(entity.id);
     if (activeClient) return activeClient.text;
     if (this.docTextCache.has(entity.id)) return this.docTextCache.get(entity.id);
-    const res = await this._requestBridge('joinDoc', { docId: entity.id }, 10000);
-    const text = (res.docLines || []).map((line) => decodeOverleafUtf8(line)).join('\n');
-    this.docTextCache.set(entity.id, text);
-    // Only leave if user didn't open the tab while we were fetching
-    if (!this.docs.has(entity.id)) {
-      void this._requestBridge('leaveDoc', { docId: entity.id }, 4000).catch(() => {});
+    if (this._pendingDocReads.has(entity.id)) return this._pendingDocReads.get(entity.id);
+    const task = (async () => {
+      const res = await this._requestBridge('joinDoc', { docId: entity.id }, 10000);
+      const text = (res.docLines || []).map((line) => decodeOverleafUtf8(line)).join('\n');
+      this.docTextCache.set(entity.id, text);
+      if (!this.docs.has(entity.id)) {
+        void this._requestBridge('leaveDoc', { docId: entity.id }, 4000).catch(() => {});
+      }
+      return text;
+    })();
+    this._pendingDocReads.set(entity.id, task);
+    try {
+      return await task;
+    } finally {
+      this._pendingDocReads.delete(entity.id);
     }
-    return text;
+  }
+
+  _findEntityByPathLoose(fileOrPath) {
+    if (!fileOrPath) return null;
+    const direct = this.pathToEntity.get(fileOrPath) || this.idToEntity.get(fileOrPath);
+    if (direct) return direct;
+    const norm = String(fileOrPath).replace(/\\/g, '/');
+    const rel = this._normalizeRelPath(norm);
+    if (rel) {
+      const exactVpath = `${overleafRoot(this.projectId)}/${rel}`;
+      if (this.pathToEntity.has(exactVpath)) return this.pathToEntity.get(exactVpath);
+      const relLower = rel.toLowerCase();
+      for (const ent of this.pathToEntity.values()) {
+        if ((ent.rel || '').toLowerCase() === relLower) return ent;
+      }
+    }
+    return null;
+  }
+
+  async readDocText(fileOrPath) {
+    if (!this.active) return { ok: false, error: '尚未连接 Overleaf 实时项目' };
+    const entity = this._findEntityByPathLoose(fileOrPath) || (!/\.[a-z0-9]+$/i.test(String(fileOrPath || '')) ? this._findEntityByPathLoose(String(fileOrPath) + '.tex') : null);
+    if (!entity) return { ok: false, error: '云端项目未找到该文件' };
+    if (entity.entityType !== 'doc') return { ok: false, error: '该云端文件为非文本资源' };
+    try {
+      const text = await this._readDocTextForSearch(entity);
+      return { ok: true, text };
+    } catch (err) {
+      return { ok: false, error: err?.message || '读取云端文档失败' };
+    }
   }
 
   async searchProject({ query, regex = false, caseSensitive = false, wholeWord = false, include = '' } = {}) {

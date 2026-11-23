@@ -572,6 +572,7 @@ function wireSplitters() {
     const sp = $(splitterId);
     if (!sp) return;
     sp.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.splitter-sync-controls')) return;
       e.preventDefault();
       try { sp.setPointerCapture(e.pointerId); } catch {}
       sp.classList.add('dragging');
@@ -613,7 +614,8 @@ function wireSplitters() {
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     });
-    sp.addEventListener('dblclick', () => {
+    sp.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.splitter-sync-controls')) return;
       const def = side === 'sidebar' ? 292 : 468;
       document.documentElement.style.setProperty(side === 'sidebar' ? '--sidebar-w' : '--preview-w', def + 'px');
       ctx.state.settings.ui[side === 'sidebar' ? 'sidebarWidth' : 'previewWidth'] = def;
@@ -623,6 +625,8 @@ function wireSplitters() {
   };
   setup('#splitterSidebar', 'sidebar');
   setup('#splitterPreview', 'preview');
+  $('#syncToPdfBtn')?.addEventListener('click', (e) => { e.stopPropagation(); void ctx.app.synctexForward(); });
+  $('#syncToCodeBtn')?.addEventListener('click', (e) => { e.stopPropagation(); void ctx.preview.syncInverseFromViewport(); });
 }
 
 function wireIpc() {
@@ -763,11 +767,17 @@ async function refreshEnvDefs() {
     console.warn('[envDefs]', err.message);
   }
   if (ctx.sidebar?.panel === 'outline') ctx.sidebar.renderOutline();
+  else if (ctx.sidebar?.panel === 'math') ctx.sidebar.renderMathPanel();
+  else if (ctx.sidebar?.panel === 'labels') ctx.sidebar.renderLabels();
 }
 
-const refreshOutlineSoon = debounce(async () => {
+async function refreshOutlineNow() {
   const rootFile = ctx.state.project.rootFile;
-  if (!rootFile) return;
+  if (!rootFile) {
+    ctx.state.projectOutline = [];
+    if (ctx.sidebar?.panel === 'outline') ctx.sidebar.renderOutline();
+    return;
+  }
   const outline = await projectOutline(rootFile, async file => {
     const doc = [...ctx.state.docs].find(([p]) => p.replace(/\\/g, '/').toLowerCase() === file.toLowerCase())?.[1];
     if (doc?.model) return doc.model.getValue();
@@ -777,7 +787,9 @@ const refreshOutlineSoon = debounce(async () => {
   if (rootFile !== ctx.state.project.rootFile) return;
   ctx.state.projectOutline = outline;
   if (ctx.sidebar?.panel === 'outline') ctx.sidebar.renderOutline();
-}, 350);
+}
+
+const refreshOutlineSoon = debounce(() => { void refreshOutlineNow(); }, 350);
 
 let previewGeneration = 0;
 let previewSuspended = false;
@@ -976,6 +988,9 @@ async function openOverleafLive(projectId, projectName = '') {
   };
   ctx.state.tree = res.tree || [];
   ctx.state.assets = res.assets || { tex: [], images: [], bib: [], all: [] };
+  ctx.state.projectOutline = [];
+  ctx.state.labelIndex = {};
+  ctx.state.envDefs = {};
   ctx.state.gitStatus = null;
   $('#projectName').textContent = `${res.name} · Overleaf 实时`;
   document.title = `TeXora — ${res.name} (Overleaf 实时)`;
@@ -1004,6 +1019,7 @@ async function openOverleafLive(projectId, projectName = '') {
   }
   ctx.emit('project:changed', { ...ctx.state.project, reason: 'overleaf-live' });
   ctx.sidebar.refreshAll(true);
+  void refreshEnvDefs();
   await transition.finish();
   if (res.rootFile && request === projectOpenRequest) {
     void runBuild({ background: true, retryOnThrottle: true });
@@ -1997,20 +2013,42 @@ async function gotoLocation({ file, line = 1, column = 1, flash = false } = {}) 
 }
 
 /* ------------------------------------------------------------------- status */
+function updateSelectionStats(selectedText) {
+  const el = $('#sbSelectionStats');
+  if (!el) return;
+  const text = typeof selectedText === 'string' ? selectedText : (ctx.editor?.getSelectionText?.() || '');
+  if (!text) {
+    el.hidden = true;
+    el.textContent = '';
+    el.removeAttribute('title');
+    return;
+  }
+  const st = textStats(text);
+  const parts = [`选中 ${st.cjkChars} 汉字`, `${st.latinWords} 词`];
+  if (st.formulas > 0) parts.push(`${st.formulas} 公式`);
+  el.textContent = parts.join(' · ');
+  el.title = `已选中 ${text.length} 字符（${st.cjkChars} 汉字，${st.latinWords} 英文词，${st.formulas} 公式）`;
+  el.hidden = false;
+}
+
 function updateStats() {
   const doc = ctx.state.docs.get(ctx.state.activePath);
   const statsEl = $('#sbStats');
   if (!doc || !statsEl) {
     if (statsEl) statsEl.textContent = '0 字 · 0 词';
+    updateSelectionStats('');
     return;
   }
   const text = doc.model.getValue();
   const st = textStats(text);
   statsEl.textContent = `${st.cjkChars} 汉字 · ${st.latinWords} 词 · ${st.formulas} 公式`;
+  updateSelectionStats();
   const rootName = ctx.state.project.rootFile ? baseName(ctx.state.project.rootFile) : '未识别主文档';
   $('#sbRootName').textContent = rootName;
   $('#sbSpaces').textContent = `空格: ${ctx.state.settings.editor.indentSize || 2}`;
 }
+
+ctx.on('selection:changed', (text) => updateSelectionStats(text));
 
 ctx.on('cursor', ({ line, col }) => {
   const elx = $('#sbCursor');
@@ -2666,15 +2704,21 @@ ctx.app = {
     const file = ctx.state.activePath || ctx.state.project.rootFile;
     const target = line || ctx.editor.lastCursor.line;
     const generation = previewGeneration;
-    const res = ctx.state.overleafLive?.active
-      ? await api.overleaf.liveSyncForward(file, target, 1)
-      : await api.tex.synctexForward(file, target, 1);
+    let res;
+    try {
+      res = ctx.state.overleafLive?.active
+        ? await api.overleaf.liveSyncForward(file, target, 1)
+        : await api.tex.synctexForward(file, target, 1);
+    } catch (err) {
+      res = { ok: false, error: err?.message || String(err) };
+    }
     if (generation !== previewGeneration) return;
-    if (!res.ok) return toast({ type: 'warn', title: '正向定位失败', body: res.error || '请确认使用 -synctex=1 编译' });
+    if (!res?.ok) return toast({ type: 'warn', title: '正向定位失败', body: res?.error || '请确认使用 -synctex=1 编译' });
     ctx.preview.flashAt(res.page, res.x, res.y, res.height || 12, res.width || 0);
     void api.pdf.popoutFlash?.({ page: res.page, x: res.x, y: res.y, height: res.height || 12, width: res.width || 0 }).catch?.(() => {});
     toast({ type: 'success', title: '已定位到 PDF', body: '第 ' + res.page + ' 页', timeout: 1500 });
   },
+  refreshOutline: refreshOutlineNow,
   gotoLocation,
   openPdfExternal,
   checkTexEnvironment,

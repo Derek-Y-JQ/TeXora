@@ -433,6 +433,111 @@
 }
 .splitter:hover::after, .splitter.dragging::after { background: var(--accent-border); }
 
+.splitter-sync-controls {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  cursor: default;
+  opacity: 0.84;
+  transition: opacity var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.splitter-sync-controls:hover,
+.splitter-preview:hover .splitter-sync-controls {
+  opacity: 1;
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
+}
+.splitter-sync-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.splitter-sync-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.splitter-sync-btn:active {
+  transform: scale(0.92);
+}
+.splitter-sync-btn .ico {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.3;
+}
+:root[data-style="endfield"] .splitter-sync-controls {
+  border-radius: 3px;
+}
+:root[data-style="endfield"] .splitter-sync-btn {
+  border-radius: 2px;
+}
+
+.sb-sel-stats {
+  color: var(--accent);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.sb-sel-stats[hidden] {
+  display: none !important;
+}
+
+.math-env-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 6px 0 8px;
+}
+.math-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.math-filter-chip span {
+  font-size: 10px;
+  opacity: 0.72;
+  font-variant-numeric: tabular-nums;
+}
+.math-filter-chip:hover {
+  border-color: var(--accent-border);
+  color: var(--text-1);
+}
+.math-filter-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+:root[data-style="endfield"] .math-filter-chip {
+  border-radius: 2px;
+}
+
 .preview {
   width: var(--preview-w, 468px); flex: none; min-width: 200px; display: flex; flex-direction: column;
   background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-lg);
