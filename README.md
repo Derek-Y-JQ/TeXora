@@ -1,5 +1,8 @@
 # TeXora 2.2 · 本地优先的 LaTeX 写作工作台
 
+[![Download](https://img.shields.io/badge/Download_Texora-Win_and_Mac-1D4ED8?style=flat-square)](https://github.com/Derek-Y-JQ/TeXora/releases/latest)
+[![Pages](https://img.shields.io/badge/Homepage-0F172A?style=flat-square)](https://derek-y-jq.github.io/TeXora/)
+
 TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF、数学结构和可控 AI 放进同一个工作台。它着重解决写作过程中反复打断思路的小事：
 
 - **受控 AI 赋能，主动权仍在自己**：选上下文、选 Skills、检查差异，再决定是否写入；检查与解释作为回答展示。Agent 支持本机安装的 Codex、Claude Code 和 Google Antigravity。
