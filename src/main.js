@@ -1672,26 +1672,42 @@ async function openPreviewOnLoad(generation = previewGeneration) {
   }
 }
 
+let updateCheckInFlight = false;
 async function checkUpdates(manual = false) {
-  const res = await api.update.check().catch((err) => ({ ok: false, error: err.message }));
-  if (!res || !res.ok) {
-    if (manual) toast({ type: 'warn', title: '无法检查更新', body: res?.error || '网络请求失败', timeout: 4200 });
-    return;
+  if (updateCheckInFlight) return;
+  updateCheckInFlight = true;
+  try {
+    const res = await api.update.check().catch((err) => ({ ok: false, error: err.message }));
+    if (!res || !res.ok) {
+      if (manual) {
+        toast({
+          type: 'warn',
+          title: '无法检查更新',
+          body: res?.error || '网络请求失败，点击前往发布页查看',
+          timeout: 5200,
+          onClick: () => openUpdateDownload(api, {}, toast)
+        });
+      }
+      return;
+    }
+    const now = Date.now();
+    ctx.state.settings.general.lastUpdateCheck = now;
+    await api.settings.set('general.lastUpdateCheck', now);
+    if (!res.hasUpdate) {
+      if (manual) toast({ type: 'success', title: '已是最新版本', body: '当前 ' + res.current, timeout: 2600 });
+      return;
+    }
+    const go = await ctx.dialogs.confirm({
+      title: '发现新版本 ' + res.latest,
+      message: '当前版本 ' + res.current + '，最新版本 ' + res.latest + '。',
+      detail: String(res.notes || '').replace(/[#*_\u0060>]/g, '').slice(0, 500),
+      confirmText: '前往下载',
+      cancelText: '稍后'
+    });
+    if (go) await openUpdateDownload(api, res, toast);
+  } finally {
+    updateCheckInFlight = false;
   }
-  ctx.state.settings.general.lastUpdateCheck = Date.now();
-  await api.settings.set('general.lastUpdateCheck', Date.now());
-  if (!res.hasUpdate) {
-    if (manual) toast({ type: 'success', title: '已是最新版本', body: '当前 ' + res.current, timeout: 2600 });
-    return;
-  }
-  const go = await ctx.dialogs.confirm({
-    title: '发现新版本 ' + res.latest,
-    message: '当前版本 ' + res.current + '，最新版本 ' + res.latest + '。',
-    detail: String(res.notes || '').replace(/[#*_\u0060>]/g, '').slice(0, 500),
-    confirmText: '前往下载',
-    cancelText: '稍后'
-  });
-  if (go) await openUpdateDownload(api, res, toast);
 }
 
 async function runBuild(opts = {}) {
