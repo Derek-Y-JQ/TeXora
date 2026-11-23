@@ -113,3 +113,94 @@ function showPlan(plan,root){
   };
 }
 
+const COMPILERS=[
+  {value:'pdflatex',label:'pdfLaTeX'},
+  {value:'xelatex',label:'XeLaTeX（推荐中文）'},
+  {value:'lualatex',label:'LuaLaTeX'},
+  {value:'latex',label:'LaTeX'}
+];
+
+export async function openOverleafSettings(){
+  const live=ctx.state.overleafLive;
+  if(!live?.active)return toast({type:'info',title:'尚未进入 Overleaf 实时模式'});
+  const state=await api().liveState();
+  const compiler=state?.compiler||live.compiler||'pdflatex';
+  const imageName=state?.imageName||live.imageName||'';
+  const rootFile=state?.rootFile||ctx.state.project.rootFile||'';
+  const writable=Boolean(state?.writable??live.writable);
+  const texFiles=(ctx.state.assets?.tex||[]).filter(f=>/\.(tex|ltx)$/i.test(f));
+  const rootRel=rootFile.startsWith(ctx.state.project.root+'/')?rootFile.slice(ctx.state.project.root.length+1):'';
+  const stopOnFirstError=Boolean(live.stopOnFirstError);
+
+  const m=ctx.dialogs.modal({
+    title:'Overleaf 项目设置',
+    width:560,
+    subtitle:`${live.name||live.projectId} · ${writable?'可编辑':'云端只读'}`,
+    body:`
+      <div class="field-group" style="display:grid;gap:14px">
+        <label class="field">
+          <span>云端编译器（Compiler）</span>
+          <select class="input" data-ol-compiler ${writable?'':'disabled'}>
+            ${COMPILERS.map(c=>`<option value="${c.value}" ${c.value===compiler?'selected':''}>${c.label}</option>`).join('')}
+          </select>
+        </label>
+        <label class="field">
+          <span>主文档（Main document）</span>
+          <select class="input" data-ol-root ${writable?'':'disabled'}>
+            ${texFiles.length?texFiles.map(f=>`<option value="${esc(ctx.state.project.root+'/'+f)}" ${f===rootRel?'selected':''}>${esc(f)}</option>`).join(''):`<option value="">未找到 .tex 文件</option>`}
+          </select>
+        </label>
+        <label class="field">
+          <span>TeX Live 镜像版本（可选）</span>
+          <input class="input" data-ol-image value="${esc(imageName)}" placeholder="保持 Overleaf 默认（如 texlive-full:2024.1）" ${writable?'':'disabled'} />
+          <span class="field-hint">修改云端编译器或主文档会立即同步到 Overleaf 项目设置。</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" data-ol-stop-err ${stopOnFirstError?'checked':''} />
+          <span>遇错即停（Stop on first error）</span>
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px solid var(--border)">
+          <button class="btn btn-outline" data-ol-clear-cache ${writable?'':'disabled'}>清除云端编译缓存并重编</button>
+          <button class="btn btn-outline" data-ol-open-web>在浏览器中打开原项目</button>
+          <button class="btn btn-outline" data-ol-disconnect>断开实时连接</button>
+        </div>
+      </div>`,
+    foot:`<button class="btn btn-outline" data-cancel>关闭</button><button class="btn btn-primary" data-save ${writable?'':'disabled'}>保存设置</button>`
+  });
+
+  m.root.querySelector('[data-cancel]').onclick=m.close;
+  m.root.querySelector('[data-ol-open-web]').onclick=()=>{
+    ctx.api.openExternal(`https://www.overleaf.com/project/${live.projectId}`);
+  };
+  m.root.querySelector('[data-ol-disconnect]').onclick=async()=>{
+    m.close();
+    await ctx.app.disconnectOverleafLive();
+  };
+  m.root.querySelector('[data-ol-clear-cache]').onclick=async()=>{
+    try{
+      check(await api().liveClearCompileCache());
+      m.close();
+      toast({type:'success',title:'已清除 Overleaf 云端缓存',body:'正在从头重新编译…'});
+      ctx.cmd('build.run');
+    }catch(e){error(e);}
+  };
+  m.root.querySelector('[data-save]').onclick=async()=>{
+    const nextCompiler=m.root.querySelector('[data-ol-compiler]').value;
+    const nextRoot=m.root.querySelector('[data-ol-root]').value;
+    const nextImage=m.root.querySelector('[data-ol-image]').value.trim();
+    ctx.state.overleafLive.stopOnFirstError=m.root.querySelector('[data-ol-stop-err]').checked;
+    try{
+      const patch={compiler:nextCompiler};
+      if(nextRoot&&nextRoot!==rootFile)patch.rootFile=nextRoot;
+      if(nextImage&&nextImage!==imageName)patch.imageName=nextImage;
+      const res=check(await api().liveUpdateSettings(patch));
+      ctx.state.overleafLive.compiler=res.compiler||nextCompiler;
+      ctx.state.overleafLive.imageName=res.imageName||nextImage;
+      if(res.rootFile)ctx.state.project.rootFile=res.rootFile;
+      ctx.app.syncOverleafModeUi?.();
+      m.close();
+      toast({type:'success',title:'Overleaf 项目设置已更新',body:`编译器：${nextCompiler}`});
+    }catch(e){error(e);}
+  };
+}
+

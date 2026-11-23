@@ -412,3 +412,28 @@ html[data-style="endfield"] .pdf-present :is(.pp-count,.pp-bar) { font-family:va
 .sb-overleaf-users .ol-presence-dot { width:7px; height:7px; border-radius:999px; background:#10b981; display:inline-block; flex-shrink:0; }
 .ol-remote-cursor { position:relative; width:2px; height:18px; pointer-events:none; z-index:40; }
 .ol-remote-cursor-tag { position:absolute; left:0; bottom:100%; padding:1px 5px; font-size:10px; line-height:1.35; font-weight:600; color:#fff; white-space:nowrap; border-radius:3px 3px 3px 0; box-shadow:0 1px 4px rgba(0,0,0,.22); opacity:.92; }
+.sb-item.is-disabled { opacity:.45; cursor:not-allowed; }
+.ol-history-label { display:inline-block; padding:1px 6px; font-size:10px; font-weight:600; border-radius:4px; background:var(--accent-soft); color:var(--accent); margin-left:6px; }
+
+/* ------------------------------------------- Overleaf transition (Studio) */
+.ol-transition { position:fixed; inset:0; z-index:9500; display:grid; place-items:center; opacity:0; transition:opacity 240ms cubic-bezier(.16,1,.3,1); cursor:pointer; }
+.ol-transition.entering { opacity:1; }
+.ol-transition.leaving { opacity:0; pointer-events:none; }
+.ol-transition-studio { background:color-mix(in srgb,var(--bg) 72%,transparent); backdrop-filter:blur(14px); }
+.ol-transition-studio .ol-tr-card { width:min(420px,calc(100vw - 48px)); padding:28px 30px 24px; background:var(--surface-1); border:1px solid var(--border-strong); border-radius:var(--r-lg,12px); box-shadow:var(--shadow-lg); text-align:center; transform:translateY(10px) scale(.97); transition:transform 280ms cubic-bezier(.16,1,.3,1); }
+.ol-transition-studio.entering .ol-tr-card { transform:translateY(0) scale(1); }
+.ol-transition-studio.leaving .ol-tr-card { transform:translateY(-6px) scale(.99); }
+.ol-transition-studio .ol-tr-ring { display:inline-flex; margin-bottom:14px; }
+.ol-transition-studio .ol-tr-ring-track { stroke:var(--border); }
+.ol-transition-studio .ol-tr-ring-arc { stroke:var(--accent); stroke-dasharray:114; stroke-dashoffset:114; transform:rotate(-90deg); transform-origin:center; transition:stroke-dashoffset 780ms cubic-bezier(.2,.8,.2,1); }
+.ol-transition-studio.entering .ol-tr-ring-arc { stroke-dashoffset:18; }
+.ol-transition-studio .ol-tr-kicker { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); margin-bottom:6px; }
+.ol-transition-studio .ol-tr-title { font-size:19px; font-weight:700; color:var(--text); letter-spacing:-.01em; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ol-transition-studio .ol-tr-sub { font-size:12.5px; color:var(--text-2); margin-bottom:18px; }
+.ol-transition-studio .ol-tr-bar { height:3px; background:var(--surface-3); border-radius:999px; overflow:hidden; }
+.ol-transition-studio .ol-tr-bar-fill { display:block; height:100%; width:100%; background:var(--accent); transform:scaleX(0); transform-origin:left; transition:transform 860ms cubic-bezier(.16,1,.3,1); }
+.ol-transition-studio.entering .ol-tr-bar-fill { transform:scaleX(1); }
+@media (prefers-reduced-motion:reduce) {
+  .ol-transition, .ol-transition * { transition:none !important; }
+  .ol-transition-studio .ol-tr-bar-fill { transform:scaleX(1); }
+}

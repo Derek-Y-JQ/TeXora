@@ -57,6 +57,28 @@ export function createRibbon() {
   const MENUS = {
     build: () => {
       const s = ctx.state.settings;
+      if (ctx.state.overleafLive?.active) {
+        const cur = ctx.state.overleafLive.compiler || 'pdflatex';
+        const setOlCompiler = async (compiler) => {
+          const res = await ctx.api.overleaf.liveUpdateSettings({ compiler });
+          if (res?.ok) {
+            ctx.state.overleafLive.compiler = res.compiler || compiler;
+            ctx.app.syncOverleafModeUi?.();
+          }
+        };
+        return [
+          { group: 'Overleaf 云端编译器' },
+          { label: 'pdfLaTeX · 经典引擎', icon: 'play', checked: cur === 'pdflatex', onClick: () => setOlCompiler('pdflatex') },
+          { label: 'XeLaTeX · 推荐中文', icon: 'play', checked: cur === 'xelatex', onClick: () => setOlCompiler('xelatex') },
+          { label: 'LuaLaTeX · 现代引擎', icon: 'play', checked: cur === 'lualatex', onClick: () => setOlCompiler('lualatex') },
+          { label: 'LaTeX', icon: 'play', checked: cur === 'latex', onClick: () => setOlCompiler('latex') },
+          { separator: true },
+          { label: '保存时触发云端编译', icon: 'download', checked: s.build.buildOnSave, onClick: () => ctx.api.settings.set('build.buildOnSave', !s.build.buildOnSave) },
+          { label: '清除云端编译缓存并重编', icon: 'broom', onClick: () => ctx.cmd('build.clean', false) },
+          { separator: true },
+          { label: 'Overleaf 项目设置…', icon: 'sliders', onClick: () => ctx.app.openOverleafSettings?.() }
+        ];
+      }
       const engines = [
         ['xelatex', 'XeLaTeX', '原生中文支持，推荐'],
         ['pdflatex', 'pdfLaTeX', '经典引擎，速度较快'],
@@ -187,7 +209,7 @@ export function createRibbon() {
       { label: 'DOI / arXiv 抓取 BibTeX', icon: 'download', onClick: () => ctx.dialogs.openDoiFetch() },
       { separator: true },
       { label: 'Markdown 预览与导出', icon: 'code', onClick: () => ctx.dialogs.openMarkdownTools() },
-      { label: 'LaTeXdiff 对比导出', icon: 'code', onClick: () => ctx.cmd('export.latexdiff') },
+      { label: ctx.state.overleafLive?.active ? 'LaTeXdiff 对比导出（仅本地）' : 'LaTeXdiff 对比导出', icon: 'code', disabled: Boolean(ctx.state.overleafLive?.active), onClick: () => ctx.cmd('export.latexdiff') },
       { label: '批注（todonotes）', icon: 'message', onClick: () => ctx.app.insertTodo() },
       { separator: true },
       { label: '快捷键一览', icon: 'keyboard', onClick: () => ctx.dialogs.openShortcuts() },
@@ -198,6 +220,7 @@ export function createRibbon() {
   function refresh() {
     const s = ctx.state.settings;
     if (!s) return;
+    const isLive = Boolean(ctx.state.overleafLive?.active);
     const build = $('#btnBuild');
     if (build) {
       const running = !!ctx.state.build.running;
@@ -205,25 +228,38 @@ export function createRibbon() {
       build.classList.toggle('busy', running);
       build.disabled = !!ctx.state.build.stopping;
       build.setAttribute('aria-busy', String(running));
-      build.title = running ? '停止当前编译' : '保存修改并编译项目 (Ctrl+Alt+B)';
-      build.innerHTML = `${icon(running ? 'stop' : 'compile')}<span>${ctx.state.build.stopping ? '停止中…' : running ? '停止编译' : ctx.state.build.state === 'error' ? '重试编译' : '编译'}</span>`;
+      build.title = running ? '停止当前编译' : isLive ? '触发 Overleaf 云端编译 (Ctrl+Alt+B)' : '保存修改并编译项目 (Ctrl+Alt+B)';
+      build.innerHTML = `${icon(running ? 'stop' : 'compile')}<span>${ctx.state.build.stopping ? '停止中…' : running ? '停止编译' : ctx.state.build.state === 'error' ? '重试编译' : isLive ? '云端编译' : '编译'}</span>`;
     }
     const themeLabel = $('#codeThemeLabel');
     const theme = CODE_THEMES.find(([id]) => id === (s.appearance.codeTheme || 'auto'));
     if (themeLabel) themeLabel.textContent = theme?.[1] || '代码主题';
     const themeBtn = $('#codeThemeBtn');
     if (themeBtn) themeBtn.title = '更换代码高亮主题 · ' + (theme?.[1] || '跟随日夜');
-    const engineLabel = { xelatex: 'XeLaTeX', pdflatex: 'pdfLaTeX', lualatex: 'LuaLaTeX', latexmk: 'latexmk' }[s.build.engine] || s.build.engine;
+    const engNames = { xelatex: 'XeLaTeX', pdflatex: 'pdfLaTeX', lualatex: 'LuaLaTeX', latexmk: 'latexmk', latex: 'LaTeX' };
+    const engineLabel = isLive
+      ? `云端 · ${engNames[ctx.state.overleafLive.compiler || 'pdflatex'] || 'pdfLaTeX'}`
+      : (engNames[s.build.engine] || s.build.engine);
     const label = $('#engineLabel');
     if (label) label.textContent = engineLabel;
     const sbEngine = $('#sbEngine');
-    if (sbEngine) sbEngine.textContent = engineLabel;
+    if (sbEngine) {
+      sbEngine.textContent = engineLabel;
+      sbEngine.title = isLive ? 'Overleaf 云端编译器 · 点击打开项目设置' : '当前本地编译引擎';
+      sbEngine.style.cursor = isLive ? 'pointer' : '';
+    }
     const liveBtn = $('#liveBtn');
-    liveBtn?.classList.toggle('active', !!s.build.livePreview);
+    if (liveBtn) {
+      liveBtn.classList.toggle('active', !isLive && !!s.build.livePreview);
+      liveBtn.disabled = isLive;
+      liveBtn.title = isLive ? 'Overleaf 实时模式下不启用本地自动编译（请手动点击编译或按 Ctrl+S）' : '自动编译';
+    }
     const sbLive = $('#sbLive');
     if (sbLive) {
-      sbLive.classList.toggle('off', !s.build.livePreview);
-      sbLive.innerHTML = `${icon('eye')}自动编译${s.build.livePreview ? '开' : '关'}`;
+      sbLive.classList.toggle('off', isLive || !s.build.livePreview);
+      sbLive.classList.toggle('is-disabled', isLive);
+      sbLive.title = isLive ? 'Overleaf 实时模式下不启用本地自动编译' : '切换自动编译';
+      sbLive.innerHTML = isLive ? `${icon('eye')}云端手动编译` : `${icon('eye')}自动编译${s.build.livePreview ? '开' : '关'}`;
     }
     const toggleSidebarBtn = $('#toggleSidebarBtn');
     toggleSidebarBtn?.classList.toggle('active', !$('#sidebar')?.classList.contains('collapsed'));

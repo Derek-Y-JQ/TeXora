@@ -387,6 +387,7 @@ class OverleafLiveManager {
     this.assets = { tex: [], images: [], bib: [], all: [] };
     this.rootFile = '';
     this.docs = new Map(); // docId -> OTClient
+    this.docTextCache = new Map(); // docId -> cached decoded text for project-wide search
     this.users = new Map(); // clientId -> collaborator info
     this.pendingRequests = new Map(); // requestId -> { resolve, reject, timer }
     this._connectDeferred = null;
@@ -432,6 +433,9 @@ class OverleafLiveManager {
       access: this.access,
       writable: ['owner', 'readAndWrite', 'read-write'].includes(this.access),
       status: this.status,
+      compiler: this.project?.compiler || 'pdflatex',
+      imageName: this.project?.imageName || '',
+      spellCheckLanguage: this.project?.spellCheckLanguage || '',
       tree: this.tree,
       assets: this.assets,
       users: this._serializeUsers()
@@ -611,6 +615,7 @@ class OverleafLiveManager {
     this.assets = { tex: [], images: [], bib: [], all: [] };
     this.rootFile = '';
     this.docs.clear();
+    this.docTextCache.clear();
     this.users.clear();
     this.lastBuildId = '';
     this.lastClsiServerId = '';
@@ -1105,22 +1110,241 @@ class OverleafLiveManager {
     return { ok: true, localPath: target, name: entity.name, ext };
   }
 
+  async updateSettings(patch = {}) {
+    this._requireWritable();
+    const allowed = {};
+    if (typeof patch.compiler === 'string' && ['pdflatex', 'xelatex', 'lualatex', 'latex'].includes(patch.compiler)) {
+      allowed.compiler = patch.compiler;
+    }
+    if (typeof patch.imageName === 'string' && patch.imageName.trim()) {
+      allowed.imageName = patch.imageName.trim();
+    }
+    if (typeof patch.spellCheckLanguage === 'string') {
+      allowed.spellCheckLanguage = patch.spellCheckLanguage;
+    }
+    if (typeof patch.rootDocId === 'string' && ID_RE.test(patch.rootDocId)) {
+      allowed.rootDocId = patch.rootDocId;
+    } else if (typeof patch.rootFile === 'string') {
+      const ent = this.pathToEntity.get(patch.rootFile);
+      if (ent?.entityType === 'doc') allowed.rootDocId = ent.id;
+    }
+    if (Object.keys(allowed).length === 0) return { ok: true, ...this.state() };
+
+    await this.session.request(`/project/${this.projectId}/settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': this.csrf
+      },
+      body: JSON.stringify(allowed)
+    });
+
+    if (this.project) {
+      if (allowed.compiler) this.project.compiler = allowed.compiler;
+      if (allowed.imageName) this.project.imageName = allowed.imageName;
+      if (allowed.spellCheckLanguage !== undefined) this.project.spellCheckLanguage = allowed.spellCheckLanguage;
+      if (allowed.rootDocId) {
+        this.project.rootDoc_id = allowed.rootDocId;
+        this._rebuildTree();
+      }
+    }
+    const snapshot = this.state();
+    this.emitToRenderer({
+      type: 'settingsChanged',
+      compiler: snapshot.compiler,
+      imageName: snapshot.imageName,
+      spellCheckLanguage: snapshot.spellCheckLanguage,
+      rootFile: snapshot.rootFile
+    });
+    return { ok: true, ...snapshot };
+  }
+
+  async clearCompileCache() {
+    this._requireWritable();
+    const params = new URLSearchParams();
+    if (this.lastClsiServerId) params.set('clsiserverid', this.lastClsiServerId);
+    const qs = params.toString();
+    await this.session.request(`/project/${this.projectId}/output${qs ? '?' + qs : ''}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': this.csrf }
+    });
+    this.lastBuildId = '';
+    return { ok: true };
+  }
+
+  async fetchHistory({ before } = {}) {
+    if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    if (!this.session || typeof this.session.request !== 'function') throw new Error('Overleaf 网络会话不可用');
+    const params = new URLSearchParams({ min_count: '15' });
+    if (before) params.set('before', String(before));
+    const updatesRes = await this.session.request(`/project/${this.projectId}/updates?${params.toString()}`, {
+      headers: { Accept: 'application/json' }
+    });
+    const updatesData = await updatesRes.json();
+
+    let labels = [];
+    if (!before) {
+      try {
+        const labelsRes = await this.session.request(`/project/${this.projectId}/labels`, {
+          headers: { Accept: 'application/json' }
+        });
+        const labelsData = await labelsRes.json();
+        if (Array.isArray(labelsData)) labels = labelsData;
+      } catch {}
+    }
+
+    const rawUpdates = Array.isArray(updatesData?.updates) ? updatesData.updates : [];
+    const updates = rawUpdates.map((u) => {
+      const users = (Array.isArray(u?.meta?.users) ? u.meta.users : []).map((usr) => {
+        const full = [usr?.first_name, usr?.last_name].filter(Boolean).join(' ').trim();
+        return full || usr?.email || '协作者';
+      });
+      const files = Array.isArray(u?.pathnames) ? u.pathnames : [];
+      return {
+        fromV: Number(u?.fromV) || 0,
+        toV: Number(u?.toV) || 0,
+        endTs: Number(u?.meta?.end_ts) || 0,
+        startTs: Number(u?.meta?.start_ts) || 0,
+        users,
+        pathnames: files,
+        labels: labels.filter((l) => Number(l?.version) >= Number(u?.fromV) && Number(l?.version) <= Number(u?.toV))
+      };
+    });
+
+    return {
+      ok: true,
+      updates,
+      labels,
+      nextBeforeTimestamp: updatesData?.nextBeforeTimestamp || null,
+      freeHistoryLimitHit: Boolean(updatesData?.freeHistoryLimitHit)
+    };
+  }
+
+  async fetchHistoryDiff({ pathname, from, to }) {
+    if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    if (!this.session || typeof this.session.request !== 'function') throw new Error('Overleaf 网络会话不可用');
+    if (!pathname) throw new Error('缺少历史文件路径');
+    const params = new URLSearchParams({
+      pathname: String(pathname),
+      from: String(Number(from) || 0),
+      to: String(Number(to) || 0)
+    });
+    const res = await this.session.request(`/project/${this.projectId}/diff?${params.toString()}`, {
+      headers: { Accept: 'application/json' }
+    });
+    const data = await res.json();
+    const chunks = Array.isArray(data?.diff) ? data.diff : [];
+    let beforeText = '';
+    let afterText = '';
+    for (const part of chunks) {
+      if (typeof part?.u === 'string') {
+        beforeText += part.u;
+        afterText += part.u;
+      } else if (typeof part?.d === 'string') {
+        beforeText += part.d;
+      } else if (typeof part?.i === 'string') {
+        afterText += part.i;
+      }
+    }
+    return { ok: true, pathname, beforeText, afterText, chunks };
+  }
+
+  async _readDocTextForSearch(entity) {
+    const activeClient = this.docs.get(entity.id);
+    if (activeClient) return activeClient.text;
+    if (this.docTextCache.has(entity.id)) return this.docTextCache.get(entity.id);
+    const res = await this._requestBridge('joinDoc', { docId: entity.id }, 10000);
+    const text = (res.docLines || []).map((line) => decodeOverleafUtf8(line)).join('\n');
+    this.docTextCache.set(entity.id, text);
+    // Only leave if user didn't open the tab while we were fetching
+    if (!this.docs.has(entity.id)) {
+      void this._requestBridge('leaveDoc', { docId: entity.id }, 4000).catch(() => {});
+    }
+    return text;
+  }
+
+  async searchProject({ query, regex = false, caseSensitive = false, wholeWord = false, include = '' } = {}) {
+    if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    const q = String(query || '');
+    if (!q) return { ok: true, matches: [], truncated: false };
+
+    let pattern;
+    try {
+      const escaped = regex ? q : q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const source = wholeWord ? `\\b(?:${escaped})\\b` : escaped;
+      pattern = new RegExp(source, caseSensitive ? 'g' : 'gi');
+    } catch (err) {
+      return { ok: false, error: `无效的正则表达式：${err.message}` };
+    }
+
+    const inc = String(include || '').trim().toLowerCase();
+    const docEntities = [...this.pathToEntity.values()].filter((e) => {
+      if (e.entityType !== 'doc') return false;
+      if (!inc) return true;
+      const relLower = (e.rel || '').toLowerCase();
+      if (inc.includes('*')) {
+        const re = new RegExp('^' + inc.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+        return re.test(relLower) || re.test((e.name || '').toLowerCase());
+      }
+      return relLower.includes(inc);
+    });
+
+    const matches = [];
+    const MAX_MATCHES = 500;
+    let truncated = false;
+
+    // Fetch & scan in small concurrent batches
+    const CONCURRENCY = 4;
+    for (let i = 0; i < docEntities.length && !truncated; i += CONCURRENCY) {
+      const batch = docEntities.slice(i, i + CONCURRENCY);
+      const texts = await Promise.all(batch.map((ent) => this._readDocTextForSearch(ent).catch(() => '')));
+      for (let j = 0; j < batch.length && !truncated; j++) {
+        const ent = batch[j];
+        const lines = String(texts[j] || '').split('\n');
+        for (let ln = 0; ln < lines.length; ln++) {
+          const lineText = lines[ln];
+          pattern.lastIndex = 0;
+          const m = pattern.exec(lineText);
+          if (m) {
+            matches.push({
+              file: ent.path,
+              rel: ent.rel,
+              line: ln + 1,
+              col: m.index + 1,
+              text: lineText
+            });
+            if (matches.length >= MAX_MATCHES) {
+              truncated = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return { ok: true, matches, truncated };
+  }
+
   _upsertUser(raw) {
     if (!raw) return;
     const id = String(raw.client_id || raw.id || raw.user_id || '');
     if (!id) return;
     const prev = this.users.get(id) || {};
+    const cursor = raw.cursorData && typeof raw.cursorData === 'object' ? raw.cursorData : raw;
     const first = raw.first_name || '';
     const last = raw.last_name || '';
     const fullName = [first, last].filter(Boolean).join(' ').trim() || raw.name || raw.email || prev.name || '协作者';
+    const row = typeof cursor.row === 'number' ? cursor.row : (typeof raw.row === 'number' ? raw.row : (prev.row ?? 0));
+    const column = typeof cursor.column === 'number' ? cursor.column : (typeof raw.column === 'number' ? raw.column : (prev.column ?? 0));
+    const docId = cursor.doc_id || raw.doc_id || prev.doc_id || '';
     this.users.set(id, {
       id,
       user_id: raw.user_id || prev.user_id || '',
       name: fullName,
       email: raw.email || prev.email || '',
-      row: typeof raw.row === 'number' ? raw.row : (prev.row ?? 0),
-      column: typeof raw.column === 'number' ? raw.column : (prev.column ?? 0),
-      doc_id: raw.doc_id || prev.doc_id || '',
+      row,
+      column,
+      doc_id: docId,
       color: prev.color || colorForUser(raw.user_id || id)
     });
   }

@@ -4,7 +4,8 @@ import { definedEnvironmentNames } from './js/environment-input.js';
  * TeXora renderer entry: boot, layout, documents, build pipeline, panels.
  */
 import { ctx } from './js/ctx.js';
-import { openOverleaf } from './js/overleaf-ui.js';
+import { openOverleaf, openOverleafSettings } from './js/overleaf-ui.js';
+import { playOverleafTransition } from './js/overleaf-transition.js';
 import { openUpdateDownload } from './js/external-links.js';
 import { enumLabelEdit } from './js/live-math.js';
 import { packageInsertion } from './js/code-blocks.js';
@@ -69,6 +70,10 @@ async function boot() {
   wireWindowControls();
   wireTitlebar();
   $('#overleafBtn').addEventListener('click', openOverleaf);
+  $('#overleafSettingsBtn')?.addEventListener('click', openOverleafSettings);
+  $('#sbEngine')?.addEventListener('click', () => {
+    if (ctx.state.overleafLive?.active) openOverleafSettings();
+  });
   wireSplitters();
   wireStatusbar();
   wireFindBar();
@@ -110,14 +115,15 @@ async function boot() {
     const users = (ctx.state.overleafLive?.users || []).filter((u) => !u.isSelf);
     const items = users.length
       ? [{ group: '在线协作者（点击跳转到对方位置）' }, ...users.map((u) => ({
-          label: `${u.name}${u.fileName ? ` · ${u.fileName}:${(u.row || 0) + 1}` : ''}`,
+          label: `${u.name}${u.fileName ? ` · ${u.fileName}:${(u.row || 0) + 1}` : ' · 尚未定位文档'}`,
           icon: 'target',
           onClick: () => {
             if (u.path) void openDocument(u.path, { line: (u.row || 0) + 1, column: (u.column || 0) + 1, flash: true });
+            else toast({ type: 'info', title: u.name, body: '对方尚未定位到具体文档，待其点击编辑器后即可跳转。' });
           }
         }))]
       : [{ group: '当前仅你一人在线' }];
-    openMenu($('#sbOverleafUsers'), items, { align: 'left', minWidth: 240 });
+    openMenu($('#sbOverleafUsers'), items, { align: 'left', minWidth: 260 });
   });
 
   if (info.capture?.enabled) await applyCaptureView();
@@ -772,6 +778,7 @@ async function openProject(path) {
   if (ctx.state.overleafLive?.active) {
     await api.overleaf.liveDisconnect().catch(() => {});
     ctx.state.overleafLive = { active: false, projectId: '', name: '', access: 'unknown', writable: false, status: 'disconnected', users: [] };
+    syncOverleafModeUi();
     syncOverleafReadOnly();
     renderOverleafUsers();
   }
@@ -822,6 +829,7 @@ async function closeProject() {
   if (ctx.state.overleafLive?.active) {
     await api.overleaf.liveDisconnect().catch(() => {});
     ctx.state.overleafLive = { active: false, projectId: '', name: '', access: 'unknown', writable: false, status: 'disconnected', users: [] };
+    syncOverleafModeUi();
     syncOverleafReadOnly();
     renderOverleafUsers();
   } else {
@@ -886,6 +894,9 @@ async function openOverleafLive(projectId) {
     access: res.access || 'unknown',
     writable: Boolean(res.writable),
     status: res.status || 'connected',
+    compiler: res.compiler || 'pdflatex',
+    imageName: res.imageName || '',
+    stopOnFirstError: false,
     users: Array.isArray(res.users) ? res.users : []
   };
   ctx.state.project = {
@@ -902,6 +913,8 @@ async function openOverleafLive(projectId) {
   $('#sbRootName').textContent = res.rootFile ? baseName(res.rootFile) : '未识别主文档';
   setBuildStatus('ok', 'Overleaf 实时已连接');
   previewSuspended = false;
+  syncOverleafModeUi();
+  playOverleafTransition({ projectName: res.name || 'Overleaf', compiler: res.compiler || 'pdflatex', writable: Boolean(res.writable) });
   syncOverleafReadOnly();
   renderOverleafUsers();
   ctx.sidebar.renderTree();
@@ -921,6 +934,13 @@ async function openOverleafLive(projectId) {
       : `已以只读权限直连「${res.name}」，编辑器已锁定为只读。`,
     timeout: 5000
   });
+}
+
+function syncOverleafModeUi() {
+  const isLive = Boolean(ctx.state.overleafLive?.active);
+  const settingsBtn = $('#overleafSettingsBtn');
+  if (settingsBtn) settingsBtn.hidden = !isLive;
+  ctx.ribbon?.refresh?.();
 }
 
 function syncOverleafReadOnly() {
@@ -955,6 +975,7 @@ function renderOverleafUsers() {
 async function disconnectOverleafLive() {
   if (!ctx.state.overleafLive?.active) return;
   await closeProject();
+  syncOverleafModeUi();
   syncOverleafReadOnly();
   renderOverleafUsers();
   setBuildStatus('idle', '已断开 Overleaf');
@@ -963,6 +984,16 @@ async function disconnectOverleafLive() {
 
 function onOverleafLiveEvent(event) {
   if (!event || !ctx.state.overleafLive?.active) return;
+  if (event.type === 'settingsChanged') {
+    if (event.compiler) ctx.state.overleafLive.compiler = event.compiler;
+    if (event.imageName !== undefined) ctx.state.overleafLive.imageName = event.imageName;
+    if (event.rootFile) {
+      ctx.state.project.rootFile = event.rootFile;
+      $('#sbRootName').textContent = baseName(event.rootFile);
+    }
+    syncOverleafModeUi();
+    return;
+  }
   if (event.type === 'usersChanged') {
     ctx.state.overleafLive.users = Array.isArray(event.users) ? event.users : [];
     renderOverleafUsers();
@@ -1592,7 +1623,7 @@ async function runBuild(opts = {}) {
       ctx.state.log = '';
       setBuildStatus('building', 'Overleaf 云端编译中…');
       ctx.preview.setBusy(true);
-      const res = await api.overleaf.liveCompile({ stopOnFirstError: false });
+      const res = await api.overleaf.liveCompile({ stopOnFirstError: Boolean(ctx.state.overleafLive?.stopOnFirstError) });
       if (generation !== previewGeneration) return;
       ctx.state.log = res?.log || '';
       handleBuildDone({
@@ -1672,6 +1703,16 @@ async function stopBuild() {
 }
 
 async function cleanBuild(all = false) {
+  if (ctx.state.overleafLive?.active) {
+    const res = await api.overleaf.liveClearCompileCache();
+    if (res?.ok) {
+      toast({ type: 'success', title: '已清除 Overleaf 云端缓存', body: '正在从头重新编译…' });
+      void runBuild();
+    } else {
+      toast({ type: 'error', title: '清除云端缓存失败', body: res?.error || '' });
+    }
+    return;
+  }
   const plan=await api.build.cleanPlan(all);
   if(!plan.ok)return toast({type:'error',title:'无法清理',body:plan.error});
   if(!plan.files.length)return toast({type:'info',title:'没有可清理的文件'});
@@ -1942,6 +1983,10 @@ function toggleWordWrap() {
 }
 
 function toggleLivePreview() {
+  if (ctx.state.overleafLive?.active) {
+    toast({ type: 'info', title: 'Overleaf 实时模式', body: '云端编译请手动点击编译或按 Ctrl+S，避免触发 Overleaf 限流。' });
+    return;
+  }
   const next = !ctx.state.settings.build.livePreview;
   api.settings.set('build.livePreview', next);
   ctx.state.settings.build.livePreview = next;
@@ -2436,6 +2481,8 @@ ctx.app = {
   openProject,
   openOverleafLive,
   disconnectOverleafLive,
+  openOverleafSettings,
+  syncOverleafModeUi,
   openTarget,
   openPdf,
   closeProject,

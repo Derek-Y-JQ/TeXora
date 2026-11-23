@@ -85,6 +85,11 @@ const api = {
     liveSetRootDoc: target => invoke('overleaf:liveSetRootDoc',target),
     liveUploadFile: (parent,localPath) => invoke('overleaf:liveUploadFile',parent,localPath),
     liveFetchFile: target => invoke('overleaf:liveFetchFile',target),
+    liveUpdateSettings: patch => invoke('overleaf:liveUpdateSettings',patch),
+    liveClearCompileCache: () => invoke('overleaf:liveClearCompileCache'),
+    liveFetchHistory: opts => invoke('overleaf:liveFetchHistory',opts),
+    liveFetchHistoryDiff: opts => invoke('overleaf:liveFetchHistoryDiff',opts),
+    liveSearch: opts => invoke('overleaf:liveSearch',opts),
     onLiveEvent: cb => on('overleaf:liveEvent',cb)
   },
   systemFonts: () => invoke('app:systemFonts'),

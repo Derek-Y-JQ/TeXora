@@ -76,8 +76,9 @@ export class Sidebar {
     this.panel = id;
     for (const [key, node] of Object.entries(this.panels)) node.classList.toggle('active', key === id);
     this.syncActivityButtons();
-    this.titleEl.textContent = PANEL_META[id].title;
-    this.titleEl.dataset.efLabel = '// ' + PANEL_META[id].en;
+    const isLiveHistory = id === 'history' && Boolean(ctx.state.overleafLive?.active);
+    this.titleEl.textContent = isLiveHistory ? '云端历史' : PANEL_META[id].title;
+    this.titleEl.dataset.efLabel = isLiveHistory ? '// OVERLEAF HISTORY' : '// ' + PANEL_META[id].en;
     if (changed && !silent) ctx.api.settings.set('ui.sidebarTab', id);
     if (!silent) {
       const sidebar = $('#sidebar');
@@ -122,7 +123,7 @@ export class Sidebar {
         mk('refresh', '重新解析', () => ctx.editor?.doParse());
         break;
       case 'history':
-        mk('plus', '为当前文件创建快照', () => this.snapshotNow());
+        if (!ctx.state.overleafLive?.active) mk('plus', '为当前文件创建快照', () => this.snapshotNow());
         mk('refresh', '刷新', () => this.refreshHistory());
         break;
       case 'git':
@@ -693,13 +694,16 @@ export class Sidebar {
     }
     this.searchState.busy = true;
     this.renderSearch();
-    const res = await ctx.api.search.project({
+    const searchPayload = {
       query: q,
       regex: this.searchState.regex,
       caseSensitive: this.searchState.caseSensitive,
       wholeWord: this.searchState.wholeWord,
       include: this.searchState.include
-    });
+    };
+    const res = ctx.state.overleafLive?.active
+      ? await ctx.api.overleaf.liveSearch(searchPayload)
+      : await ctx.api.search.project(searchPayload);
     if (request !== this.searchRequest || root !== ctx.state.project.root) return;
     this.searchState.busy = false;
     this.searchState.results = res;
@@ -769,11 +773,14 @@ export class Sidebar {
   }
 
   /* ---------------------------------------------------------------- history */
-  async refreshHistory() {
+  async refreshHistory(opts = {}) {
     const panel = this.panels.history;
     if (!ctx.state.project.root) {
       panel.innerHTML = `<div class="empty-hint">打开项目后开始记录本地快照</div>`;
       return;
+    }
+    if (ctx.state.overleafLive?.active) {
+      return this.refreshOverleafHistory(opts);
     }
     const res = await ctx.api.history.list();
     this.historyItems = res.items || [];
@@ -818,6 +825,84 @@ export class Sidebar {
     }
   }
 
+  async refreshOverleafHistory({ before = null, append = false } = {}) {
+    const panel = this.panels.history;
+    if (!append) {
+      this._olHistoryUpdates = [];
+      panel.innerHTML = `<div class="empty-hint">${icon('loader')} 读取 Overleaf 修改历史…</div>`;
+    }
+    const res = await ctx.api.overleaf.liveFetchHistory(before ? { before } : {});
+    if (!res?.ok) {
+      panel.innerHTML = `<div class="empty-hint danger-text">无法读取 Overleaf 历史<br/><span class="muted">${escapeHtml(res?.error || '')}</span></div>`;
+      return;
+    }
+    const incoming = Array.isArray(res.updates) ? res.updates : [];
+    this._olHistoryUpdates = append ? [...(this._olHistoryUpdates || []), ...incoming] : incoming;
+    if (!this._olHistoryUpdates.length) {
+      panel.innerHTML = `<div class="empty-hint">${icon('history')}<br/>暂无云端修改记录</div>`;
+      return;
+    }
+    const groups = new Map();
+    for (const item of this._olHistoryUpdates) {
+      const d = new Date(item.endTs || Date.now());
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    }
+    let html = '<div class="history-list">';
+    let idx = 0;
+    for (const [day, items] of groups) {
+      const today = new Date().toISOString().slice(0, 10) === day;
+      html += `<div class="history-day">${today ? '今天' : day}</div>`;
+      for (const item of items) {
+        const who = item.users?.length ? item.users.join('、') : '协作者';
+        const filesText = item.pathnames?.length ? item.pathnames.slice(0, 3).join(', ') + (item.pathnames.length > 3 ? ` 等 ${item.pathnames.length} 个文件` : '') : `v${item.fromV} → v${item.toV}`;
+        const labelBadges = (item.labels || []).map((l) => `<span class="ol-history-label">${escapeHtml(l.comment || '标签')}</span>`).join('');
+        html += `<div class="history-row" data-ol-idx="${idx}" title="点击查看修改差异">
+          <span class="h-time">${timeOfDay(item.endTs || Date.now())}</span>
+          <span class="h-reason">${escapeHtml(who)}${labelBadges}</span>
+          <span class="h-file">${escapeHtml(filesText)}</span>
+        </div>`;
+        idx++;
+      }
+    }
+    if (res.nextBeforeTimestamp) {
+      html += `<div style="padding:10px;text-align:center"><button class="btn btn-sm btn-outline" data-ol-more>加载更早记录</button></div>`;
+    }
+    if (res.freeHistoryLimitHit) {
+      html += `<div class="empty-hint" style="padding:8px 12px"><span class="muted">当前 Overleaf 账号已触及免费版历史时间窗口限制</span></div>`;
+    }
+    html += '</div>';
+    panel.innerHTML = html;
+
+    for (const row of $$('[data-ol-idx]', panel)) {
+      const item = this._olHistoryUpdates[Number(row.dataset.olIdx)];
+      row.addEventListener('click', () => this.openOverleafHistoryDiff(item));
+    }
+    panel.querySelector('[data-ol-more]')?.addEventListener('click', () => {
+      void this.refreshOverleafHistory({ before: res.nextBeforeTimestamp, append: true });
+    });
+  }
+
+  async openOverleafHistoryDiff(item) {
+    if (!item?.pathnames?.length) return toast({ type: 'info', title: '该记录无文本文件变更' });
+    const targetFile = item.pathnames[0];
+    const res = await ctx.api.overleaf.liveFetchHistoryDiff({
+      pathname: targetFile,
+      from: item.fromV,
+      to: item.toV
+    });
+    if (!res?.ok) return toast({ type: 'error', title: '读取云端差异失败', body: res?.error || '' });
+    ctx.dialogs.showDiff({
+      title: `Overleaf 历史 · ${targetFile}`,
+      subtitle: `${item.users?.join('、') || '协作者'} · ${timeAgo(item.endTs || Date.now())}（v${item.fromV} → v${item.toV}）`,
+      left: res.beforeText || '',
+      right: res.afterText || '',
+      leftLabel: `修改前 (v${item.fromV})`,
+      rightLabel: `修改后 (v${item.toV})`
+    });
+  }
+
   async diffSnapshot(item) {
     const snap = await ctx.api.history.read(item.id);
     if (!snap.ok) return toast({ type: 'error', title: '读取快照失败', body: snap.error });
@@ -847,6 +932,10 @@ export class Sidebar {
     const panel = this.panels.git;
     if (!ctx.state.project.root) {
       panel.innerHTML = `<div class="empty-hint">打开项目后使用 Git 版本控制</div>`;
+      return;
+    }
+    if (ctx.state.overleafLive?.active) {
+      panel.innerHTML = `<div class="empty-hint">${icon('git')}<br/><strong>Overleaf 实时模式不使用本地 Git</strong><br/><span class="muted">请使用「云端历史」查看版本时间线；如需本机 Git 版本控制，可在 Overleaf 窗口中选择「离线副本」。</span></div>`;
       return;
     }
     panel.innerHTML = `<div class="empty-hint">${icon('loader')} 读取 Git 状态…</div>`;

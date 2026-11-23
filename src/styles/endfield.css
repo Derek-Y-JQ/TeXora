@@ -373,3 +373,23 @@ html[data-style="endfield"] :is(.titlebar button,.ribbon button,.act-btn,.menu-i
 @keyframes ef-fade { from { opacity:0; } to { opacity:1; } }
 @media(prefers-reduced-motion:reduce) { html[data-style="endfield"] *,html[data-style="endfield"] *::before,html[data-style="endfield"] *::after { animation:none !important; transition:none !important; } }
 html[data-style="endfield"][data-reduce-motion="1"] *,html[data-style="endfield"][data-reduce-motion="1"] *::before,html[data-style="endfield"][data-reduce-motion="1"] *::after { animation:none !important; transition:none !important; }
+
+/* ----------------------------------------- Overleaf transition (Endfield) */
+html[data-style="endfield"] .ol-transition-ef { background:var(--ef-scrim); backdrop-filter:none; transition:opacity 180ms var(--ef-mech); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-shutter { position:absolute; left:0; right:0; height:3px; background:var(--ef-signal); transform:scaleX(0); transition:transform 260ms var(--ef-snap); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-shutter-top { top:0; transform-origin:left; }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-shutter-bot { bottom:0; transform-origin:right; }
+html[data-style="endfield"] .ol-transition-ef.entering .ol-tr-shutter { transform:scaleX(1); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-plate { width:min(480px,calc(100vw - 40px)); background:var(--surface-1); border:1px solid var(--ef-edge); padding:0 0 18px; clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px)); transform:translateY(14px); transition:transform 200ms var(--ef-snap); }
+html[data-style="endfield"] .ol-transition-ef.entering .ol-tr-plate { transform:translateY(0); }
+html[data-style="endfield"] .ol-transition-ef.leaving .ol-tr-plate { transform:translateY(-8px); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-hatch { height:10px; background:var(--ef-hatch); border-bottom:1px solid var(--border); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-head { display:flex; align-items:center; justify-content:space-between; padding:12px 18px 8px; border-bottom:1px solid var(--border-soft); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-code { font-family:var(--font-display); font-stretch:var(--ef-wider); font-size:11px; font-weight:700; letter-spacing:.12em; color:var(--text-3); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-badge { background:var(--ef-signal); color:var(--ef-on-signal); font-family:var(--font-display); font-stretch:var(--ef-wider); font-size:10px; font-weight:800; letter-spacing:.12em; padding:2px 8px; }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-title { padding:16px 18px 8px; font-size:21px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-meta { display:flex; justify-content:space-between; gap:12px; padding:0 18px 16px; font-family:var(--font-display); font-stretch:var(--ef-wide); font-size:11px; letter-spacing:.06em; color:var(--text-2); }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-bar { margin:0 18px; height:4px; background:var(--surface-3); overflow:hidden; }
+html[data-style="endfield"] .ol-transition-ef .ol-tr-bar-fill { display:block; height:100%; width:100%; background:var(--ef-signal); transform:scaleX(0); transform-origin:left; transition:transform 760ms var(--ef-mech); }
+html[data-style="endfield"] .ol-transition-ef.entering .ol-tr-bar-fill { transform:scaleX(1); }
+html[data-style="endfield"] .ol-history-label { background:var(--ef-signal); color:var(--ef-on-signal); font-family:var(--font-display); font-stretch:var(--ef-wide); }

@@ -432,6 +432,22 @@ const {
       if (route === `/project/${projectId}/file/${figFileId}`) {
         return new Response(Buffer.from([137, 80, 78, 71, 13, 10]), { headers: { 'content-type': 'image/png' } });
       }
+      if (route.startsWith(`/project/${projectId}/updates`)) {
+        return new Response(JSON.stringify({
+          updates: [{ fromV: 1, toV: 4, meta: { end_ts: 1700000000000, users: [{ first_name: 'Alice', last_name: 'Lin' }] }, pathnames: ['main.tex'] }],
+          nextBeforeTimestamp: 1699999999000,
+          freeHistoryLimitHit: false
+        }), { headers: { 'content-type': 'application/json' } });
+      }
+      if (route === `/project/${projectId}/labels`) {
+        return new Response(JSON.stringify([{ id: 'l1', comment: 'Initial Draft', version: 3 }]), { headers: { 'content-type': 'application/json' } });
+      }
+      if (route.startsWith(`/project/${projectId}/diff?`)) {
+        return new Response(JSON.stringify({ diff: [{ u: 'hello ' }, { d: 'old' }, { i: 'new' }] }), { headers: { 'content-type': 'application/json' } });
+      }
+      if (route.startsWith(`/project/${projectId}/output`) && options?.method === 'DELETE') {
+        return new Response(null, { status: 204 });
+      }
       return origReq(route, options);
     };
     const fetched = await manager.fetchFile(`${overleafRoot(projectId)}/fig1.png`);
@@ -441,13 +457,50 @@ const {
 
     assert.throws(() => manager.applyLocalChanges(mainDocId, [{ rangeOffset: 0, rangeLength: 0, text: 'x' }], 'x'), /只读/);
     manager.access = 'owner';
+
+    // Phase 5: Nested cursorData parsing, settings, cache clear, cloud history timeline & diff, and cloud global search
+    emitFromBridge('clientUpdated', {
+      client_id: 'c-bob',
+      user_id: 'u-bob',
+      first_name: 'Bob',
+      cursorData: { doc_id: secDocId, row: 14, column: 3 }
+    });
+    const bob = manager.state().users.find((u) => u.id === 'c-bob');
+    assert.ok(bob);
+    assert.equal(bob.path, `${overleafRoot(projectId)}/sections/intro.tex`);
+    assert.equal(bob.row, 14);
+    assert.equal(bob.column, 3);
+
+    const updatedSettings = await manager.updateSettings({ compiler: 'xelatex', imageName: 'texlive-full:2024.1' });
+    assert.equal(updatedSettings.compiler, 'xelatex');
+    assert.equal(updatedSettings.imageName, 'texlive-full:2024.1');
+
+    const cleared = await manager.clearCompileCache();
+    assert.equal(cleared.ok, true);
+
+    const hist = await manager.fetchHistory();
+    assert.equal(hist.ok, true);
+    assert.equal(hist.updates.length, 1);
+    assert.equal(hist.updates[0].labels[0].comment, 'Initial Draft');
+
+    const diff = await manager.fetchHistoryDiff({ pathname: 'main.tex', from: 1, to: 4 });
+    assert.equal(diff.beforeText, 'hello old');
+    assert.equal(diff.afterText, 'hello new');
+
+    // Global cloud search across docs using cached/open text
+    manager.docTextCache.set(mainDocId, '\\section{Intro}\nFindMe in main\n');
+    manager.docTextCache.set(secDocId, 'Another findme here\n');
+    const searchRes = await manager.searchProject({ query: 'findme', caseSensitive: false });
+    assert.equal(searchRes.ok, true);
+    assert.equal(searchRes.matches.length, 2);
+
     manager.status = 'disconnected';
     assert.throws(() => manager.applyLocalChanges(mainDocId, [{ rangeOffset: 0, rangeLength: 0, text: 'x' }], 'x'), /已断开/);
 
     await manager.disconnect();
   }
 
-  console.log('PASS Overleaf Live: Phase 1-4 (OT, tree, cloud compile, SyncTeX, presence, CRUD, fetchFile, disconnect/readonly guards).');
+  console.log('PASS Overleaf Live: Phase 1-5 (OT, tree, compile, SyncTeX, presence/cursorData, CRUD, settings, history timeline/diff, global search).');
 })().catch((e) => {
   console.error(e);
   process.exitCode = 1;

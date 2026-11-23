@@ -412,6 +412,11 @@ handle('overleaf:liveDelete',async target=>await overleafLive.deleteEntity(targe
 handle('overleaf:liveSetRootDoc',async target=>await overleafLive.setRootDoc(target));
 handle('overleaf:liveUploadFile',async (parent,localPath)=>await overleafLive.uploadFile(parent,localPath));
 handle('overleaf:liveFetchFile',async target=>await overleafLive.fetchFile(target));
+handle('overleaf:liveUpdateSettings',async patch=>await overleafLive.updateSettings(patch));
+handle('overleaf:liveClearCompileCache',async()=>await overleafLive.clearCompileCache());
+handle('overleaf:liveFetchHistory',async opts=>await overleafLive.fetchHistory(opts||{}));
+handle('overleaf:liveFetchHistoryDiff',async opts=>await overleafLive.fetchHistoryDiff(opts||{}));
+handle('overleaf:liveSearch',async opts=>await overleafLive.searchProject(opts||{}));
 
 // ----------------------------------------------------------------- app / window
 handle('app:systemFonts', async () => {
