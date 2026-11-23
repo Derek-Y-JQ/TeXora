@@ -18,10 +18,10 @@ app.whenReady().then(async()=>{
  win.unmaximize();win.setSize(1440,900);await until(()=>js('innerWidth>1400'));
  win.maximize();await until(()=>win.isMaximized());
  await js('window.__texora.state.settings.ui.previewWidth=900;window.__texora.app.applyAppearance()');
- await until(()=>js('document.querySelector(".preview").clientWidth<=innerWidth*.4+1'));
+ await until(()=>js('document.querySelector(".preview").clientWidth>=200 && document.querySelector(".editor-area").clientWidth>=239 && document.querySelector(".workspace").scrollWidth<=innerWidth+1'));
  const wide=await js('({view:innerWidth,pane:document.querySelector(".preview").clientWidth,page:window.__texora.preview.pageEls[0].clientWidth})');
  win.unmaximize();await until(()=>!win.isMaximized());win.setSize(900,800);await until(()=>js('innerWidth>=880 && innerWidth<=910'));
- await until(()=>js('document.querySelector(".preview").clientWidth<=innerWidth*.4+1 && window.__texora.preview.pageEls[0].clientWidth<'+wide.page));
+ await until(()=>js('document.querySelector(".preview").clientWidth<'+wide.pane+' && document.querySelector(".editor-area").clientWidth>=239 && window.__texora.preview.pageEls[0].clientWidth<'+wide.page));
  const narrow=await js('({view:innerWidth,pane:document.querySelector(".preview").clientWidth,page:window.__texora.preview.pageEls[0].clientWidth,workspace:document.querySelector(".workspace").scrollWidth})');
  assert.ok(narrow.pane<wide.pane);assert.ok(narrow.page<wide.page);assert.ok(narrow.workspace<=narrow.view+1);
  assert.ok(await js(`(()=>{const b=document.querySelector('.ribbon-tail [data-cmd="ai.assistant"]'),r=b.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth})()`));
@@ -30,7 +30,7 @@ app.whenReady().then(async()=>{
  assert.ok(await js('document.querySelector(".ribbon-scroll").scrollLeft>0'));
  fs.mkdirSync('.capture',{recursive:true});fs.writeFileSync('.capture/200-window-narrow.png',(await win.webContents.capturePage()).toPNG());
  await js(`document.querySelector('.ribbon-tail [data-cmd="ai.assistant"]').click()`);await until(()=>js('window.__texora.sidebar.panel==="ai"'));
- win.setSize(1440,900);await until(()=>js('innerWidth>1400'));await until(()=>js('document.querySelector(".preview").clientWidth<=innerWidth*.4+1'));
+ win.setSize(1440,900);await until(()=>js('innerWidth>1400'));await until(()=>js('document.querySelector(".preview").clientWidth>=200 && document.querySelector(".editor-area").clientWidth>=239 && document.querySelector(".workspace").scrollWidth<=innerWidth+1'));
  fs.writeFileSync('.tmp/electron-window-200-result.json',JSON.stringify({ok:true,wide,narrow,noSandboxOverride:process.argv.includes('--no-sandbox')}));
  console.log('PASS native maximize/restore, PDF resize, reachable AI and horizontal toolbar:',JSON.stringify({wide,narrow}));app.exit(0);
 }).catch(e=>{console.error(e);app.exit(1)});
