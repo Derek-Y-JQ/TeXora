@@ -1,4 +1,4 @@
-import { defineThemes } from './editor-themes.js';
+import { defineThemes, getThemeSurface } from './editor-themes.js';
 import { PreviewState, hoverPlacement, formulaPlacement } from './preview-state.js';
 /**
  * Editor controller: Monaco setup, LaTeX/Markdown/BibTeX language support,
@@ -952,6 +952,7 @@ export class EditorController {
     this.syncWrapClass();
     try { window.__monaco = monaco; } catch {}
     monaco.editor.setTheme(this.themeName());
+    this.syncThemeSurface();
     this.decorations = this.editor.createDecorationsCollection([]);
     this.hoverDecoration = this.editor.createDecorationsCollection([]);
     this.dollarGhostDecoration = this.editor.createDecorationsCollection([]);
@@ -1165,9 +1166,29 @@ export class EditorController {
     return 'texora-' + preset;
   }
 
+  syncThemeSurface() {
+    const host = document.getElementById('editorHost');
+    if (!host) return;
+    const preset = ctx.state.settings?.appearance?.codeTheme || 'auto';
+    if (preset === 'auto') {
+      host.style.removeProperty('--editor-code-bg');
+      host.style.removeProperty('--editor-code-gutter');
+      return;
+    }
+    const surface = getThemeSurface(this.themeName());
+    if (surface?.bg) {
+      host.style.setProperty('--editor-code-bg', surface.bg);
+      host.style.setProperty('--editor-code-gutter', surface.gutter || surface.bg);
+    } else {
+      host.style.removeProperty('--editor-code-bg');
+      host.style.removeProperty('--editor-code-gutter');
+    }
+  }
+
   applyTheme() {
     defineThemes();
     monaco.editor.setTheme(this.themeName());
+    this.syncThemeSurface();
   }
 
   applySettings() {

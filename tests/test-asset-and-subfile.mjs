@@ -161,4 +161,26 @@ const { resolveOpenTarget } = require('../electron/lib/open-target');
   }
 }
 
-console.log('PASS asset-and-subfile: graphicspath/svgpath/omitted-ext resolution, multi-line includegraphics, isPathInside, and chapter subfile root discovery.');
+// 6. Code highlight themes completeness and gutter background sync
+{
+  const { CODE_THEMES } = await import('../src/js/code-themes.js');
+  const { CODE_THEME_SPECS, buildMonacoTheme } = await import('../src/js/editor-theme-data.js');
+  const ids = new Set();
+  for (const [id, label, swatch, mode] of CODE_THEMES) {
+    assert.ok(id && label && /^#[0-9a-f]{6}$/i.test(swatch), `invalid theme entry: ${id}`);
+    assert.equal(ids.has(id), false, `duplicate theme id: ${id}`);
+    ids.add(id);
+    if (id === 'auto') continue;
+    const spec = CODE_THEME_SPECS[id];
+    assert.ok(spec, `missing theme spec for ${id}`);
+    assert.equal(spec.base, mode === 'dark' ? 'vs-dark' : 'vs', `wrong base for ${id}`);
+    const built = buildMonacoTheme(spec);
+    assert.equal(built.colors['editorGutter.background'], built.colors['editor.background'], `gutter mismatch for ${id}`);
+    assert.equal(built.colors['editorStickyScroll.background'], built.colors['editor.background'], `sticky mismatch for ${id}`);
+    assert.ok(built.rules.length >= 16, `incomplete token rules for ${id}`);
+  }
+  const layoutCss = await fs.readFile(path.resolve('src/styles/layout.css'), 'utf8');
+  assert.ok(layoutCss.includes('.monaco-editor .margin { background: var(--editor-code-gutter, var(--editor-gutter)) !important; }'));
+}
+
+console.log('PASS asset-and-subfile: graphicspath/svgpath/omitted-ext resolution, multi-line includegraphics, isPathInside, chapter subfile root discovery, and code highlight themes + gutter sync.');

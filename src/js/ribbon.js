@@ -113,18 +113,31 @@ export function createRibbon() {
       ];
     },
     engine: () => MENUS.build().slice(0, 5),
-    codeTheme: () => [
-      { group: '代码编辑区高亮主题' },
-      ...CODE_THEMES.map(([id, label, swatch]) => ({
-        label, swatch, checked: (ctx.state.settings.appearance.codeTheme || 'auto') === id,
+    codeTheme: () => {
+      const current = ctx.state.settings.appearance.codeTheme || 'auto';
+      const toItem = ([id, label, swatch]) => ({
+        label, swatch, checked: current === id,
         onClick: async () => {
           ctx.state.settings.appearance.codeTheme = id;
           ctx.editor.applyTheme();
           refresh();
           await ctx.api.settings.set('appearance.codeTheme', id);
         }
-      }))
-    ],
+      });
+      const autoItems = CODE_THEMES.filter((t) => (t[3] || 'auto') === 'auto').map(toItem);
+      const darkItems = CODE_THEMES.filter((t) => t[3] === 'dark').map(toItem);
+      const lightItems = CODE_THEMES.filter((t) => t[3] === 'light').map(toItem);
+      return [
+        { group: '代码编辑区高亮主题' },
+        ...autoItems,
+        { separator: true },
+        { group: 'Dark 模式' },
+        ...darkItems,
+        { separator: true },
+        { group: 'Light 模式' },
+        ...lightItems
+      ];
+    },
     size: () => [
       { group: '字号（应用于选区或插入命令）' },
       ...SIZE_OPTIONS.map(([size, label]) => ({

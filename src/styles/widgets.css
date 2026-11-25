@@ -6,9 +6,9 @@
 .btn.busy { opacity: 0.85; }
 
 /* ------------------------------------------------------------- editor rail */
-.editor-host { display: flex; min-width: 0; }
+.editor-host { display: flex; min-width: 0; background: var(--editor-code-bg, var(--editor-bg)); }
 .editor-host.has-block-actions { padding-right: 34px; }
-.block-rail { width: 20px; flex: none; position: relative; z-index: 4; }
+.block-rail { width: 20px; flex: none; position: relative; z-index: 4; background: var(--editor-code-gutter, var(--editor-gutter)); }
 #monaco { position: relative !important; inset: auto; flex: 1 1 0; min-width: 0; height: 100%; overflow: hidden; }
 .block-handle { left: 1px; width: 17px; height: 17px; }
 .math-zone {
