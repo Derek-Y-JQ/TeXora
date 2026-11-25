@@ -1,4 +1,4 @@
-# TeXora 2.2 · 本地优先的 LaTeX 写作工作台
+# TeXora 2.3 · 本地优先的 LaTeX 写作工作台
 
 [![Download](https://img.shields.io/badge/Download_Texora-Win_and_Mac-1D4ED8?style=flat-square)](https://github.com/Derek-Y-JQ/TeXora/releases/latest)
 [![Pages](https://img.shields.io/badge/Homepage-0F172A?style=flat-square)](https://derek-y-jq.github.io/TeXora/)
@@ -19,7 +19,7 @@ TeXora 是面向 Windows 和 macOS 的本地 LaTeX 编辑器，把源码、PDF�
 [下载 Windows 和 Mac 安装包](https://github.com/Derek-Y-JQ/TeXora/releases/latest) · [项目主页](https://derek-y-jq.github.io/TeXora/)
 
 
-![TeXora 2.2 日间 Endfield 工作台](docs/screenshots/220-workspace.png)
+![TeXora 2.3 日间 Endfield 工作台](docs/screenshots/220-workspace.png)
 
 ## Ask 与 Agent
 
@@ -117,6 +117,7 @@ listings 不需要 Python。对 listings 未内置的语言会明确提示纯文
 - 夜间模式和日间模式随心换
 - 多颜色搭配的 TeXora 精细工作台 UI
 - 支持 Endfield 工业风主题 UI
+- 内置 28 套 Dark / Light 代码高亮主题（One Dark Pro、Dracula Official / Deep、Night Owl、Monokai Pro、Cobalt2、Catppuccin Macchiato / Mocha / Latte、Ayu Mirage / Light、BLK Theme、Minimal Kiwi、Light Owl、Xcode Light、Solarized Light、Gruvbox Light、Rosé Pine Dawn、Atom One Light、Overleaf Light、Winter is Coming、Emerald Minimal Light、Lilac Dream / Dawn 等），编辑区与行号列背景一体同步
 
 ![主题与配色](docs/screenshots/220-theme.png)
 
