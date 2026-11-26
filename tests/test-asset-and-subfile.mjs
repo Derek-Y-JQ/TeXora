@@ -181,6 +181,72 @@ const { resolveOpenTarget } = require('../electron/lib/open-target');
   }
   const layoutCss = await fs.readFile(path.resolve('src/styles/layout.css'), 'utf8');
   assert.ok(layoutCss.includes('.monaco-editor .margin { background: var(--editor-code-gutter, var(--editor-gutter)) !important; }'));
+  assert.ok(layoutCss.includes('.project-pill[hidden], .act-btn[hidden] { display: none !important; }'));
 }
 
-console.log('PASS asset-and-subfile: graphicspath/svgpath/omitted-ext resolution, multi-line includegraphics, isPathInside, chapter subfile root discovery, and code highlight themes + gutter sync.');
+// 7. Clean auxiliary files both inside .latex_cache and outside in project directories
+{
+  const { Compiler } = require('../electron/lib/compiler');
+  await fs.mkdir(path.resolve('.tmp'), { recursive: true });
+  const root = await fs.mkdtemp(path.resolve('.tmp/test-clean-'));
+  try {
+    await fs.mkdir(path.join(root, '.latex_cache'), { recursive: true });
+    await fs.mkdir(path.join(root, 'chapters'), { recursive: true });
+    await fs.writeFile(path.join(root, 'main.tex'), '\\documentclass{article}\\begin{document}hi\\end{document}');
+    await fs.writeFile(path.join(root, '.latex_cache', 'main.aux'), 'cache-aux');
+    await fs.writeFile(path.join(root, 'main.log'), 'root-log');
+    await fs.writeFile(path.join(root, 'main.synctex.gz'), 'root-synctex');
+    await fs.writeFile(path.join(root, 'chapters', 'ch1.aux'), 'chapter-aux');
+    const store = { get: (_k, d) => d };
+    const project = { root, rootFile: path.join(root, 'main.tex') };
+    const compiler = new Compiler({ store, tex: { get: () => '' }, project, send: () => {} });
+    const plan = compiler.cleanPlan(false);
+    const names = plan.files.map((f) => path.relative(root, f.file).replace(/\\/g, '/')).sort();
+    assert.deepEqual(names, ['.latex_cache/main.aux', 'chapters/ch1.aux', 'main.log', 'main.synctex.gz']);
+    const cleaned = compiler.clean(false);
+    assert.equal(cleaned.ok, true);
+    assert.equal(cleaned.removed, 4);
+    assert.equal(await fs.stat(path.join(root, 'main.tex')).then(() => true).catch(() => false), true);
+    assert.equal(await fs.stat(path.join(root, 'chapters', 'ch1.aux')).then(() => true).catch(() => false), false);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
+
+// 8. ProjectService.tree showHidden option
+{
+  const { ProjectService } = require('../electron/lib/fsops');
+  await fs.mkdir(path.resolve('.tmp'), { recursive: true });
+  const root = await fs.mkdtemp(path.resolve('.tmp/test-hidden-'));
+  try {
+    await fs.mkdir(path.join(root, '.latex_cache'), { recursive: true });
+    await fs.mkdir(path.join(root, '.github'), { recursive: true });
+    await fs.writeFile(path.join(root, 'main.tex'), 'hi');
+    const svc = new ProjectService({ get: (_k, d) => d, set: () => {} }, root);
+    svc.root = root;
+    const defaultTree = await svc.tree(root, 0, { showHidden: false });
+    assert.deepEqual(defaultTree.map((n) => n.name), ['main.tex']);
+    const hiddenTree = await svc.tree(root, 0, { showHidden: true });
+    const hiddenNames = hiddenTree.map((n) => n.name).sort();
+    assert.deepEqual(hiddenNames, ['.github', '.latex_cache', 'main.tex']);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
+
+// 9. Overleaf real-time chat & comment event normalization
+{
+  const { OverleafLiveManager } = require('../electron/lib/overleaf-live');
+  const events = [];
+  const mgr = new OverleafLiveManager({ emitToRenderer: (e) => events.push(e) });
+  mgr.handleBridgeEvent('chatMessage', { id: 'm1', content: 'Hello!', timestamp: 1700000000000, user: { id: 'u1', first_name: 'Alice', last_name: 'Wu' } });
+  mgr.handleBridgeEvent('commentEvent', { kind: 'newComment', threadId: 't1', comment: { id: 'c1', content: 'Check eq. 2', timestamp: 1700000001000, user: { id: 'u2', email: 'bob@example.com' } } });
+  assert.equal(events.length, 2);
+  assert.equal(events[0].type, 'chatMessage');
+  assert.equal(events[0].message.user.name, 'Alice Wu');
+  assert.equal(events[1].type, 'commentEvent');
+  assert.equal(events[1].threadId, 't1');
+  assert.equal(events[1].comment.content, 'Check eq. 2');
+}
+
+console.log('PASS asset-and-subfile: all 9 suites passed.');

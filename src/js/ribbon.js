@@ -127,15 +127,14 @@ export function createRibbon() {
       const autoItems = CODE_THEMES.filter((t) => (t[3] || 'auto') === 'auto').map(toItem);
       const darkItems = CODE_THEMES.filter((t) => t[3] === 'dark').map(toItem);
       const lightItems = CODE_THEMES.filter((t) => t[3] === 'light').map(toItem);
+      const groups = ctx.state.theme === 'light'
+        ? [{ group: 'Light 模式' }, ...lightItems, { separator: true }, { group: 'Dark 模式' }, ...darkItems]
+        : [{ group: 'Dark 模式' }, ...darkItems, { separator: true }, { group: 'Light 模式' }, ...lightItems];
       return [
         { group: '代码编辑区高亮主题' },
         ...autoItems,
         { separator: true },
-        { group: 'Dark 模式' },
-        ...darkItems,
-        { separator: true },
-        { group: 'Light 模式' },
-        ...lightItems
+        ...groups
       ];
     },
     size: () => [

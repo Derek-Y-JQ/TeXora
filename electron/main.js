@@ -534,6 +534,14 @@ handle('overleaf:liveClearCompileCache',async()=>await overleafLive.clearCompile
 handle('overleaf:liveFetchHistory',async opts=>await overleafLive.fetchHistory(opts||{}));
 handle('overleaf:liveFetchHistoryDiff',async opts=>await overleafLive.fetchHistoryDiff(opts||{}));
 handle('overleaf:liveSearch',async opts=>await overleafLive.searchProject(opts||{}));
+handle('overleaf:liveFetchChat',async opts=>await overleafLive.fetchChatMessages(opts||{}));
+handle('overleaf:liveSendChat',async content=>await overleafLive.sendChatMessage(content));
+handle('overleaf:liveFetchComments',async()=>await overleafLive.fetchCommentThreads());
+handle('overleaf:liveAddComment',async payload=>await overleafLive.addCommentThread(payload||{}));
+handle('overleaf:liveReplyComment',async (threadId,content)=>await overleafLive.replyCommentThread(threadId,content));
+handle('overleaf:liveResolveComment',async threadId=>await overleafLive.resolveCommentThread(threadId));
+handle('overleaf:liveReopenComment',async threadId=>await overleafLive.reopenCommentThread(threadId));
+handle('overleaf:liveDeleteComment',async threadId=>await overleafLive.deleteCommentThread(threadId));
 
 // ----------------------------------------------------------------- app / window
 handle('app:systemFonts', async () => {
@@ -720,7 +728,7 @@ handle('project:close', async () => {
   send('project:changed', { root: '', reason: 'close', recent: project.recent() });
   return { ok: true };
 });
-handle('project:tree', async () => ({ ok: true, tree: await project.tree(), info: project.info() }));
+handle('project:tree', async (opts = {}) => ({ ok: true, tree: await project.tree(undefined, 0, opts), info: project.info() }));
 handle('project:assets', async () => ({ ok: true, ...(await project.assets()) }));
 handle('project:setRootFile', async (file) => {
   compiler.stop();compiler.lastResult=null;

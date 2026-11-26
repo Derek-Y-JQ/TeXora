@@ -198,8 +198,9 @@ class ProjectService extends EventEmitter {
     return resolved;
   }
 
-  async tree(dir = this.root, depth = 0) {
+  async tree(dir = this.root, depth = 0, opts = {}) {
     if (!this.root) return [];
+    const showHidden = Boolean(opts?.showHidden);
     const target = dir || this.root;
     let entries = [];
     try {
@@ -213,25 +214,29 @@ class ProjectService extends EventEmitter {
       return a.name.localeCompare(b.name, 'zh');
     });
     for (const e of entries) {
-      if (IGNORED_DIRS.has(e.name)) continue;
-      if (e.name.startsWith('.') && !['.latexmkrc', '.gitignore'].includes(e.name)) {
+      if (!showHidden && IGNORED_DIRS.has(e.name)) continue;
+      if (showHidden && e.name === 'node_modules') continue;
+      if (!showHidden && e.name.startsWith('.') && !['.latexmkrc', '.gitignore'].includes(e.name)) {
         if (e.isDirectory()) continue;
       }
       const full = path.join(target, e.name);
       if (e.isDirectory()) {
+        const isHeavyHidden = e.name === '.git' || e.name === '.svn' || e.name === '.hg';
+        const maxDepth = isHeavyHidden ? depth + 1 : 4;
         nodes.push({
           type: 'dir',
           name: e.name,
           path: full,
-          expanded: depth < 1,
-          children: depth < 4 ? await this.tree(full, depth + 1) : []
+          hidden: e.name.startsWith('.'),
+          expanded: depth < 1 && !e.name.startsWith('.'),
+          children: depth < maxDepth ? await this.tree(full, depth + 1, opts) : []
         });
       } else {
         let size = 0;
         try {
           size = (await fsp.stat(full)).size;
         } catch {}
-        nodes.push({ type: 'file', name: e.name, path: full, size, ext: path.extname(e.name).toLowerCase() });
+        nodes.push({ type: 'file', name: e.name, path: full, size, ext: path.extname(e.name).toLowerCase(), hidden: e.name.startsWith('.') });
       }
     }
     return nodes;

@@ -41,6 +41,7 @@
   border: 1px solid transparent; transition: background var(--t-fast), border-color var(--t-fast);
 }
 .project-pill:hover { background: var(--hover); border-color: var(--border); color: var(--text); }
+.project-pill[hidden], .act-btn[hidden] { display: none !important; }
 .project-pill .ico { width: 14px; height: 14px; color: var(--text-3); stroke-width: 2.1; }
 .project-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .titlebar-center { flex: 1; display: flex; justify-content: center; min-width: 0; }
@@ -625,7 +626,7 @@
 .monaco-editor .margin { background: var(--editor-code-gutter, var(--editor-gutter)) !important; }
 .monaco-editor .monaco-scrollable-element > .scrollbar > .slider { border-radius: 6px; }
 .monaco-editor .cursors-layer .cursor { border-left-color: var(--accent) !important; }
-.monaco-editor .selectionHighlight { background: var(--accent-softer) !important; }
+.monaco-editor .selectionHighlight { background: var(--editor-code-hover, var(--accent-softer)) !important; }
 .monaco-editor .line-numbers { font-family: var(--font-mono); font-size: 11px; }
 
 /* block mode (notion-like) */
@@ -634,8 +635,8 @@
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
   background: transparent; transition: background var(--t-fast);
 }
-.monaco-editor .block-hover .view-line { background: var(--accent-softer); }
-.monaco-editor .block-active .view-line { background: var(--accent-softer); }
+.monaco-editor .block-hover .view-line { background: var(--editor-code-hover, var(--accent-softer)); }
+.monaco-editor .block-active .view-line { background: var(--editor-code-hover, var(--accent-softer)); }
 .block-handles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
 .block-handle {
   position: absolute; left: 2px; width: 18px; height: 18px; border-radius: 5px;
@@ -987,3 +988,43 @@ html[data-platform="darwin"] .window-controls { display: none; }
 .agent-env-cmd code { flex:1; min-width:0; font-family:var(--font-mono); font-size:11.5px; color:var(--text); overflow-x:auto; white-space:nowrap; user-select:all; }
 .agent-env-copy { flex:none; }
 .agent-env-tip { margin:2px 0 0; font-size:11.5px; line-height:1.5; color:var(--text-3); }
+
+/* hidden files & Overleaf collaborator chat / comments */
+.tree-row.is-hidden { opacity: 0.68; }
+.tree-row.is-hidden .tree-name { font-style: italic; }
+.act-btn { position: relative; }
+.act-badge {
+  position: absolute; top: 4px; right: 4px; min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 99px; background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700;
+  line-height: 14px; text-align: center; pointer-events: none;
+}
+.act-badge[hidden] { display: none !important; }
+.ol-collab-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 8px; padding: 8px 10px 10px; }
+.ol-chat-list, .ol-comment-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+.ol-chat-msg, .ol-comment-card {
+  padding: 8px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ol-comment-card.resolved { opacity: 0.72; }
+.ol-chat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ol-chat-user { font-size: 12px; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ol-chat-time { font-size: 10.5px; color: var(--text-4); flex: none; }
+.ol-chat-body { font-size: 12.5px; line-height: 1.5; color: var(--text-2); overflow-wrap: anywhere; }
+.ol-chat-composer, .ol-comment-new { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border-soft); flex: none; }
+.ol-comment-new { border-top: 0; padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid var(--border-soft); }
+.ol-collab-input { width: 100%; resize: vertical; min-height: 46px; font-size: 12.5px; line-height: 1.45; }
+.ol-comment-tabs { display: flex; gap: 4px; flex: none; }
+.ol-comment-tabs .btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+.ol-comment-anchor {
+  display: flex; align-items: center; gap: 5px; width: 100%; padding: 4px 6px; border-radius: 6px;
+  background: var(--surface-3); color: var(--text-3); font-size: 11px; text-align: left; cursor: pointer;
+}
+.ol-comment-anchor:hover { color: var(--accent); background: var(--accent-softer); }
+.ol-comment-anchor .ico { width: 12px; height: 12px; flex: none; }
+.ol-comment-anchor span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ol-comment-msgs { display: flex; flex-direction: column; gap: 6px; }
+.ol-comment-msg + .ol-comment-msg { padding-top: 6px; border-top: 1px solid var(--border-soft); }
+.ol-comment-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 2px; }
+.ol-comment-reply { display: flex; gap: 5px; margin-top: 2px; }
+.ol-comment-reply .input { flex: 1; min-width: 0; }
+

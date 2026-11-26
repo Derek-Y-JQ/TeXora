@@ -1170,12 +1170,16 @@ export class EditorController {
     const host = document.getElementById('editorHost');
     if (!host) return;
     const preset = ctx.state.settings?.appearance?.codeTheme || 'auto';
+    const surface = getThemeSurface(this.themeName());
+    if (surface?.hover) host.style.setProperty('--editor-code-hover', surface.hover);
+    else host.style.removeProperty('--editor-code-hover');
+    if (surface?.base) host.dataset.codeBase = surface.base;
+    else delete host.dataset.codeBase;
     if (preset === 'auto') {
       host.style.removeProperty('--editor-code-bg');
       host.style.removeProperty('--editor-code-gutter');
       return;
     }
-    const surface = getThemeSurface(this.themeName());
     if (surface?.bg) {
       host.style.setProperty('--editor-code-bg', surface.bg);
       host.style.setProperty('--editor-code-gutter', surface.gutter || surface.bg);
@@ -1269,7 +1273,7 @@ export class EditorController {
   onContentChange(e) {
     const doc = ctx.state.docs.get(ctx.state.activePath);
     if (!doc) return;
-    doc.dirty = true;
+    if (!doc.isOverleafLive) doc.dirty = true;
     ctx.emit('doc:changed', { path: doc.path });
     this.scheduleParse();
     this.scheduleAutoClose(e);

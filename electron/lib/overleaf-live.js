@@ -234,7 +234,8 @@ function buildBridgeScript(token) {
             docId,
             error: err ? String(err.message || err) : null,
             docLines: Array.isArray(docLines) ? docLines : [],
-            version: Number(version) || 0
+            version: Number(version) || 0,
+            ranges: ranges && typeof ranges === 'object' ? ranges : null
           });
         });
       } else if (type === 'leaveDoc') {
@@ -361,6 +362,15 @@ function buildBridgeScript(token) {
       // Collaborator presence (for Phase 3)
       socket.on('clientTracking.clientUpdated', (user) => emit('clientUpdated', user));
       socket.on('clientTracking.clientDisconnected', (clientId) => emit('clientDisconnected', { id: clientId }));
+
+      // Collaborator chat & review comments (real-time)
+      socket.on('new-chat-message', (message) => emit('chatMessage', message));
+      socket.on('new-comment', (threadId, comment) => emit('commentEvent', { kind: 'newComment', threadId, comment }));
+      socket.on('resolve-thread', (threadId, user) => emit('commentEvent', { kind: 'resolveThread', threadId, user }));
+      socket.on('reopen-thread', (threadId) => emit('commentEvent', { kind: 'reopenThread', threadId }));
+      socket.on('delete-thread', (threadId) => emit('commentEvent', { kind: 'deleteThread', threadId }));
+      socket.on('edit-message', (threadId, messageId, content) => emit('commentEvent', { kind: 'editMessage', threadId, messageId, content }));
+      socket.on('delete-message', (threadId, messageId) => emit('commentEvent', { kind: 'deleteMessage', threadId, messageId }));
     }, 100);
   })();`;
 }
@@ -394,6 +404,7 @@ class OverleafLiveManager {
     this.docTextCache = new Map(); // docId -> cached decoded text for project-wide search/structure
     this._pendingDocReads = new Map(); // docId -> Promise<string>
     this.users = new Map(); // clientId -> collaborator info
+    this.commentAnchors = new Map(); // threadId -> { docId, path, offset, text }
     this.pendingRequests = new Map(); // requestId -> { resolve, reject, timer }
     this._connectDeferred = null;
     this.editorId = crypto.randomUUID();
@@ -637,6 +648,7 @@ class OverleafLiveManager {
     this.docs.clear();
     this.docTextCache.clear();
     this.users.clear();
+    this.commentAnchors.clear();
     this.lastBuildId = '';
     this.lastClsiServerId = '';
     this.lastCompileGroup = '';
@@ -914,6 +926,7 @@ class OverleafLiveManager {
     const version = Number(res.version) || 0;
     const client = new OTClient({ docId: entity.id, text, version, includeHash: true });
     this.docs.set(entity.id, client);
+    this._recordDocRanges(entity, res.ranges);
 
     return {
       docId: entity.id,
@@ -1606,7 +1619,218 @@ class OverleafLiveManager {
     if (type === 'clientDisconnected') {
       const id = String(payload?.id || payload || '');
       if (id && this.users.delete(id)) this._emitUsers();
+      return;
     }
+
+    if (type === 'chatMessage') {
+      const msg = this._normalizeChatMessage(payload);
+      if (msg) this.emitToRenderer({ type: 'chatMessage', message: msg });
+      return;
+    }
+
+    if (type === 'commentEvent') {
+      const kind = payload?.kind || '';
+      const threadId = String(payload?.threadId || '');
+      if (kind === 'deleteThread' && threadId) this.commentAnchors.delete(threadId);
+      const comment = payload?.comment ? this._normalizeThreadMessage(payload.comment) : null;
+      const user = payload?.user ? this._formatCollabUser(payload.user) : null;
+      this.emitToRenderer({
+        type: 'commentEvent',
+        kind,
+        threadId,
+        comment,
+        user,
+        messageId: payload?.messageId ? String(payload.messageId) : '',
+        content: typeof payload?.content === 'string' ? payload.content : ''
+      });
+    }
+  }
+
+  _formatCollabUser(u) {
+    if (!u || typeof u !== 'object') return { id: '', name: '协作者', email: '' };
+    const id = String(u.id || u._id || u.user_id || '');
+    const first = String(u.first_name || u.firstName || '').trim();
+    const last = String(u.last_name || u.lastName || '').trim();
+    const email = String(u.email || '').trim();
+    const name = [first, last].filter(Boolean).join(' ') || String(u.name || '').trim() || email || '协作者';
+    return { id, name, email };
+  }
+
+  _normalizeChatMessage(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const content = typeof raw.content === 'string' ? raw.content : '';
+    const id = String(raw.id || raw._id || `${raw.timestamp || Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const timestamp = Number(raw.timestamp) || Date.parse(raw.timestamp) || Date.now();
+    return {
+      id,
+      content,
+      timestamp,
+      user: this._formatCollabUser(raw.user)
+    };
+  }
+
+  _normalizeThreadMessage(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const id = String(raw.id || raw._id || `${raw.timestamp || Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const timestamp = Number(raw.timestamp) || Date.parse(raw.timestamp) || Date.now();
+    const user = raw.user ? this._formatCollabUser(raw.user) : { id: String(raw.user_id || ''), name: String(raw.user_name || raw.user_id || '协作者'), email: '' };
+    return {
+      id,
+      content: typeof raw.content === 'string' ? raw.content : '',
+      timestamp,
+      user
+    };
+  }
+
+  _recordDocRanges(entity, ranges) {
+    if (!entity || !ranges || !Array.isArray(ranges.comments)) return;
+    for (const item of ranges.comments) {
+      const op = item?.op || item;
+      const threadId = String(op?.t || item?.threadId || '');
+      if (!threadId) continue;
+      this.commentAnchors.set(threadId, {
+        docId: entity.id,
+        path: entity.path,
+        rel: entity.rel || entity.name,
+        offset: Number(op?.p) || 0,
+        text: typeof op?.c === 'string' ? decodeOverleafUtf8(op.c) : ''
+      });
+    }
+  }
+
+  async _collabRequest(endpoint, { method = 'GET', body = null } = {}) {
+    if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    if (!this.session || typeof this.session.request !== 'function') throw new Error('Overleaf 网络会话不可用');
+    if (method !== 'GET' && !this.csrf) throw new Error('缺少 Overleaf CSRF 令牌，请重新连接项目');
+    const headers = {
+      Accept: 'application/json',
+      Referer: `https://www.overleaf.com/project/${this.projectId}`,
+      ...(method !== 'GET' ? { 'X-CSRF-Token': this.csrf } : {}),
+      ...(body !== null ? { 'Content-Type': 'application/json' } : {})
+    };
+    const res = await this.session.request(endpoint, {
+      method,
+      headers,
+      ...(body !== null ? { body: JSON.stringify(body) } : {})
+    });
+    if (res.status < 200 || res.status >= 300) {
+      throw new Error(`Overleaf 请求失败（HTTP ${res.status}）`);
+    }
+    if (!res.body) return null;
+    try { return JSON.parse(res.body.toString('utf8')); } catch { return null; }
+  }
+
+  async fetchChatMessages({ limit = 50, before = '' } = {}) {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    if (before) qs.set('before', String(before));
+    const data = await this._collabRequest(`/project/${this.projectId}/messages?${qs.toString()}`);
+    const list = Array.isArray(data) ? data : (Array.isArray(data?.messages) ? data.messages : []);
+    const messages = list.map((m) => this._normalizeChatMessage(m)).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
+    return { ok: true, messages };
+  }
+
+  async sendChatMessage(content) {
+    const text = String(content || '').trim();
+    if (!text) throw new Error('消息内容不能为空');
+    await this._collabRequest(`/project/${this.projectId}/messages`, {
+      method: 'POST',
+      body: { content: text, _csrf: this.csrf }
+    });
+    return { ok: true };
+  }
+
+  async fetchCommentThreads() {
+    const data = await this._collabRequest(`/project/${this.projectId}/threads`);
+    const threads = [];
+    if (data && typeof data === 'object') {
+      for (const [threadId, raw] of Object.entries(data)) {
+        if (!raw || typeof raw !== 'object') continue;
+        const messages = Array.isArray(raw.messages)
+          ? raw.messages.map((m) => this._normalizeThreadMessage(m)).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp)
+          : [];
+        const lastTs = messages.length ? messages[messages.length - 1].timestamp : 0;
+        threads.push({
+          id: threadId,
+          resolved: Boolean(raw.resolved),
+          resolvedBy: raw.resolved_by_user ? this._formatCollabUser(raw.resolved_by_user) : null,
+          resolvedAt: raw.resolved_at ? (Number(raw.resolved_at) || Date.parse(raw.resolved_at) || 0) : 0,
+          anchor: this.commentAnchors.get(threadId) || null,
+          messages,
+          updatedAt: lastTs
+        });
+      }
+    }
+    threads.sort((a, b) => b.updatedAt - a.updatedAt);
+    return { ok: true, threads };
+  }
+
+  async addCommentThread({ docIdOrPath = '', offset = 0, excerpt = '', content = '' } = {}) {
+    const text = String(content || '').trim();
+    if (!text) throw new Error('批注内容不能为空');
+    const threadId = crypto.randomBytes(12).toString('hex');
+    await this._collabRequest(`/project/${this.projectId}/thread/${threadId}/messages`, {
+      method: 'POST',
+      body: { content: text, _csrf: this.csrf }
+    });
+    const entity = docIdOrPath ? (this.pathToEntity.get(docIdOrPath) || this.idToEntity.get(docIdOrPath)) : null;
+    if (entity) {
+      const anchor = {
+        docId: entity.id,
+        path: entity.path,
+        rel: entity.rel || entity.name,
+        offset: Number(offset) || 0,
+        text: String(excerpt || '').slice(0, 160)
+      };
+      this.commentAnchors.set(threadId, anchor);
+      // Best-effort attach comment range to doc if joined and writable
+      const client = this.docs.get(entity.id);
+      if (client && ['owner', 'readAndWrite', 'read-write'].includes(this.access)) {
+        try {
+          this._sendBridgeCmd('applyOtUpdate', {
+            docId: entity.id,
+            update: { doc: entity.id, op: [{ p: Math.max(0, Number(offset) || 0), c: String(excerpt || ' ').slice(0, 160), t: threadId }], v: client.version }
+          });
+        } catch {}
+      }
+    }
+    return { ok: true, threadId };
+  }
+
+  async replyCommentThread(threadId, content) {
+    const text = String(content || '').trim();
+    if (!threadId || !text) throw new Error('回复内容不能为空');
+    await this._collabRequest(`/project/${this.projectId}/thread/${encodeURIComponent(threadId)}/messages`, {
+      method: 'POST',
+      body: { content: text, _csrf: this.csrf }
+    });
+    return { ok: true };
+  }
+
+  async resolveCommentThread(threadId) {
+    if (!threadId) throw new Error('无效的批注编号');
+    await this._collabRequest(`/project/${this.projectId}/thread/${encodeURIComponent(threadId)}/resolve`, {
+      method: 'POST',
+      body: { _csrf: this.csrf }
+    });
+    return { ok: true };
+  }
+
+  async reopenCommentThread(threadId) {
+    if (!threadId) throw new Error('无效的批注编号');
+    await this._collabRequest(`/project/${this.projectId}/thread/${encodeURIComponent(threadId)}/reopen`, {
+      method: 'POST',
+      body: { _csrf: this.csrf }
+    });
+    return { ok: true };
+  }
+
+  async deleteCommentThread(threadId) {
+    if (!threadId) throw new Error('无效的批注编号');
+    await this._collabRequest(`/project/${this.projectId}/thread/${encodeURIComponent(threadId)}`, {
+      method: 'DELETE'
+    });
+    this.commentAnchors.delete(threadId);
+    return { ok: true };
   }
 }
 

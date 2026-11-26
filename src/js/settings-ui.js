@@ -365,7 +365,12 @@ export function createSettingsUI() {
       ${group('代码外观')}
       <div class="setting-card">
         ${editorFontSelect()}
-        ${selectRow('appearance.codeTheme', '代码高亮主题', '也可在编辑区右上角直接切换；跟随日夜会自动切换', CODE_THEMES.map(([id, label]) => [id, label]))}
+        ${selectRow('appearance.codeTheme', '代码高亮主题', '也可在编辑区右上角直接切换；跟随日夜会自动切换', [
+          ...CODE_THEMES.filter((t) => (t[3] || 'auto') === 'auto'),
+          ...(ctx.state.theme === 'light'
+            ? [...CODE_THEMES.filter((t) => t[3] === 'light'), ...CODE_THEMES.filter((t) => t[3] === 'dark')]
+            : [...CODE_THEMES.filter((t) => t[3] === 'dark'), ...CODE_THEMES.filter((t) => t[3] === 'light')])
+        ].map(([id, label]) => [id, label]))}
         ${textAreaRow('appearance.customCss', '自定义 CSS', '高级：覆盖界面或编辑器样式，保存后立即生效', 6)}
       </div>
       <div class="studio-accent-settings">${group('强调色')}

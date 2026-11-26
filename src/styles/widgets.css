@@ -274,7 +274,9 @@
 .code-block { color: var(--text); }
 [data-theme="light"] .code-block { background: #f7f9fd; border-color: #e1e6f0; color: #2b3550; }
 [data-theme="light"] .tpl-preview, [data-theme="light"] .code-block { box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
-.monaco-editor .block-hover-line { background: var(--accent-softer) !important; }
+.monaco-editor .block-hover-line { background: var(--editor-code-hover, var(--accent-softer)) !important; }
+#editorHost[data-code-base="dark"] .block-handle { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.65); }
+#editorHost[data-code-base="dark"] .block-handle:hover { background: rgba(255, 255, 255, 0.16); color: #ffffff; }
 .tab .t-dirty + .t-close { opacity: 0; }
 .tab:hover .t-dirty + .t-close { opacity: 1; }
 

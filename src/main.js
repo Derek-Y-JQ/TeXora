@@ -519,7 +519,7 @@ function wireProblems() {
 function wireShortcutsExtras() {
   window.addEventListener('beforeunload', event => {
     ctx.editor?.saveViewState();
-    if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+    if ([...ctx.state.docs.values()].some(doc => doc.dirty && !doc.isOverleafLive)) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -847,7 +847,7 @@ async function onProjectOpened(proj, { openRoot = true, silent = false } = {}) {
 
 let projectOpenRequest = 0;
 async function openProject(path) {
-  if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+  if ([...ctx.state.docs.values()].some(doc => doc.dirty && !doc.isOverleafLive)) {
     const ok = await ctx.dialogs.confirm({ title: '切换项目', message: '当前项目有未保存的修改，保存全部文件后切换？', confirmText: '保存并切换' });
     if (!ok || !(await saveAll())) return;
   }
@@ -900,7 +900,7 @@ async function openPdf(file){
 
 async function closeProject() {
   const doc = ctx.state.docs.get(ctx.state.activePath);
-  if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+  if ([...ctx.state.docs.values()].some(doc => doc.dirty && !doc.isOverleafLive)) {
     const ok = await ctx.dialogs.confirm({ title: '关闭项目', message: '有未保存的修改，仍要关闭项目吗？', confirmText: '关闭', danger: true });
     if (!ok) return;
   }
@@ -951,7 +951,7 @@ function applyRemoteOpToModel(model, op) {
 }
 
 async function openOverleafLive(projectId, projectName = '') {
-  if ([...ctx.state.docs.values()].some(doc => doc.dirty)) {
+  if ([...ctx.state.docs.values()].some(doc => doc.dirty && !doc.isOverleafLive)) {
     const ok = await ctx.dialogs.confirm({ title: '切换项目', message: '当前本地项目有未保存的修改，保存全部文件后进入 Overleaf 实时模式？', confirmText: '保存并切换' });
     if (!ok || !(await saveAll())) return;
   }
@@ -1042,6 +1042,13 @@ function syncOverleafModeUi() {
   const isLive = Boolean(ctx.state.overleafLive?.active);
   const settingsBtn = $('#overleafSettingsBtn');
   if (settingsBtn) settingsBtn.hidden = !isLive;
+  for (const el of $$('[data-local-only]')) el.hidden = isLive;
+  for (const el of $$('[data-overleaf-only]')) el.hidden = !isLive;
+  if (ctx.sidebar?.ready) {
+    if (isLive && ctx.sidebar.panel === 'git') ctx.sidebar.show('files', true);
+    if (!isLive && (ctx.sidebar.panel === 'olChat' || ctx.sidebar.panel === 'olComments')) ctx.sidebar.show('files', true);
+    if (!isLive) ctx.sidebar.resetOverleafCollab?.();
+  }
   ctx.ribbon?.refresh?.();
 }
 
@@ -1086,6 +1093,10 @@ async function disconnectOverleafLive() {
 
 function onOverleafLiveEvent(event) {
   if (!event || !ctx.state.overleafLive?.active) return;
+  if (event.type === 'chatMessage' || event.type === 'commentEvent') {
+    ctx.sidebar?.handleOverleafCollabEvent?.(event);
+    return;
+  }
   if (event.type === 'settingsChanged') {
     if (event.compiler) ctx.state.overleafLive.compiler = event.compiler;
     if (event.imageName !== undefined) ctx.state.overleafLive.imageName = event.imageName;
@@ -1473,7 +1484,7 @@ async function closeDocument(path = ctx.state.activePath) {
     if (!ctx.state.docs.size) return;
     return;
   }
-  if (doc.dirty) {
+  if (doc.dirty && !doc.isOverleafLive) {
     const keep = await ctx.dialogs.confirm({
       title: '未保存的修改',
       message: `「${doc.name}」有未保存的修改，是否保存后关闭？`,
@@ -1583,7 +1594,7 @@ async function cycleTab(delta) {
 function markDirty() {
   const doc = ctx.state.docs.get(ctx.state.activePath);
   if (!doc) return;
-  doc.dirty = doc.model.getValue() !== doc.savedText;
+  doc.dirty = doc.isOverleafLive ? false : doc.model.getValue() !== doc.savedText;
   renderTabs();
 }
 

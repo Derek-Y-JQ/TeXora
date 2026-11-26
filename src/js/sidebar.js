@@ -17,6 +17,8 @@ const PANEL_META = {
   search: { title: '全局查找', en: 'SEARCH', icon: 'search' },
   history: { title: '本地历史', en: 'HISTORY', icon: 'history' },
   git: { title: 'Git', en: 'VERSION CONTROL', icon: 'git' },
+  olChat: { title: '协作者聊天', en: 'OVERLEAF CHAT', icon: 'message' },
+  olComments: { title: '协作者批注', en: 'OVERLEAF COMMENTS', icon: 'comment' },
   ai: { title: 'AI 助手', en: 'ASSISTANT', icon: 'sparkles' }
 };
 
@@ -24,9 +26,17 @@ export class Sidebar {
   constructor() {
     this.expanded = new Set();
     this.filter = '';
+    this.showHidden = false;
     this.panel = 'files';
     this.searchState = { query: '', caseSensitive: false, wholeWord: false, regex: false, include: '', results: null, busy: false, scope: 'project' };
     this.historyItems = [];
+    this.olChatMessages = [];
+    this.olChatLoaded = false;
+    this.olChatUnread = 0;
+    this.olCommentThreads = [];
+    this.olCommentsLoaded = false;
+    this.olCommentsUnread = 0;
+    this.olCommentFilter = 'open';
     this.aiThread = [];
     this.aiContext = { selection: true, file: true, skillIds: null, files: new Set() };
     this.structureScopes = { math:ctx.state.settings?.ui?.mathScope || 'file', labels:ctx.state.settings?.ui?.labelsScope || 'file' };
@@ -73,15 +83,19 @@ export class Sidebar {
   }
 
   show(id, silent = false) {
+    if (id === 'git' && ctx.state.overleafLive?.active) id = 'files';
+    if ((id === 'olChat' || id === 'olComments') && !ctx.state.overleafLive?.active) id = 'files';
     if (!this.panels[id]) id = 'files';
     const changed = this.panel !== id;
     this.panel = id;
+    if (id === 'olChat') { this.olChatUnread = 0; this.syncCollabBadges(); }
+    if (id === 'olComments') { this.olCommentsUnread = 0; this.syncCollabBadges(); }
     for (const [key, node] of Object.entries(this.panels)) node.classList.toggle('active', key === id);
     this.syncActivityButtons();
     const isLiveHistory = id === 'history' && Boolean(ctx.state.overleafLive?.active);
     this.titleEl.textContent = isLiveHistory ? '云端历史' : PANEL_META[id].title;
     this.titleEl.dataset.efLabel = isLiveHistory ? '// OVERLEAF HISTORY' : '// ' + PANEL_META[id].en;
-    if (changed && !silent) ctx.api.settings.set('ui.sidebarTab', id);
+    if (changed && !silent && id !== 'olChat' && id !== 'olComments') ctx.api.settings.set('ui.sidebarTab', id);
     if (!silent) {
       const sidebar = $('#sidebar');
       if (sidebar.classList.contains('collapsed')) ctx.cmd('view.toggleSidebar');
@@ -129,7 +143,13 @@ export class Sidebar {
         mk('refresh', '刷新', () => this.refreshHistory());
         break;
       case 'git':
-        mk('refresh', '刷新 Git 状态', () => this.refreshGit());
+        if (!ctx.state.overleafLive?.active) mk('refresh', '刷新 Git 状态', () => this.refreshGit());
+        break;
+      case 'olChat':
+        mk('refresh', '刷新聊天记录', () => this.refreshOverleafChat(true));
+        break;
+      case 'olComments':
+        mk('refresh', '刷新批注列表', () => this.refreshOverleafComments(true));
         break;
       case 'ai':
         mk('sliders', 'AI 设置', () => ctx.cmd('settings.open', 'ai'));
@@ -168,6 +188,12 @@ export class Sidebar {
       case 'git':
         await this.refreshGit();
         break;
+      case 'olChat':
+        await this.refreshOverleafChat(force);
+        break;
+      case 'olComments':
+        await this.refreshOverleafComments(force);
+        break;
       case 'ai':
         this.renderAi();
         break;
@@ -204,6 +230,7 @@ export class Sidebar {
           ${icon('search')}
           <input class="input input-sm" id="fileFilter" placeholder="筛选文件…" />
         </div>
+        <button class="icon-btn sm" id="toggleHiddenDirsBtn" title="显示隐藏文件夹" aria-label="显示隐藏文件夹" aria-pressed="false">${icon('eye')}</button>
       </div>
       <div class="tree" id="treeRoot"></div>
       <div class="tree-footer" id="treeFooter"></div>`;
@@ -215,9 +242,19 @@ export class Sidebar {
         this.renderTree();
       }, 120)
     );
+    const hiddenBtn = $('#toggleHiddenDirsBtn', p);
+    hiddenBtn?.addEventListener('click', () => {
+      this.showHidden = !this.showHidden;
+      hiddenBtn.classList.toggle('active', this.showHidden);
+      hiddenBtn.setAttribute('aria-pressed', String(this.showHidden));
+      hiddenBtn.title = this.showHidden ? '隐藏以 . 开头的文件夹' : '显示隐藏文件夹';
+      this.refreshFiles();
+    });
   }
 
   async refreshFiles() {
+    const hiddenBtn = this.panels.files.querySelector('#toggleHiddenDirsBtn');
+    if (hiddenBtn) hiddenBtn.hidden = Boolean(ctx.state.overleafLive?.active);
     if (!ctx.state.project.root) {
       this.panels.files.querySelector('#treeRoot').innerHTML = `<div class="empty-hint">尚未打开项目<br/><strong>点击下方按钮选择 LaTeX 项目文件夹</strong><div style="margin-top:12px"><button class="btn btn-sm btn-primary" data-open-project>${icon('folder')} 打开项目</button></div></div>`;
       this.panels.files.querySelector('[data-open-project]')?.addEventListener('click', () => ctx.cmd('project.open'));
@@ -232,7 +269,7 @@ export class Sidebar {
       this.renderTree();
       return;
     }
-    const res = await ctx.api.project.tree();
+    const res = await ctx.api.project.tree({ showHidden: this.showHidden });
     if (res && res.tree) {
       ctx.state.tree = res.tree;
       if (res.info?.rootFile) ctx.state.project.rootFile = res.info.rootFile;
@@ -258,7 +295,8 @@ export class Sidebar {
         const active = !isDir && node.path === ctx.state.activePath;
         const isRoot = !isDir && node.path === ctx.state.project.rootFile;
         const dirty = ctx.state.docs.get(node.path)?.dirty;
-        html.push(`<div class="tree-row ${active ? 'active' : ''}" data-path="${escapeHtml(node.path)}" data-type="${node.type}" draggable="${!isDir}" style="padding-left:${6 + depth * 13}px">
+        const hiddenCls = node.hidden ? ' is-hidden' : '';
+        html.push(`<div class="tree-row ${active ? 'active' : ''}${hiddenCls}" data-path="${escapeHtml(node.path)}" data-type="${node.type}" draggable="${!isDir}" style="padding-left:${6 + depth * 13}px">
           ${isDir ? `<span class="twisty">${icon(expanded ? 'chevron-down' : 'chevron-right')}</span>` : '<span class="twisty"></span>'}
           <svg aria-hidden="true" class="ico file-ico"><use href="#i-${isDir ? 'folder' : fileIcon(node.ext)}"/></svg>
           <span class="tree-name">${escapeHtml(node.name)}</span>
@@ -1238,5 +1276,313 @@ export class Sidebar {
     this.aiThread.push(message);
     this.renderAiThread();
   }
+
+  /* --------------------------------------------------- Overleaf chat & comments */
+  resetOverleafCollab() {
+    this.olChatMessages = [];
+    this.olChatLoaded = false;
+    this.olChatUnread = 0;
+    this.olCommentThreads = [];
+    this.olCommentsLoaded = false;
+    this.olCommentsUnread = 0;
+    this.syncCollabBadges();
+  }
+
+  syncCollabBadges() {
+    const chatBadge = $('#olChatBadge');
+    if (chatBadge) {
+      chatBadge.hidden = this.olChatUnread <= 0;
+      chatBadge.textContent = this.olChatUnread > 9 ? '9+' : String(this.olChatUnread || '');
+    }
+    const commentBadge = $('#olCommentsBadge');
+    if (commentBadge) {
+      commentBadge.hidden = this.olCommentsUnread <= 0;
+      commentBadge.textContent = this.olCommentsUnread > 9 ? '9+' : String(this.olCommentsUnread || '');
+    }
+  }
+
+  handleOverleafCollabEvent(ev) {
+    if (!ev || !ctx.state.overleafLive?.active) return;
+    if (ev.type === 'chatMessage' && ev.message) {
+      if (!this.olChatMessages.some((m) => m.id === ev.message.id)) {
+        this.olChatMessages.push(ev.message);
+        this.olChatMessages.sort((a, b) => a.timestamp - b.timestamp);
+      }
+      if (this.panel === 'olChat' && !$('#sidebar').classList.contains('collapsed')) {
+        this.renderOverleafChat(true);
+      } else {
+        this.olChatUnread++;
+        this.syncCollabBadges();
+      }
+      return;
+    }
+    if (ev.type === 'commentEvent') {
+      const { kind, threadId, comment, user, messageId, content } = ev;
+      let thread = this.olCommentThreads.find((t) => t.id === threadId);
+      if (kind === 'newComment' && comment) {
+        if (!thread) {
+          thread = { id: threadId, resolved: false, resolvedBy: null, resolvedAt: 0, anchor: null, messages: [], updatedAt: comment.timestamp };
+          this.olCommentThreads.unshift(thread);
+        }
+        if (!thread.messages.some((m) => m.id === comment.id)) {
+          thread.messages.push(comment);
+          thread.updatedAt = Math.max(thread.updatedAt || 0, comment.timestamp || Date.now());
+        }
+      } else if (kind === 'resolveThread' && thread) {
+        thread.resolved = true;
+        thread.resolvedBy = user || thread.resolvedBy;
+        thread.resolvedAt = Date.now();
+      } else if (kind === 'reopenThread' && thread) {
+        thread.resolved = false;
+        thread.resolvedBy = null;
+        thread.resolvedAt = 0;
+      } else if (kind === 'deleteThread') {
+        this.olCommentThreads = this.olCommentThreads.filter((t) => t.id !== threadId);
+      } else if (kind === 'editMessage' && thread && messageId) {
+        const msg = thread.messages.find((m) => m.id === messageId);
+        if (msg) msg.content = content;
+      } else if (kind === 'deleteMessage' && thread && messageId) {
+        thread.messages = thread.messages.filter((m) => m.id !== messageId);
+      }
+      this.olCommentThreads.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      if (this.panel === 'olComments' && !$('#sidebar').classList.contains('collapsed')) {
+        this.renderOverleafComments();
+      } else if (kind === 'newComment') {
+        this.olCommentsUnread++;
+        this.syncCollabBadges();
+      }
+    }
+  }
+
+  async refreshOverleafChat(force = false) {
+    const panel = this.panels.olChat;
+    if (!panel) return;
+    if (!ctx.state.overleafLive?.active) {
+      panel.innerHTML = `<div class="empty-hint">进入 Overleaf 实时协作模式后可使用协作者聊天</div>`;
+      return;
+    }
+    if (!this.olChatLoaded || force) {
+      panel.innerHTML = `<div class="empty-hint">${icon('loader')} 正在加载 Overleaf 聊天记录…</div>`;
+      const res = await ctx.api.overleaf.liveFetchChat({ limit: 80 }).catch((err) => ({ ok: false, error: err.message }));
+      if (!res?.ok) {
+        panel.innerHTML = `<div class="empty-hint">无法加载聊天记录<br/><span class="muted">${escapeHtml(res?.error || '请稍后重试')}</span></div>`;
+        return;
+      }
+      this.olChatMessages = Array.isArray(res.messages) ? res.messages : [];
+      this.olChatLoaded = true;
+    }
+    this.renderOverleafChat(true);
+  }
+
+  renderOverleafChat(scrollBottom = false) {
+    const panel = this.panels.olChat;
+    if (!panel) return;
+    const msgs = this.olChatMessages || [];
+    const listHtml = msgs.length
+      ? msgs.map((m) => `
+          <div class="ol-chat-msg">
+            <div class="ol-chat-head">
+              <strong class="ol-chat-user">${escapeHtml(m.user?.name || '协作者')}</strong>
+              <span class="ol-chat-time">${escapeHtml(timeAgo(m.timestamp))}</span>
+            </div>
+            <div class="ol-chat-body">${escapeHtml(m.content || '').replace(/\n/g, '<br/>')}</div>
+          </div>`).join('')
+      : `<div class="empty-hint">暂无聊天消息<br/><span class="muted">发送一条消息开始与协作者实时沟通</span></div>`;
+    panel.innerHTML = `
+      <div class="ol-collab-panel">
+        <div class="ol-chat-list" id="olChatList">${listHtml}</div>
+        <div class="ol-chat-composer">
+          <textarea class="input ol-collab-input" id="olChatInput" rows="2" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="btn btn-sm btn-primary" id="olChatSend">${icon('send')} 发送</button>
+        </div>
+      </div>`;
+    const listEl = $('#olChatList', panel);
+    if (scrollBottom && listEl) listEl.scrollTop = listEl.scrollHeight;
+    const input = $('#olChatInput', panel);
+    const sendBtn = $('#olChatSend', panel);
+    const doSend = async () => {
+      const text = (input?.value || '').trim();
+      if (!text || sendBtn.disabled) return;
+      sendBtn.disabled = true;
+      const res = await ctx.api.overleaf.liveSendChat(text).catch((err) => ({ ok: false, error: err.message }));
+      sendBtn.disabled = false;
+      if (!res?.ok) {
+        toast({ type: 'error', title: '发送失败', body: res?.error || '' });
+        return;
+      }
+      input.value = '';
+      // If socket event didn't echo immediately, refresh shortly
+      setTimeout(() => { if (this.panel === 'olChat') void this.refreshOverleafChat(true); }, 600);
+    };
+    sendBtn?.addEventListener('click', doSend);
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void doSend(); }
+    });
+  }
+
+  async refreshOverleafComments(force = false) {
+    const panel = this.panels.olComments;
+    if (!panel) return;
+    if (!ctx.state.overleafLive?.active) {
+      panel.innerHTML = `<div class="empty-hint">进入 Overleaf 实时协作模式后可使用协作者批注</div>`;
+      return;
+    }
+    if (!this.olCommentsLoaded || force) {
+      panel.innerHTML = `<div class="empty-hint">${icon('loader')} 正在加载 Overleaf 批注…</div>`;
+      const res = await ctx.api.overleaf.liveFetchComments().catch((err) => ({ ok: false, error: err.message }));
+      if (!res?.ok) {
+        panel.innerHTML = `<div class="empty-hint">无法加载批注列表<br/><span class="muted">${escapeHtml(res?.error || '请稍后重试')}</span></div>`;
+        return;
+      }
+      this.olCommentThreads = Array.isArray(res.threads) ? res.threads : [];
+      this.olCommentsLoaded = true;
+    }
+    this.renderOverleafComments();
+  }
+
+  renderOverleafComments() {
+    const panel = this.panels.olComments;
+    if (!panel) return;
+    const all = this.olCommentThreads || [];
+    const openCount = all.filter((t) => !t.resolved).length;
+    const resolvedCount = all.length - openCount;
+    const visible = this.olCommentFilter === 'open'
+      ? all.filter((t) => !t.resolved)
+      : this.olCommentFilter === 'resolved'
+        ? all.filter((t) => t.resolved)
+        : all;
+
+    const threadsHtml = visible.length
+      ? visible.map((t) => `
+          <div class="ol-comment-card ${t.resolved ? 'resolved' : ''}" data-thread="${escapeHtml(t.id)}">
+            ${t.anchor ? `<button class="ol-comment-anchor" data-jump="${escapeHtml(t.id)}" title="跳转到文档位置">${icon('target')}<span>${escapeHtml(t.anchor.rel || baseName(t.anchor.path))}${t.anchor.text ? ` · “${escapeHtml(t.anchor.text.slice(0, 48))}”` : ''}</span></button>` : ''}
+            <div class="ol-comment-msgs">
+              ${(t.messages || []).map((m) => `
+                <div class="ol-comment-msg">
+                  <div class="ol-chat-head">
+                    <strong class="ol-chat-user">${escapeHtml(m.user?.name || '协作者')}</strong>
+                    <span class="ol-chat-time">${escapeHtml(timeAgo(m.timestamp))}</span>
+                  </div>
+                  <div class="ol-chat-body">${escapeHtml(m.content || '').replace(/\n/g, '<br/>')}</div>
+                </div>`).join('')}
+            </div>
+            <div class="ol-comment-actions">
+              <button class="btn btn-tiny" data-toggle-resolve="${escapeHtml(t.id)}">${t.resolved ? '重新打开' : '标记已解决'}</button>
+              <button class="btn btn-tiny danger-text" data-delete-thread="${escapeHtml(t.id)}">删除</button>
+            </div>
+            <div class="ol-comment-reply">
+              <input class="input input-sm" data-reply-input="${escapeHtml(t.id)}" placeholder="回复此批注…" />
+              <button class="btn btn-tiny btn-primary" data-reply-send="${escapeHtml(t.id)}">回复</button>
+            </div>
+          </div>`).join('')
+      : `<div class="empty-hint">${this.olCommentFilter === 'resolved' ? '暂无已解决的批注' : '暂无批注'}</div>`;
+
+    panel.innerHTML = `
+      <div class="ol-collab-panel">
+        <div class="ol-comment-tabs">
+          <button class="btn btn-tiny ${this.olCommentFilter === 'open' ? 'active' : ''}" data-cfilter="open">未解决 (${openCount})</button>
+          <button class="btn btn-tiny ${this.olCommentFilter === 'resolved' ? 'active' : ''}" data-cfilter="resolved">已解决 (${resolvedCount})</button>
+          <button class="btn btn-tiny ${this.olCommentFilter === 'all' ? 'active' : ''}" data-cfilter="all">全部 (${all.length})</button>
+        </div>
+        <div class="ol-comment-new">
+          <textarea class="input ol-collab-input" id="olNewCommentInput" rows="2" placeholder="针对当前选中文本或光标处添加批注…"></textarea>
+          <button class="btn btn-sm btn-primary" id="olNewCommentBtn">${icon('plus')} 添加批注</button>
+        </div>
+        <div class="ol-comment-list">${threadsHtml}</div>
+      </div>`;
+
+    for (const btn of $$('[data-cfilter]', panel)) {
+      btn.addEventListener('click', () => {
+        this.olCommentFilter = btn.dataset.cfilter;
+        this.renderOverleafComments();
+      });
+    }
+
+    const addBtn = $('#olNewCommentBtn', panel);
+    const addInput = $('#olNewCommentInput', panel);
+    addBtn?.addEventListener('click', async () => {
+      const content = (addInput?.value || '').trim();
+      if (!content || addBtn.disabled) return;
+      addBtn.disabled = true;
+      let offset = 0;
+      let excerpt = '';
+      const ed = ctx.editor?.editor;
+      const model = ctx.editor?.model;
+      if (ed && model) {
+        const sel = ed.getSelection();
+        if (sel && !sel.isEmpty()) {
+          offset = model.getOffsetAt({ lineNumber: sel.startLineNumber, column: sel.startColumn });
+          excerpt = model.getValueInRange(sel).trim();
+        } else {
+          const pos = ed.getPosition();
+          if (pos) {
+            offset = model.getOffsetAt(pos);
+            excerpt = model.getLineContent(pos.lineNumber).trim();
+          }
+        }
+      }
+      const res = await ctx.api.overleaf.liveAddComment({
+        docIdOrPath: ctx.state.activePath || '',
+        offset,
+        excerpt,
+        content
+      }).catch((err) => ({ ok: false, error: err.message }));
+      addBtn.disabled = false;
+      if (!res?.ok) return toast({ type: 'error', title: '添加批注失败', body: res?.error || '' });
+      addInput.value = '';
+      await this.refreshOverleafComments(true);
+    });
+
+    for (const btn of $$('[data-jump]', panel)) {
+      btn.addEventListener('click', async () => {
+        const thread = this.olCommentThreads.find((t) => t.id === btn.dataset.jump);
+        if (!thread?.anchor?.path) return;
+        const doc = await ctx.app.openDocument(thread.anchor.path);
+        if (doc?.model && typeof thread.anchor.offset === 'number') {
+          const pos = doc.model.getPositionAt(Math.max(0, Math.min(thread.anchor.offset, doc.model.getValueLength())));
+          ctx.editor?.revealLine?.(pos.lineNumber, pos.column, true);
+        }
+      });
+    }
+
+    for (const btn of $$('[data-toggle-resolve]', panel)) {
+      btn.addEventListener('click', async () => {
+        const thread = this.olCommentThreads.find((t) => t.id === btn.dataset.toggleResolve);
+        if (!thread) return;
+        const res = thread.resolved
+          ? await ctx.api.overleaf.liveReopenComment(thread.id).catch((e) => ({ ok: false, error: e.message }))
+          : await ctx.api.overleaf.liveResolveComment(thread.id).catch((e) => ({ ok: false, error: e.message }));
+        if (!res?.ok) return toast({ type: 'error', title: '操作失败', body: res?.error || '' });
+        await this.refreshOverleafComments(true);
+      });
+    }
+
+    for (const btn of $$('[data-delete-thread]', panel)) {
+      btn.addEventListener('click', async () => {
+        const res = await ctx.api.overleaf.liveDeleteComment(btn.dataset.deleteThread).catch((e) => ({ ok: false, error: e.message }));
+        if (!res?.ok) return toast({ type: 'error', title: '删除失败', body: res?.error || '' });
+        this.olCommentThreads = this.olCommentThreads.filter((t) => t.id !== btn.dataset.deleteThread);
+        this.renderOverleafComments();
+      });
+    }
+
+    for (const btn of $$('[data-reply-send]', panel)) {
+      const tid = btn.dataset.replySend;
+      const inp = panel.querySelector(`[data-reply-input="${CSS.escape(tid)}"]`);
+      const sendReply = async () => {
+        const text = (inp?.value || '').trim();
+        if (!text || btn.disabled) return;
+        btn.disabled = true;
+        const res = await ctx.api.overleaf.liveReplyComment(tid, text).catch((e) => ({ ok: false, error: e.message }));
+        btn.disabled = false;
+        if (!res?.ok) return toast({ type: 'error', title: '回复失败', body: res?.error || '' });
+        inp.value = '';
+        await this.refreshOverleafComments(true);
+      };
+      btn.addEventListener('click', sendReply);
+      inp?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); void sendReply(); } });
+    }
+  }
 }
+
 

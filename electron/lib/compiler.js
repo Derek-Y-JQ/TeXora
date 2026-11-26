@@ -744,41 +744,65 @@ class Compiler {
 
   cleanPlan(includePdf=false){
     const cache=path.resolve(this.cacheDir());
-    if(cache===path.resolve(this.root)||cache===path.parse(cache).root||cache===path.resolve(path.dirname(this.project.rootFile||this.root)))throw Error('清理目录与源码目录重合，已停止。请先设置独立的编译缓存目录。');
+    const root=this.root?path.resolve(this.root):'';
+    if(cache===root||cache===path.parse(cache).root||cache===path.resolve(path.dirname(this.project.rootFile||this.root)))throw Error('清理目录与源码目录重合，已停止。请先设置独立的编译缓存目录。');
     const files=[];
+    const seen=new Set();
+    const isAuxName=name=>AUX_EXT.has(path.extname(name).toLowerCase())||/\.(synctex\.gz|synctex\(busy\)|run\.xml)$/i.test(name);
     const size=file=>{try{const stat=fs.lstatSync(file);if(stat.isSymbolicLink())return 0;if(stat.isDirectory())return fs.readdirSync(file).reduce((n,name)=>n+size(path.join(file,name)),0);return stat.size;}catch{return 0;}};
-    for(const name of fs.existsSync(cache)?fs.readdirSync(cache):[]){if(AUX_EXT.has(path.extname(name))||/\.(synctex\.gz|run\.xml)$/i.test(name)||includePdf){const file=path.join(cache,name);files.push({file,bytes:size(file)});}}
-    if(includePdf&&this.project.rootFile){const file=path.join(path.dirname(this.project.rootFile),this.jobnameFor(this.project.rootFile)+'.pdf');if(fs.existsSync(file)&&!files.some(f=>f.file===file))files.push({file,bytes:size(file)});}
+    const addFile=file=>{
+      const resolved=path.resolve(file);
+      const key=process.platform==='win32'?resolved.toLowerCase():resolved;
+      if(seen.has(key))return;
+      seen.add(key);
+      files.push({file:resolved,bytes:size(resolved)});
+    };
+    // 1. Files inside .latex_cache
+    for(const name of fs.existsSync(cache)?fs.readdirSync(cache):[]){
+      if(isAuxName(name)||includePdf)addFile(path.join(cache,name));
+    }
+    // 2. Stray auxiliary files outside .latex_cache in the project tree
+    const skipDirs=new Set(['.git','.svn','.hg','node_modules','dist','release']);
+    const walkAux=(dir,depth)=>{
+      if(!dir||depth>4)return;
+      let entries=[];
+      try{entries=fs.readdirSync(dir,{withFileTypes:true});}catch{return;}
+      for(const e of entries){
+        const full=path.join(dir,e.name);
+        if(path.resolve(full)===cache)continue;
+        if(e.isDirectory()){
+          if(skipDirs.has(e.name)||e.name.startsWith('.'))continue;
+          walkAux(full,depth+1);
+        }else if(e.isFile()&&isAuxName(e.name)){
+          addFile(full);
+        }
+      }
+    };
+    if(root)walkAux(root,0);
+    if(includePdf&&this.project.rootFile){
+      const file=path.join(path.dirname(this.project.rootFile),this.jobnameFor(this.project.rootFile)+'.pdf');
+      if(fs.existsSync(file))addFile(file);
+    }
     return {ok:true,files,bytes:files.reduce((n,f)=>n+f.bytes,0)};
   }
 
   clean(includePdf = false) {
     if(this.running)return {ok:false,error:'编译进行中，不能清理正在使用的文件'};
-    try{this.cleanPlan(includePdf);}catch(error){return {ok:false,error:error.message};}
+    let plan;
+    try{plan=this.cleanPlan(includePdf);}catch(error){return {ok:false,error:error.message};}
     const cache = this.cacheDir();
     let removed = 0;
     try {
-      for (const f of fs.readdirSync(cache)) {
-        const ext = path.extname(f);
-        const hit = AUX_EXT.has(ext) || /\.(synctex\.gz|run\.xml)$/i.test(f) || includePdf;
-        if (hit) {
-          try {
-            fs.rmSync(path.join(cache, f), { recursive: true, force: true });
-            removed++;
-          } catch {}
-        }
+      for (const item of plan.files) {
+        try {
+          fs.rmSync(item.file, { recursive: true, force: true });
+          removed++;
+        } catch {}
       }
       const previewDir = path.join(cache, 'preview');
       if (includePdf && fs.existsSync(previewDir)) {
         fs.rmSync(previewDir, { recursive: true, force: true });
         removed++;
-      }
-      if (includePdf && this.project.rootFile) {
-        const jobname = this.jobnameFor(this.project.rootFile);
-        for (const ext of ['.pdf']) {
-          const p = path.join(path.dirname(this.project.rootFile), jobname + ext);
-          if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); removed++; }
-        }
       }
     } catch (err) {
       return { ok: false, error: err.message, removed };

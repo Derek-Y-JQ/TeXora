@@ -40,7 +40,9 @@ export function defineThemes() {
     }
     const bg = nextColors['editor.background'] || '';
     const gutter = nextColors['editorGutter.background'] || bg;
-    if (bg) THEME_SURFACES.set(name, { bg, gutter });
+    const isDark = theme.base === 'vs-dark';
+    const hover = isDark ? 'rgba(255, 255, 255, 0.055)' : 'rgba(15, 23, 42, 0.045)';
+    if (bg) THEME_SURFACES.set(name, { bg, gutter, base: isDark ? 'dark' : 'light', hover });
     monaco.editor.defineTheme(name, { ...theme, colors: nextColors });
   };
 
