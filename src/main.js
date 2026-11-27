@@ -972,6 +972,13 @@ async function openOverleafLive(projectId, projectName = '') {
   }
   await api.project.close().catch(() => {});
   closeAllDocuments();
+  const preferredOlMode = ctx.state.settings?.build?.overleafCompileMode === 'cloud' ? 'cloud' : 'local';
+  if (preferredOlMode === 'local' && !Object.values(ctx.state.texInfo?.engines || {}).some(Boolean)) {
+    const info = await api.tex.info().catch(() => null);
+    if (info?.ok) ctx.state.texInfo = info;
+  }
+  const hasLocalTex = Object.values(ctx.state.texInfo?.engines || {}).some(Boolean);
+  const initialCompileMode = preferredOlMode === 'local' && hasLocalTex ? 'local' : 'cloud';
   ctx.state.overleafLive = {
     active: true,
     projectId: res.projectId,
@@ -981,6 +988,8 @@ async function openOverleafLive(projectId, projectName = '') {
     status: res.status || 'connected',
     compiler: res.compiler || 'pdflatex',
     imageName: res.imageName || '',
+    compileMode: initialCompileMode,
+    mirrorReady: Boolean(res.mirrorReady),
     stopOnFirstError: false,
     users: Array.isArray(res.users) ? res.users : []
   };
@@ -1017,7 +1026,7 @@ async function openOverleafLive(projectId, projectName = '') {
       await transition.finish(true);
       return;
     }
-    transition.update({ stage: '文档已就绪 · 准备云端编译' });
+    transition.update({ stage: initialCompileMode === 'local' ? '文档已就绪 · 准备本地极速镜像编译' : '文档已就绪 · 准备云端编译' });
   } else {
     setEmptyState(true);
   }
@@ -1032,10 +1041,68 @@ async function openOverleafLive(projectId, projectName = '') {
     type: 'success',
     title: '已进入 Overleaf 实时协作模式',
     body: res.writable
-      ? `已直连「${res.name}」，编辑将实时同步云端，编译将使用 Overleaf 云端编译。`
+      ? (initialCompileMode === 'local'
+        ? `已直连「${res.name}」，编辑将实时同步云端，预览已开启本地极速镜像编译。`
+        : `已直连「${res.name}」，编辑将实时同步云端；可在编译菜单中切换「本地极速预览」以跳过云端排队。`)
       : `已以只读权限直连「${res.name}」，编辑器已锁定为只读。`,
-    timeout: 5000
+    timeout: 5200
   });
+}
+
+async function setOverleafCompileMode(mode) {
+  if (!ctx.state.overleafLive?.active) return false;
+  const next = mode === 'local' ? 'local' : 'cloud';
+  if (next === 'local') {
+    if (!Object.values(ctx.state.texInfo?.engines || {}).some(Boolean)) {
+      const info = await api.tex.refresh().catch(() => null);
+      if (info?.ok) ctx.state.texInfo = info;
+    }
+    if (!Object.values(ctx.state.texInfo?.engines || {}).some(Boolean)) {
+      toast({
+        type: 'warn',
+        title: '未检测到本地 LaTeX 环境',
+        body: '本地极速预览需要本机安装 TeX Live 或 MiKTeX（可在设置 → 宏包与 TeX 环境中配置路径），当前保持 Overleaf 云端编译。',
+        timeout: 6500
+      });
+      return false;
+    }
+  }
+  ctx.state.overleafLive.compileMode = next;
+  await api.settings.set('build.overleafCompileMode', next).catch(() => {});
+  if (ctx.state.settings?.build) ctx.state.settings.build.overleafCompileMode = next;
+  syncOverleafModeUi();
+  toast({
+    type: 'success',
+    title: next === 'local' ? '已切换为 Overleaf 本地极速预览' : '已切换为 Overleaf 云端编译',
+    body: next === 'local'
+      ? '编辑依然实时同步到 Overleaf 云端，预览将通过本地镜像自动增量编译。'
+      : '将使用 Overleaf 服务器编译并与云端终稿保持完全一致。',
+    timeout: 3600
+  });
+  if (ctx.state.project.rootFile && !ctx.state.build.running) {
+    void runBuild({ background: true, retryOnThrottle: true });
+  }
+  return true;
+}
+
+async function syncOverleafMirror() {
+  if (!ctx.state.overleafLive?.active) return;
+  try {
+    setBuildStatus('building', '正在同步 Overleaf 云端文件到本地镜像…');
+    const res = await api.overleaf.liveSyncMirror({ force: true });
+    if (res?.ok) {
+      ctx.state.overleafLive.mirrorReady = true;
+      setBuildStatus('ok', `本地镜像已同步（${res.filesCount || 0} 个文件）`);
+      toast({ type: 'success', title: 'Overleaf 本地镜像已同步', body: `共同步 ${res.filesCount || 0} 个文件，正在本地编译…`, timeout: 2800 });
+      if (ctx.state.overleafLive.compileMode === 'local') void runBuild({ background: true });
+    } else {
+      setBuildStatus('idle', '同步失败');
+      toast({ type: 'error', title: '本地镜像同步失败', body: res?.error || '' });
+    }
+  } catch (err) {
+    setBuildStatus('idle', '同步失败');
+    toast({ type: 'error', title: '本地镜像同步失败', body: err?.message || String(err) });
+  }
 }
 
 function syncOverleafModeUi() {
@@ -1093,6 +1160,11 @@ async function disconnectOverleafLive() {
 
 function onOverleafLiveEvent(event) {
   if (!event || !ctx.state.overleafLive?.active) return;
+  if (event.type === 'mirrorStatus') {
+    ctx.state.overleafLive.mirrorReady = Boolean(event.ready);
+    ctx.ribbon?.refresh?.();
+    return;
+  }
   if (event.type === 'chatMessage' || event.type === 'commentEvent') {
     ctx.sidebar?.handleOverleafCollabEvent?.(event);
     return;
@@ -1147,6 +1219,7 @@ function onOverleafLiveEvent(event) {
     } finally {
       doc.applyingRemote = false;
     }
+    if (ctx.state.overleafLive.compileMode === 'local') scheduleLivePreview();
     if (ctx.state.activePath === doc.path) {
       updateStats();
       refreshOutlineSoon();
@@ -1164,6 +1237,7 @@ function onOverleafLiveEvent(event) {
     } finally {
       doc.applyingRemote = false;
     }
+    if (ctx.state.overleafLive.compileMode === 'local') scheduleLivePreview();
     toast({ type: 'info', title: 'Overleaf 文档已重新同步', body: doc.name });
     return;
   }
@@ -1365,6 +1439,7 @@ async function openDocument(path, opts = {}) {
         void api.overleaf.liveApplyChanges(doc.docId, changes, finalText).then((r) => {
           if (r && !r.ok) toast({ type: 'error', title: 'Overleaf 同步失败', body: r.error || '' });
         });
+        if (ctx.state.overleafLive?.compileMode === 'local') scheduleLivePreview();
         refreshOutlineSoon();
         updateStats();
       });
@@ -1749,6 +1824,49 @@ async function runBuild(opts = {}) {
   const generation = previewGeneration;
   if (buildPreparing || ctx.state.build.running) return;
   if (ctx.state.overleafLive?.active) {
+    const isLocalMirror = ctx.state.overleafLive.compileMode === 'local';
+    if (isLocalMirror) {
+      if (opts.live && !ctx.state.settings.build.livePreview) return;
+      buildPreparing = true;
+      try {
+        if (!Object.values(ctx.state.texInfo?.engines || {}).some(Boolean)) {
+          const info = await api.tex.refresh();
+          ctx.state.texInfo = info;
+          if (!Object.values(info.engines || {}).some(Boolean)) {
+            toast({ type: 'error', title: '未检测到本地 LaTeX 引擎', body: '请安装 TeX Live / MiKTeX，或在编译菜单切回 Overleaf 云端编译', timeout: 7000 });
+            return;
+          }
+        }
+        if (generation !== previewGeneration) return;
+        buildStartedAt = Date.now();
+        ctx.state.log = '';
+        setBuildStatus('building', (!ctx.state.overleafLive.mirrorReady || opts.forceSync) ? '同步 Overleaf 镜像并本地编译…' : '本地极速编译中…');
+        ctx.preview.setBusy(true);
+        const res = await api.overleaf.liveCompileLocal({
+          live: Boolean(opts.live),
+          background: Boolean(opts.background),
+          forceSync: Boolean(opts.forceSync)
+        });
+        if (generation !== previewGeneration) return;
+        if (res?.cancelled || res?.queued) {
+          ctx.preview.setBusy(false);
+          setBuildStatus('idle', '空闲');
+          return;
+        }
+        ctx.state.overleafLive.mirrorReady = true;
+        handleBuildDone({
+          ...res,
+          ok: Boolean(res?.ok),
+          rootFile: res?.rootFile || ctx.state.project.rootFile,
+          live: Boolean(opts.live || opts.background)
+        });
+      } catch (err) {
+        handleBuildDone({ ok: false, error: err.message, rootFile: ctx.state.project.rootFile });
+      } finally {
+        buildPreparing = false;
+      }
+      return;
+    }
     if (opts.live) return;
     buildPreparing = true;
     try {
@@ -1821,7 +1939,7 @@ async function stopBuild() {
   try {
     if (ctx.state.overleafLive?.active) {
       await api.overleaf.liveStopCompile();
-      setBuildStatus('idle', '云端编译已停止');
+      setBuildStatus('idle', ctx.state.overleafLive.compileMode === 'local' ? '本地镜像编译已停止' : '云端编译已停止');
       if (ctx.preview.currentPdf()) ctx.preview.updateDocumentStatus('编译已停止 · 当前显示上次成功的 PDF');
       ctx.preview.setBusy(false);
       return;
@@ -1841,6 +1959,16 @@ async function stopBuild() {
 
 async function cleanBuild(all = false) {
   if (ctx.state.overleafLive?.active) {
+    if (ctx.state.overleafLive.compileMode === 'local') {
+      const res = await api.overleaf.liveCleanMirror(all);
+      if (res?.ok) {
+        toast({ type: 'success', title: '已清理本地镜像编译缓存', body: `删除 ${res.removed || 0} 项，正在重新编译…` });
+        void runBuild();
+      } else {
+        toast({ type: 'error', title: '清理本地镜像缓存失败', body: res?.error || '' });
+      }
+      return;
+    }
     const res = await api.overleaf.liveClearCompileCache();
     if (res?.ok) {
       toast({ type: 'success', title: '已清除 Overleaf 云端缓存', body: '正在从头重新编译…' });
@@ -2142,8 +2270,8 @@ function toggleWordWrap() {
 }
 
 function toggleLivePreview() {
-  if (ctx.state.overleafLive?.active) {
-    toast({ type: 'info', title: 'Overleaf 实时模式', body: '云端编译请手动点击编译或按 Ctrl+S，避免触发 Overleaf 限流。' });
+  if (ctx.state.overleafLive?.active && ctx.state.overleafLive.compileMode !== 'local') {
+    toast({ type: 'info', title: 'Overleaf 云端编译模式', body: '云端编译请手动点击编译或按 Ctrl+S，避免触发限流；如需自动编译请切换「本地极速预览」。' });
     return;
   }
   const next = !ctx.state.settings.build.livePreview;
@@ -2642,6 +2770,8 @@ ctx.app = {
   disconnectOverleafLive,
   openOverleafSettings,
   syncOverleafModeUi,
+  setOverleafCompileMode,
+  syncOverleafMirror,
   openTarget,
   openPdf,
   closeProject,

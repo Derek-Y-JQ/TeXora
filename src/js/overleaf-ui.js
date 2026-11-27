@@ -131,6 +131,7 @@ export async function openOverleafSettings(){
   const texFiles=(ctx.state.assets?.tex||[]).filter(f=>/\.(tex|ltx)$/i.test(f));
   const rootRel=rootFile.startsWith(ctx.state.project.root+'/')?rootFile.slice(ctx.state.project.root.length+1):'';
   const stopOnFirstError=Boolean(live.stopOnFirstError);
+  const compileMode=live.compileMode==='local'?'local':'cloud';
 
   const m=ctx.dialogs.modal({
     title:'Overleaf 项目设置',
@@ -139,7 +140,15 @@ export async function openOverleafSettings(){
     body:`
       <div class="field-group" style="display:grid;gap:14px">
         <label class="field">
-          <span>云端编译器（Compiler）</span>
+          <span>预览编译方式（Compile mode）</span>
+          <select class="input" data-ol-compile-mode>
+            <option value="local" ${compileMode==='local'?'selected':''}>本地极速预览（自动镜像到本地 · 免云端排队，支持自动编译）</option>
+            <option value="cloud" ${compileMode!=='local'?'selected':''}>Overleaf 云端编译（与网页版终稿完全一致）</option>
+          </select>
+          <span class="field-hint">无论选择哪种编译方式，文档编辑都会实时 OT 同步到 Overleaf 云端。</span>
+        </label>
+        <label class="field">
+          <span>编译器（Compiler）</span>
           <select class="input" data-ol-compiler ${writable?'':'disabled'}>
             ${COMPILERS.map(c=>`<option value="${c.value}" ${c.value===compiler?'selected':''}>${c.label}</option>`).join('')}
           </select>
@@ -157,18 +166,23 @@ export async function openOverleafSettings(){
         </label>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" data-ol-stop-err ${stopOnFirstError?'checked':''} />
-          <span>遇错即停（Stop on first error）</span>
+          <span>遇错即停（Stop on first error · 仅云端）</span>
         </label>
         <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px solid var(--border)">
-          <button class="btn btn-outline" data-ol-clear-cache ${writable?'':'disabled'}>清除云端编译缓存并重编</button>
+          <button class="btn btn-outline" data-ol-sync-mirror>重新同步本地镜像</button>
+          <button class="btn btn-outline" data-ol-clear-cache ${writable||compileMode==='local'?'':'disabled'}>${compileMode==='local'?'清理本地镜像缓存并重编':'清除云端编译缓存并重编'}</button>
           <button class="btn btn-outline" data-ol-open-web>在浏览器中打开原项目</button>
           <button class="btn btn-outline" data-ol-disconnect>断开实时连接</button>
         </div>
       </div>`,
-    foot:`<button class="btn btn-outline" data-cancel>关闭</button><button class="btn btn-primary" data-save ${writable?'':'disabled'}>保存设置</button>`
+    foot:`<button class="btn btn-outline" data-cancel>关闭</button><button class="btn btn-primary" data-save>保存设置</button>`
   });
 
   m.root.querySelector('[data-cancel]').onclick=m.close;
+  m.root.querySelector('[data-ol-sync-mirror]').onclick=async()=>{
+    m.close();
+    await ctx.app.syncOverleafMirror?.();
+  };
   m.root.querySelector('[data-ol-open-web]').onclick=()=>{
     ctx.api.openExternal(`https://www.overleaf.com/project/${live.projectId}`);
   };
@@ -178,6 +192,11 @@ export async function openOverleafSettings(){
   };
   m.root.querySelector('[data-ol-clear-cache]').onclick=async()=>{
     try{
+      if(ctx.state.overleafLive?.compileMode==='local'){
+        m.close();
+        await ctx.cmd('build.clean',false);
+        return;
+      }
       check(await api().liveClearCompileCache());
       m.close();
       toast({type:'success',title:'已清除 Overleaf 云端缓存',body:'正在从头重新编译…'});
@@ -185,21 +204,28 @@ export async function openOverleafSettings(){
     }catch(e){error(e);}
   };
   m.root.querySelector('[data-save]').onclick=async()=>{
+    const nextMode=m.root.querySelector('[data-ol-compile-mode]').value;
     const nextCompiler=m.root.querySelector('[data-ol-compiler]').value;
     const nextRoot=m.root.querySelector('[data-ol-root]').value;
     const nextImage=m.root.querySelector('[data-ol-image]').value.trim();
     ctx.state.overleafLive.stopOnFirstError=m.root.querySelector('[data-ol-stop-err]').checked;
     try{
-      const patch={compiler:nextCompiler};
-      if(nextRoot&&nextRoot!==rootFile)patch.rootFile=nextRoot;
-      if(nextImage&&nextImage!==imageName)patch.imageName=nextImage;
-      const res=check(await api().liveUpdateSettings(patch));
-      ctx.state.overleafLive.compiler=res.compiler||nextCompiler;
-      ctx.state.overleafLive.imageName=res.imageName||nextImage;
-      if(res.rootFile)ctx.state.project.rootFile=res.rootFile;
-      ctx.app.syncOverleafModeUi?.();
+      if(writable){
+        const patch={compiler:nextCompiler};
+        if(nextRoot&&nextRoot!==rootFile)patch.rootFile=nextRoot;
+        if(nextImage&&nextImage!==imageName)patch.imageName=nextImage;
+        const res=check(await api().liveUpdateSettings(patch));
+        ctx.state.overleafLive.compiler=res.compiler||nextCompiler;
+        ctx.state.overleafLive.imageName=res.imageName||nextImage;
+        if(res.rootFile)ctx.state.project.rootFile=res.rootFile;
+      }
+      if(nextMode!==compileMode){
+        await ctx.app.setOverleafCompileMode?.(nextMode);
+      }else{
+        ctx.app.syncOverleafModeUi?.();
+        toast({type:'success',title:'Overleaf 项目设置已更新',body:`编译器：${ctx.state.overleafLive.compiler}`});
+      }
       m.close();
-      toast({type:'success',title:'Overleaf 项目设置已更新',body:`编译器：${nextCompiler}`});
     }catch(e){error(e);}
   };
 }

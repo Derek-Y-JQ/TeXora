@@ -59,6 +59,7 @@ export function createRibbon() {
       const s = ctx.state.settings;
       if (ctx.state.overleafLive?.active) {
         const cur = ctx.state.overleafLive.compiler || 'pdflatex';
+        const isLocalMirror = ctx.state.overleafLive.compileMode === 'local';
         const setOlCompiler = async (compiler) => {
           const res = await ctx.api.overleaf.liveUpdateSettings({ compiler });
           if (res?.ok) {
@@ -67,19 +68,30 @@ export function createRibbon() {
           }
         };
         return [
-          { group: 'Overleaf 云端编译器' },
+          { group: 'Overleaf 编译方式' },
+          { label: '本地极速预览（默认 · 自动镜像）', icon: 'auto-build', checked: isLocalMirror, onClick: () => ctx.app.setOverleafCompileMode?.('local') },
+          { label: 'Overleaf 云端编译（终稿校验 / 兜底）', icon: 'cloud', checked: !isLocalMirror, onClick: () => ctx.app.setOverleafCompileMode?.('cloud') },
+          { separator: true },
+          { group: isLocalMirror ? '编译引擎（本地同步匹配）' : 'Overleaf 云端编译器' },
           { label: 'pdfLaTeX · 经典引擎', icon: 'play', checked: cur === 'pdflatex', onClick: () => setOlCompiler('pdflatex') },
           { label: 'XeLaTeX · 推荐中文', icon: 'play', checked: cur === 'xelatex', onClick: () => setOlCompiler('xelatex') },
           { label: 'LuaLaTeX · 现代引擎', icon: 'play', checked: cur === 'lualatex', onClick: () => setOlCompiler('lualatex') },
           { label: 'LaTeX', icon: 'play', checked: cur === 'latex', onClick: () => setOlCompiler('latex') },
           { separator: true },
-          { label: '极速草稿编译（Fast / Draft · 跳过高清插图）', icon: 'auto-build', checked: Boolean(ctx.state.overleafLive?.draft), onClick: () => {
-            ctx.state.overleafLive.draft = !ctx.state.overleafLive.draft;
-            ctx.ribbon?.refresh?.();
-            toast({ type: 'info', title: ctx.state.overleafLive.draft ? '已开启 Overleaf 极速草稿编译' : '已切回 Overleaf 完整编译' });
-          } },
-          { label: '保存时触发云端编译', icon: 'download', checked: s.build.buildOnSave, onClick: () => ctx.api.settings.set('build.buildOnSave', !s.build.buildOnSave) },
-          { label: '清除云端编译缓存并重编', icon: 'broom', onClick: () => ctx.cmd('build.clean', false) },
+          ...(isLocalMirror ? [
+            { label: '自动编译（本地极速）', icon: 'eye', checked: s.build.livePreview, key: '自动', onClick: () => ctx.cmd('view.livePreview') },
+            { label: '保存时触发本地编译', icon: 'download', checked: s.build.buildOnSave, onClick: () => ctx.api.settings.set('build.buildOnSave', !s.build.buildOnSave) },
+            { label: '立即同步云端文件到本地镜像', icon: 'refresh', onClick: () => ctx.app.syncOverleafMirror?.() },
+            { label: '清理本地镜像编译缓存并重编', icon: 'broom', onClick: () => ctx.cmd('build.clean', false) }
+          ] : [
+            { label: '极速草稿编译（Fast / Draft · 跳过高清插图）', icon: 'auto-build', checked: Boolean(ctx.state.overleafLive?.draft), onClick: () => {
+              ctx.state.overleafLive.draft = !ctx.state.overleafLive.draft;
+              ctx.ribbon?.refresh?.();
+              toast({ type: 'info', title: ctx.state.overleafLive.draft ? '已开启 Overleaf 极速草稿编译' : '已切回 Overleaf 完整编译' });
+            } },
+            { label: '保存时触发云端编译', icon: 'download', checked: s.build.buildOnSave, onClick: () => ctx.api.settings.set('build.buildOnSave', !s.build.buildOnSave) },
+            { label: '清除云端编译缓存并重编', icon: 'broom', onClick: () => ctx.cmd('build.clean', false) }
+          ]),
           { separator: true },
           { label: 'Overleaf 项目设置…', icon: 'sliders', onClick: () => ctx.app.openOverleafSettings?.() }
         ];
@@ -117,7 +129,7 @@ export function createRibbon() {
         { label: '编译设置…', icon: 'sliders', onClick: () => ctx.cmd('settings.open', 'build') }
       ];
     },
-    engine: () => MENUS.build().slice(0, 5),
+    engine: () => (ctx.state.overleafLive?.active ? MENUS.build().slice(0, 9) : MENUS.build().slice(0, 5)),
     codeTheme: () => {
       const current = ctx.state.settings.appearance.codeTheme || 'auto';
       const toItem = ([id, label, swatch]) => ({
@@ -238,6 +250,8 @@ export function createRibbon() {
     const s = ctx.state.settings;
     if (!s) return;
     const isLive = Boolean(ctx.state.overleafLive?.active);
+    const isLocalMirror = isLive && ctx.state.overleafLive.compileMode === 'local';
+    const isCloudOnly = isLive && !isLocalMirror;
     const build = $('#btnBuild');
     if (build) {
       const running = !!ctx.state.build.running;
@@ -245,8 +259,14 @@ export function createRibbon() {
       build.classList.toggle('busy', running);
       build.disabled = !!ctx.state.build.stopping;
       build.setAttribute('aria-busy', String(running));
-      build.title = running ? '停止当前编译' : isLive ? '触发 Overleaf 云端编译 (Ctrl+Alt+B)' : '保存修改并编译项目 (Ctrl+Alt+B)';
-      build.innerHTML = `${icon(running ? 'stop' : 'compile')}<span>${ctx.state.build.stopping ? '停止中…' : running ? '停止编译' : ctx.state.build.state === 'error' ? '重试编译' : isLive ? '云端编译' : '编译'}</span>`;
+      build.title = running
+        ? '停止当前编译'
+        : isLocalMirror
+          ? '本地极速编译 Overleaf 镜像 (Ctrl+Alt+B)'
+          : isLive
+            ? '触发 Overleaf 云端编译 (Ctrl+Alt+B)'
+            : '保存修改并编译项目 (Ctrl+Alt+B)';
+      build.innerHTML = `${icon(running ? 'stop' : 'compile')}<span>${ctx.state.build.stopping ? '停止中…' : running ? '停止编译' : ctx.state.build.state === 'error' ? '重试编译' : isLocalMirror ? '本地编译' : isLive ? '云端编译' : '编译'}</span>`;
     }
     const themeLabel = $('#codeThemeLabel');
     const theme = CODE_THEMES.find(([id]) => id === (s.appearance.codeTheme || 'auto'));
@@ -254,29 +274,44 @@ export function createRibbon() {
     const themeBtn = $('#codeThemeBtn');
     if (themeBtn) themeBtn.title = '更换代码高亮主题 · ' + (theme?.[1] || '跟随日夜');
     const engNames = { xelatex: 'XeLaTeX', pdflatex: 'pdfLaTeX', lualatex: 'LuaLaTeX', latexmk: 'latexmk', latex: 'LaTeX' };
-    const engineLabel = isLive
-      ? `云端 · ${engNames[ctx.state.overleafLive.compiler || 'pdflatex'] || 'pdfLaTeX'}`
-      : (engNames[s.build.engine] || s.build.engine);
+    const olEng = engNames[ctx.state.overleafLive?.compiler || 'pdflatex'] || 'pdfLaTeX';
+    const engineLabel = isLocalMirror
+      ? `本地 · ${olEng}`
+      : isLive
+        ? `云端 · ${olEng}`
+        : (engNames[s.build.engine] || s.build.engine);
     const label = $('#engineLabel');
     if (label) label.textContent = engineLabel;
     const sbEngine = $('#sbEngine');
     if (sbEngine) {
       sbEngine.textContent = engineLabel;
-      sbEngine.title = isLive ? 'Overleaf 云端编译器 · 点击打开项目设置' : '当前本地编译引擎';
+      sbEngine.title = isLocalMirror
+        ? 'Overleaf 本地极速镜像模式 · 点击打开项目设置'
+        : isLive
+          ? 'Overleaf 云端编译器 · 点击打开项目设置'
+          : '当前本地编译引擎';
       sbEngine.style.cursor = isLive ? 'pointer' : '';
     }
     const liveBtn = $('#liveBtn');
     if (liveBtn) {
-      liveBtn.classList.toggle('active', !isLive && !!s.build.livePreview);
-      liveBtn.disabled = isLive;
-      liveBtn.title = isLive ? 'Overleaf 实时模式下不启用本地自动编译（请手动点击编译或按 Ctrl+S）' : '自动编译';
+      liveBtn.classList.toggle('active', !isCloudOnly && !!s.build.livePreview);
+      liveBtn.disabled = isCloudOnly;
+      liveBtn.title = isCloudOnly
+        ? 'Overleaf 云端编译模式下不启用自动编译（可在编译菜单切换「本地极速预览」）'
+        : isLocalMirror
+          ? '本地镜像自动编译'
+          : '自动编译';
     }
     const sbLive = $('#sbLive');
     if (sbLive) {
-      sbLive.classList.toggle('off', isLive || !s.build.livePreview);
-      sbLive.classList.toggle('is-disabled', isLive);
-      sbLive.title = isLive ? 'Overleaf 实时模式下不启用本地自动编译' : '切换自动编译';
-      sbLive.innerHTML = isLive ? `${icon('eye')}云端手动编译` : `${icon('eye')}自动编译${s.build.livePreview ? '开' : '关'}`;
+      sbLive.classList.toggle('off', isCloudOnly || !s.build.livePreview);
+      sbLive.classList.toggle('is-disabled', isCloudOnly);
+      sbLive.title = isCloudOnly ? 'Overleaf 云端模式下不启用自动编译（可切换本地极速预览）' : '切换自动编译';
+      sbLive.innerHTML = isCloudOnly
+        ? `${icon('eye')}云端手动编译`
+        : isLocalMirror
+          ? `${icon('eye')}本地自动${s.build.livePreview ? '开' : '关'}`
+          : `${icon('eye')}自动编译${s.build.livePreview ? '开' : '关'}`;
     }
     const toggleSidebarBtn = $('#toggleSidebarBtn');
     toggleSidebarBtn?.classList.toggle('active', !$('#sidebar')?.classList.contains('collapsed'));

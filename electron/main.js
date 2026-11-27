@@ -139,6 +139,8 @@ function send(channel, payload) {
 const overleafLive = new OverleafLiveManager({
   session: overleafSession,
   cacheDir: path.join(USER_DATA, 'overleaf', 'compile'),
+  mirrorDir: path.join(USER_DATA, 'overleaf', 'mirror'),
+  localCompilerOpts: { store, tex, send, fallbackCacheRoot: USER_DATA },
   emitToRenderer: (event) => send('overleaf:liveEvent', event)
 });
 
@@ -517,6 +519,9 @@ handle('overleaf:liveJoinDoc',async docIdOrPath=>({ok:true,...await overleafLive
 handle('overleaf:liveLeaveDoc',async docIdOrPath=>({ok:true,...await overleafLive.leaveDoc(docIdOrPath)}));
 handle('overleaf:liveApplyChanges',async (docIdOrPath,changes,finalText)=>({ok:true,...overleafLive.applyLocalChanges(docIdOrPath,changes,finalText)}));
 handle('overleaf:liveCompile',async opts=>await overleafLive.compile(opts||{}));
+handle('overleaf:liveCompileLocal',async opts=>await overleafLive.compileLocal(opts||{}));
+handle('overleaf:liveSyncMirror',async opts=>await overleafLive.syncMirror(opts||{}));
+handle('overleaf:liveCleanMirror',async includePdf=>await overleafLive.cleanLocalMirrorCache(Boolean(includePdf)));
 handle('overleaf:liveStopCompile',async()=>await overleafLive.stopCompile());
 handle('overleaf:liveSyncForward',async (file,line,col)=>await overleafLive.synctexForward(file,line,col));
 handle('overleaf:liveSyncInverse',async (page,x,y)=>await overleafLive.synctexInverse(page,x,y));

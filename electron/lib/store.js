@@ -85,6 +85,7 @@ const DEFAULT_SETTINGS = {
     liveDelay: 900,
     buildOnSave: true,
     precompilePreamble: true,
+    overleafCompileMode: 'local',
     autoDetectRoot: true,
     cacheDir: '.latex_cache',
     cleanOnExit: false,

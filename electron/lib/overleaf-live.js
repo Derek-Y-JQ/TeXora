@@ -1,5 +1,6 @@
 'use strict';
 const path = require('node:path');
+const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
 const { OTClient } = require('./overleaf-ot');
@@ -10,6 +11,20 @@ function normalizeAccess(raw) {
   if (raw === 'read-write') return 'readAndWrite';
   if (raw === 'read-only') return 'readOnly';
   return 'unknown';
+}
+
+function safeMirrorRel(raw) {
+  if (typeof raw !== 'string') return '';
+  const rel = raw.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!rel || rel.length > 220) return '';
+  const parts = rel.split('/');
+  if (parts[0] === '.latex_cache' || parts[0] === '.git') return '';
+  for (const p of parts) {
+    if (!p || p === '.' || p === '..' || /[\x00-\x1f<>:"|?*]/.test(p) || /[ .]$/.test(p) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(p)) {
+      return '';
+    }
+  }
+  return rel;
 }
 
 const ORIGIN = 'https://www.overleaf.com';
@@ -380,12 +395,15 @@ function buildBridgeScript(token) {
  * and real-time file tree state.
  */
 class OverleafLiveManager {
-  constructor({ session, emitToRenderer, bridgeFactory, cacheDir, parseLog } = {}) {
+  constructor({ session, emitToRenderer, bridgeFactory, cacheDir, mirrorDir, parseLog, localCompilerFactory, localCompilerOpts } = {}) {
     this.session = session;
     this.emitToRenderer = emitToRenderer || (() => {});
     this.bridgeFactory = bridgeFactory || null;
     this.cacheDir = cacheDir || '';
+    this.mirrorBaseDir = mirrorDir || (cacheDir ? path.join(path.dirname(cacheDir), 'mirror') : '');
     this.parseLog = parseLog || null;
+    this.localCompilerFactory = localCompilerFactory || null;
+    this.localCompilerOpts = localCompilerOpts || null;
     this.bridge = null;
     this.token = '';
     this.projectId = '';
@@ -414,6 +432,14 @@ class OverleafLiveManager {
     this.lastCompileGroup = '';
     this.lastPdfPath = '';
     this.compiling = false;
+    this.mirrorReady = false;
+    this._mirrorDirtyDocs = new Set();
+    this._mirrorPendingFiles = new Set();
+    this._mirrorNeedsFullSync = false;
+    this._mirrorSyncPromise = null;
+    this.lastCompileSource = 'cloud';
+    this._mirrorProject = { root: '', rootFile: '', revision: 0 };
+    this._mirrorCompiler = null;
   }
 
   get active() {
@@ -454,6 +480,8 @@ class OverleafLiveManager {
       compiler: this.project?.compiler || 'pdflatex',
       imageName: this.project?.imageName || '',
       spellCheckLanguage: this.project?.spellCheckLanguage || '',
+      mirrorReady: this.mirrorReady,
+      lastCompileSource: this.lastCompileSource,
       tree: this.tree,
       assets: this.assets,
       users: this._serializeUsers()
@@ -635,6 +663,7 @@ class OverleafLiveManager {
       try { bridge.sendCmd({ token: this.token, type: 'disconnect', payload: {} }); } catch {}
       try { bridge.close(); } catch {}
     }
+    try { this._mirrorCompiler?.stop?.(); } catch {}
     this.projectId = '';
     this.token = '';
     this.project = null;
@@ -654,6 +683,14 @@ class OverleafLiveManager {
     this.lastCompileGroup = '';
     this.lastPdfPath = '';
     this.compiling = false;
+    this.mirrorReady = false;
+    this._mirrorDirtyDocs.clear();
+    this._mirrorPendingFiles.clear();
+    this._mirrorNeedsFullSync = false;
+    this._mirrorSyncPromise = null;
+    this.lastCompileSource = 'cloud';
+    this._mirrorProject.root = '';
+    this._mirrorProject.rootFile = '';
     this.status = 'disconnected';
     this.emitToRenderer({ type: 'status', status: 'disconnected' });
   }
@@ -816,12 +853,14 @@ class OverleafLiveManager {
         failure: 'Overleaf 云端编译失败，请查看问题面板'
       };
       const ok = status === 'success' && Boolean(pdfPath);
+      if (ok) this.lastCompileSource = 'cloud';
       const duration = Date.now() - started;
       const transcriptTail = logText ? logText.split(/\r?\n/).slice(-30).join('\n') : '';
 
       return {
         ok,
         status,
+        source: 'cloud',
         pdf: pdfPath,
         previewPdf: pdfPath,
         log: logText,
@@ -838,7 +877,314 @@ class OverleafLiveManager {
     }
   }
 
+  getMirrorDir() {
+    if (!this.mirrorBaseDir || !this.projectId) return '';
+    return path.join(this.mirrorBaseDir, this.projectId);
+  }
+
+  _mirrorPathForRel(rawRel) {
+    const mirrorDir = this.getMirrorDir();
+    const rel = safeMirrorRel(rawRel);
+    if (!mirrorDir || !rel) return '';
+    const resolvedBase = path.resolve(mirrorDir);
+    const target = path.resolve(resolvedBase, rel);
+    const prefix = resolvedBase.endsWith(path.sep) ? resolvedBase : resolvedBase + path.sep;
+    if (!target.startsWith(prefix)) return '';
+    return target;
+  }
+
+  _ensureMirrorCompiler() {
+    if (this._mirrorCompiler) return this._mirrorCompiler;
+    if (typeof this.localCompilerFactory === 'function') {
+      this._mirrorCompiler = this.localCompilerFactory({ project: this._mirrorProject });
+      return this._mirrorCompiler;
+    }
+    if (this.localCompilerOpts) {
+      const { Compiler } = require('./compiler');
+      const opts = this.localCompilerOpts;
+      const mirrorSend = (ch, payload) => {
+        if (ch === 'build:log' && typeof opts.send === 'function') opts.send(ch, payload);
+      };
+      this._mirrorCompiler = new Compiler({
+        store: opts.store,
+        project: this._mirrorProject,
+        tex: opts.tex,
+        history: null,
+        send: mirrorSend,
+        fallbackCacheRoot: opts.fallbackCacheRoot
+      });
+      return this._mirrorCompiler;
+    }
+    return null;
+  }
+
+  async _writeMirrorFile(rawRel, content) {
+    const target = this._mirrorPathForRel(rawRel);
+    if (!target) return false;
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    const tmp = `${target}.${crypto.randomUUID()}.tmp`;
+    await fsp.writeFile(tmp, content);
+    await replaceFile(tmp, target);
+    return true;
+  }
+
+  async _removeMirrorFile(rawRel) {
+    const target = this._mirrorPathForRel(rawRel);
+    if (!target) return;
+    await fsp.rm(target, { recursive: true, force: true }).catch(() => {});
+  }
+
+  async _pruneMirrorStale(mirrorDir, validRelSet) {
+    const walk = async (dir, prefix = '') => {
+      let entries = [];
+      try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        const rel = prefix ? `${prefix}/${e.name}` : e.name;
+        if (e.name === '.latex_cache' || e.name === '.git') continue;
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          await walk(full, rel);
+          try {
+            const left = await fsp.readdir(full);
+            if (!left.length) await fsp.rmdir(full);
+          } catch {}
+        } else if (e.isFile() && !validRelSet.has(rel.toLowerCase())) {
+          await fsp.unlink(full).catch(() => {});
+        }
+      }
+    };
+    await walk(mirrorDir);
+  }
+
+  async syncMirror({ force = false } = {}) {
+    if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    const mirrorDir = this.getMirrorDir();
+    if (!mirrorDir) throw new Error('未配置本地镜像缓存目录');
+    if (this._mirrorSyncPromise && !force) return this._mirrorSyncPromise;
+
+    const runSync = async () => {
+      await fsp.mkdir(mirrorDir, { recursive: true });
+      const validRels = new Set();
+      let filesCount = 0;
+      let syncedViaZip = false;
+
+      if (typeof this.session?.zip === 'function') {
+        try {
+          const buf = await this.session.zip(`/project/${this.projectId}/download/zip`);
+          const AdmZip = require('adm-zip');
+          const zip = new AdmZip(buf);
+          let totalBytes = 0;
+          for (const entry of zip.getEntries()) {
+            if (entry.isDirectory) continue;
+            if (((entry.attr >>> 16) & 0xf000) === 0xa000) continue;
+            const rel = safeMirrorRel(entry.entryName);
+            if (!rel) continue;
+            totalBytes += entry.header.size;
+            if (totalBytes > 256 * 1024 * 1024 || entry.header.size > 64 * 1024 * 1024) continue;
+            const data = entry.getData();
+            if (await this._writeMirrorFile(rel, data)) {
+              validRels.add(rel.toLowerCase());
+              filesCount++;
+            }
+          }
+          syncedViaZip = true;
+        } catch {
+          syncedViaZip = false;
+        }
+      }
+
+      if (!syncedViaZip) {
+        const entities = [...this.pathToEntity.values()].filter((e) => e.entityType === 'doc' || e.entityType === 'file');
+        const CONCURRENCY = 4;
+        for (let i = 0; i < entities.length; i += CONCURRENCY) {
+          const batch = entities.slice(i, i + CONCURRENCY);
+          await Promise.all(batch.map(async (ent) => {
+            const rel = safeMirrorRel(ent.rel);
+            if (!rel) return;
+            try {
+              if (ent.entityType === 'doc') {
+                const text = await this._readDocTextForSearch(ent);
+                if (await this._writeMirrorFile(rel, Buffer.from(String(text ?? ''), 'utf8'))) {
+                  validRels.add(rel.toLowerCase());
+                  filesCount++;
+                }
+              } else if (ent.entityType === 'file' && typeof this.session?.request === 'function') {
+                const res = await this.session.request(`/project/${this.projectId}/file/${ent.id}`);
+                const buf = Buffer.from(await res.arrayBuffer());
+                if (buf.length <= 64 * 1024 * 1024 && await this._writeMirrorFile(rel, buf)) {
+                  validRels.add(rel.toLowerCase());
+                  filesCount++;
+                }
+              }
+            } catch {}
+          }));
+        }
+      }
+
+      // Overlay currently joined OT docs from memory so recent edits are never clobbered
+      for (const [docId, client] of this.docs.entries()) {
+        const ent = this.idToEntity.get(docId);
+        const rel = safeMirrorRel(ent?.rel || '');
+        if (!rel) continue;
+        if (await this._writeMirrorFile(rel, Buffer.from(String(client.text ?? ''), 'utf8'))) {
+          validRels.add(rel.toLowerCase());
+        }
+      }
+
+      if (validRels.size > 0) {
+        await this._pruneMirrorStale(mirrorDir, validRels);
+      }
+
+      this._mirrorDirtyDocs.clear();
+      this._mirrorPendingFiles.clear();
+      this._mirrorNeedsFullSync = false;
+      this.mirrorReady = true;
+      this.emitToRenderer({ type: 'mirrorStatus', ready: true, mirrorDir, filesCount });
+      return { ok: true, mirrorDir, filesCount };
+    };
+
+    const p = runSync();
+    this._mirrorSyncPromise = p;
+    try {
+      return await p;
+    } finally {
+      if (this._mirrorSyncPromise === p) this._mirrorSyncPromise = null;
+    }
+  }
+
+  async _flushMirrorDelta() {
+    if (!this.mirrorReady || this._mirrorNeedsFullSync) {
+      await this.syncMirror({ force: false });
+      return;
+    }
+    const dirtyDocs = new Set([...this._mirrorDirtyDocs, ...this.docs.keys()]);
+    this._mirrorDirtyDocs.clear();
+    for (const docId of dirtyDocs) {
+      const ent = this.idToEntity.get(docId);
+      if (!ent || ent.entityType !== 'doc') continue;
+      const client = this.docs.get(docId);
+      const text = client ? client.text : (this.docTextCache.has(docId) ? this.docTextCache.get(docId) : null);
+      if (text === null) continue;
+      await this._writeMirrorFile(ent.rel, Buffer.from(String(text), 'utf8')).catch(() => {});
+    }
+
+    const pendingFiles = [...this._mirrorPendingFiles];
+    this._mirrorPendingFiles.clear();
+    for (const fileId of pendingFiles) {
+      const ent = this.idToEntity.get(fileId);
+      if (!ent || ent.entityType !== 'file' || typeof this.session?.request !== 'function') continue;
+      try {
+        const res = await this.session.request(`/project/${this.projectId}/file/${ent.id}`);
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length <= 64 * 1024 * 1024) {
+          await this._writeMirrorFile(ent.rel, buf);
+        }
+      } catch {}
+    }
+  }
+
+  _mapMirrorPathToVirtual(rawFile) {
+    if (!rawFile) return this.rootFile;
+    const mirrorDir = this.getMirrorDir();
+    if (mirrorDir) {
+      const resolvedBase = path.resolve(mirrorDir);
+      const resolvedFile = path.resolve(rawFile);
+      const rel = path.relative(resolvedBase, resolvedFile);
+      if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+        return this.resolveVirtualPath(rel.split(path.sep).join('/'));
+      }
+    }
+    return this.resolveVirtualPath(rawFile);
+  }
+
+  async compileLocal({ live = false, background = false, forceSync = false } = {}) {
+    if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    const compiler = this._ensureMirrorCompiler();
+    if (!compiler) throw new Error('本地编译器不可用');
+    if (compiler.tex && typeof compiler.tex.detect === 'function' && !Object.values(compiler.tex.engines || {}).some(Boolean)) {
+      compiler.tex.detect();
+    }
+    if (compiler.tex && !Object.values(compiler.tex.engines || {}).some(Boolean)) {
+      throw new Error('未检测到本地 LaTeX 引擎（TeX Live / MiKTeX），请先安装或切换回 Overleaf 云端编译');
+    }
+
+    if (forceSync) await this.syncMirror({ force: true });
+    else await this._flushMirrorDelta();
+
+    const mirrorDir = this.getMirrorDir();
+    const rootRel = safeMirrorRel(this._normalizeRelPath(this.rootFile));
+    if (!rootRel) throw new Error('未找到有效的主文档路径');
+    const mirrorRootFile = this._mirrorPathForRel(rootRel);
+    if (!mirrorRootFile) throw new Error('主文档路径不安全，无法本地镜像编译');
+    if (!fs.existsSync(mirrorRootFile)) {
+      await this.syncMirror({ force: true });
+    }
+    if (!fs.existsSync(mirrorRootFile)) {
+      throw new Error(`本地镜像中未找到主文档：${rootRel}`);
+    }
+
+    if (this._mirrorProject.root !== mirrorDir) {
+      this._mirrorProject.revision = (this._mirrorProject.revision || 0) + 1;
+      this._mirrorProject.root = mirrorDir;
+    }
+    this._mirrorProject.rootFile = mirrorRootFile;
+
+    const olCompiler = this.project?.compiler || 'pdflatex';
+    let engine = olCompiler === 'latex' ? 'pdflatex' : olCompiler;
+    if (compiler.tex && typeof compiler.tex.get === 'function' && !compiler.tex.get(engine)) {
+      engine = compiler.tex.get('xelatex') ? 'xelatex'
+        : compiler.tex.get('pdflatex') ? 'pdflatex'
+        : compiler.tex.get('lualatex') ? 'lualatex'
+        : engine;
+    }
+
+    const res = await compiler.build({
+      file: mirrorRootFile,
+      engine,
+      live: Boolean(live),
+      background: Boolean(background)
+    });
+
+    if (res?.cancelled || res?.queued) return res;
+
+    const problems = Array.isArray(res?.problems)
+      ? res.problems.map((p) => ({
+          ...p,
+          file: p.file ? this._mapMirrorPathToVirtual(p.file) : this.rootFile
+        }))
+      : [];
+
+    const ok = Boolean(res?.ok && res?.pdf);
+    if (ok) this.lastCompileSource = 'local';
+
+    return {
+      ...res,
+      ok,
+      source: 'local',
+      engine,
+      rootFile: this.rootFile,
+      projectRoot: undefined,
+      revision: undefined,
+      problems
+    };
+  }
+
+  async cleanLocalMirrorCache(includePdf = false) {
+    if (!this.active) return { ok: false, error: '尚未连接 Overleaf 实时项目' };
+    const compiler = this._ensureMirrorCompiler();
+    const mirrorDir = this.getMirrorDir();
+    if (!compiler || !mirrorDir || !fs.existsSync(mirrorDir)) return { ok: true, removed: 0 };
+    this._mirrorProject.root = mirrorDir;
+    const rootRel = safeMirrorRel(this._normalizeRelPath(this.rootFile));
+    if (rootRel) this._mirrorProject.rootFile = this._mirrorPathForRel(rootRel);
+    return compiler.clean(Boolean(includePdf));
+  }
+
   async stopCompile() {
+    if (this._mirrorCompiler?.running) {
+      try { this._mirrorCompiler.stop(); } catch {}
+      return { ok: true };
+    }
     if (!this.active || !this.session || !this.csrf) return { ok: true };
     try {
       const params = new URLSearchParams();
@@ -854,6 +1200,12 @@ class OverleafLiveManager {
 
   async synctexForward(fileOrPath, line, column = 1) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    if (this.lastCompileSource === 'local' && this.mirrorReady && this._mirrorCompiler) {
+      const rel = safeMirrorRel(this._normalizeRelPath(fileOrPath || this.rootFile));
+      const localFile = rel ? this._mirrorPathForRel(rel) : '';
+      if (!localFile) return { ok: false, error: '无法识别当前文件的本地镜像路径' };
+      return this._mirrorCompiler.synctexForward(localFile, line, column);
+    }
     if (!this.session) throw new Error('Overleaf 网络会话不可用');
     let rel = this._normalizeRelPath(fileOrPath || this.rootFile);
     if (!rel) throw new Error('无法识别当前文件路径');
@@ -866,7 +1218,7 @@ class OverleafLiveManager {
       }
     }
     const editorId = this.lastEditorId || this.editorId;
-    if (!this.lastBuildId) return { ok: false, error: '请先执行一次云端编译后再使用 SyncTeX 定位' };
+    if (!this.lastBuildId) return { ok: false, error: '请先执行一次编译后再使用 SyncTeX 定位' };
     const params = new URLSearchParams({
       file: rel,
       line: String(Math.max(1, Math.round(Number(line) || 1))),
@@ -883,7 +1235,7 @@ class OverleafLiveManager {
     });
     const data = await res.json();
     const hit = Array.isArray(data?.pdf) ? data.pdf[0] : null;
-    if (!hit || !hit.page) return { ok: false, error: '云端 SyncTeX 正向定位未命中，请先执行一次云端编译' };
+    if (!hit || !hit.page) return { ok: false, error: '云端 SyncTeX 正向定位未命中，请先执行一次编译' };
     return {
       ok: true,
       page: Number(hit.page),
@@ -896,9 +1248,17 @@ class OverleafLiveManager {
 
   async synctexInverse(page, x, y) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
+    if (this.lastCompileSource === 'local' && this.mirrorReady && this._mirrorCompiler) {
+      const res = await this._mirrorCompiler.synctexInverse(page, x, y);
+      if (!res?.ok) return res;
+      return {
+        ...res,
+        file: this._mapMirrorPathToVirtual(res.file)
+      };
+    }
     if (!this.session) throw new Error('Overleaf 网络会话不可用');
     const editorId = this.lastEditorId || this.editorId;
-    if (!this.lastBuildId) return { ok: false, error: '请先执行一次云端编译后再使用 SyncTeX 反向定位' };
+    if (!this.lastBuildId) return { ok: false, error: '请先执行一次编译后再使用 SyncTeX 反向定位' };
     const params = new URLSearchParams({
       page: String(Math.max(1, Math.round(Number(page) || 1))),
       h: (Number(x) || 0).toFixed(2),
@@ -936,6 +1296,8 @@ class OverleafLiveManager {
     const version = Number(res.version) || 0;
     const client = new OTClient({ docId: entity.id, text, version, includeHash: true });
     this.docs.set(entity.id, client);
+    this.docTextCache.set(entity.id, text);
+    if (this.mirrorReady) this._mirrorDirtyDocs.add(entity.id);
     this._recordDocRanges(entity, res.ranges);
 
     return {
@@ -970,6 +1332,8 @@ class OverleafLiveManager {
     if (!client) throw new Error('文档尚未加入实时会话');
 
     const packet = client.applyLocalChanges(changes, finalText);
+    this.docTextCache.set(docId, client.text);
+    if (this.mirrorReady) this._mirrorDirtyDocs.add(docId);
     if (packet) {
       this._sendBridgeCmd('applyOtUpdate', { docId, update: packet });
     }
@@ -986,6 +1350,8 @@ class OverleafLiveManager {
       const client = this.docs.get(docId);
       if (client) client.reset(text, version);
       else this.docs.set(docId, new OTClient({ docId, text, version }));
+      this.docTextCache.set(docId, text);
+      if (this.mirrorReady) this._mirrorDirtyDocs.add(docId);
       this.emitToRenderer({
         type: 'docResynced',
         docId,
@@ -1166,6 +1532,10 @@ class OverleafLiveManager {
       this._applyTreeEvent({ kind, parentFolderId: folderId, entity: { _id: data.entity_id, name: fileName } });
     }
     const entity = data.entity_id ? this.idToEntity.get(data.entity_id) : null;
+    if (this.mirrorReady && entity?.rel) {
+      this._mirrorPendingFiles.delete(entity.id);
+      await this._writeMirrorFile(entity.rel, buffer).catch(() => {});
+    }
     return { ok: true, id: data.entity_id || '', name: fileName, path: entity?.path || '' };
   }
 
@@ -1473,6 +1843,8 @@ class OverleafLiveManager {
     if (!this.project?.rootFolder?.[0] || !payload) return;
     const rootFolder = this.project.rootFolder[0];
     const { kind, parentFolderId, entity, entityId, newName, folderId, docId } = payload;
+    const prevEntity = entityId ? this.idToEntity.get(entityId) : null;
+    const prevRel = prevEntity?.rel || '';
 
     if (kind === 'newDoc' && entity) {
       const target = findFolderById(rootFolder, parentFolderId) || rootFolder;
@@ -1504,6 +1876,41 @@ class OverleafLiveManager {
     }
 
     this._rebuildTree();
+
+    if (this.mirrorReady) {
+      if (kind === 'newDoc' && entity?._id) {
+        const created = this.idToEntity.get(entity._id);
+        if (created?.rel) {
+          this._mirrorDirtyDocs.add(entity._id);
+          void this._writeMirrorFile(created.rel, Buffer.from('', 'utf8')).catch(() => {});
+        }
+      } else if (kind === 'newFile' && entity?._id) {
+        this._mirrorPendingFiles.add(entity._id);
+      } else if (kind === 'newFolder' && entity?._id) {
+        const created = this.idToEntity.get(entity._id);
+        const target = created?.rel ? this._mirrorPathForRel(created.rel) : '';
+        if (target) void fsp.mkdir(target, { recursive: true }).catch(() => {});
+      } else if (kind === 'removeEntity' && prevRel) {
+        void this._removeMirrorFile(prevRel);
+      } else if ((kind === 'renameEntity' || kind === 'moveEntity') && entityId) {
+        const nextEntity = this.idToEntity.get(entityId);
+        const fromPath = prevRel ? this._mirrorPathForRel(prevRel) : '';
+        const toPath = nextEntity?.rel ? this._mirrorPathForRel(nextEntity.rel) : '';
+        if (fromPath && toPath && fromPath !== toPath) {
+          void (async () => {
+            try {
+              await fsp.mkdir(path.dirname(toPath), { recursive: true });
+              await fsp.rename(fromPath, toPath);
+            } catch {
+              this._mirrorNeedsFullSync = true;
+            }
+          })();
+        } else {
+          this._mirrorNeedsFullSync = true;
+        }
+      }
+    }
+
     this.emitToRenderer({
       type: 'treeChanged',
       tree: this.tree,
@@ -1585,6 +1992,7 @@ class OverleafLiveManager {
       try {
         const res = client.receiveServerUpdate(payload);
         this.docTextCache.set(docId, client.text);
+        if (this.mirrorReady) this._mirrorDirtyDocs.add(docId);
         if (res.kind === 'ack' && res.nextPacket) {
           this._sendBridgeCmd('applyOtUpdate', { docId, update: res.nextPacket });
         } else if (res.kind === 'remote' && res.remoteOp?.length) {

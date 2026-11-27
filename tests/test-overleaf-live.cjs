@@ -1,5 +1,8 @@
 'use strict';
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const vm = require('node:vm');
 const {
   OverleafLiveManager,
@@ -501,7 +504,150 @@ const {
     await manager.disconnect();
   }
 
-  console.log('PASS Overleaf Live: Phase 1-5 (OT, tree, compile, SyncTeX, presence/cursorData, CRUD, settings, history timeline/diff, global search).');
+  // 7. Phase 6: Overleaf Local Mirror sync, incremental delta flush, local compile & local SyncTeX
+  {
+    const mirrorBase = fs.mkdtempSync(path.join(os.tmpdir(), 'texora-ol-mirror-'));
+    const projectId = 'abcdef1234567890abcdef12';
+    const mainDocId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
+    const secDocId = 'bbbbbbbbbbbbbbbbbbbbbbbb';
+    const imgFileId = 'cccccccccccccccccccccccc';
+    const mockBuildCalls = [];
+    const mockSyncCalls = [];
+    let cleanCalled = false;
+
+    const mockSession = {
+      async request(route) {
+        if (route === `/project/${projectId}/file/${imgFileId}`) {
+          return {
+            headers: new Map(),
+            async arrayBuffer() { return Uint8Array.from([137, 80, 78, 71]).buffer; }
+          };
+        }
+        throw new Error('unexpected route: ' + route);
+      }
+    };
+
+    const manager = new OverleafLiveManager({
+      session: mockSession,
+      mirrorDir: mirrorBase,
+      localCompilerFactory: ({ project }) => ({
+        running: false,
+        tex: { engines: { xelatex: '/usr/bin/xelatex', pdflatex: '/usr/bin/pdflatex' }, get: (k) => (k === 'xelatex' || k === 'pdflatex' ? '/usr/bin/' + k : '') },
+        async build(opts) {
+          mockBuildCalls.push({ ...opts, projectRoot: project.root, projectRootFile: project.rootFile });
+          const pdfOut = path.join(project.root, '.latex_cache', 'main.pdf');
+          fs.mkdirSync(path.dirname(pdfOut), { recursive: true });
+          fs.writeFileSync(pdfOut, '%PDF-1.7 local');
+          return {
+            ok: true,
+            pdf: pdfOut,
+            previewPdf: pdfOut,
+            duration: 120,
+            problems: [{ severity: 'warning', file: path.join(project.root, 'sections', 'intro.tex'), line: 3, message: 'Overfull \\hbox' }],
+            transcriptTail: 'local ok'
+          };
+        },
+        async synctexForward(file, line, col) {
+          mockSyncCalls.push({ dir: 'forward', file, line, col });
+          return { ok: true, page: 2, x: 40, y: 120, width: 80, height: 12 };
+        },
+        async synctexInverse(page, x, y) {
+          mockSyncCalls.push({ dir: 'inverse', page, x, y });
+          return { ok: true, file: path.join(project.root, 'sections', 'intro.tex'), line: 7, column: 2 };
+        },
+        clean() {
+          cleanCalled = true;
+          return { ok: true, removed: 3 };
+        },
+        stop() {}
+      }),
+      bridgeFactory: async ({ onEvent }) => {
+        setImmediate(() => onEvent('connected', {
+          csrf: 'tok',
+          permissionsLevel: 'owner',
+          project: {
+            _id: projectId,
+            name: 'Mirror Paper',
+            compiler: 'xelatex',
+            rootDoc_id: mainDocId,
+            rootFolder: [{
+              _id: 'root',
+              name: 'rootFolder',
+              docs: [{ _id: mainDocId, name: 'main.tex' }],
+              fileRefs: [{ _id: imgFileId, name: 'fig.png' }],
+              folders: [{ _id: 'f1', name: 'sections', docs: [{ _id: secDocId, name: 'intro.tex' }], fileRefs: [], folders: [] }]
+            }]
+          }
+        }));
+        return {
+          sendCmd(msg) {
+            if (msg.type === 'joinDoc') {
+              const text = msg.payload.docId === mainDocId
+                ? '\\documentclass{article}\n\\begin{document}\nHello\\end{document}'
+                : '\\section{Intro}\nBody';
+              setImmediate(() => onEvent('joinDocResponse', { requestId: msg.payload.requestId, docLines: text.split('\n'), version: 1 }));
+            } else if (msg.type === 'leaveDoc') {
+              setImmediate(() => onEvent('leaveDocResponse', { requestId: msg.payload.requestId }));
+            } else if (msg.type === 'getConnectedUsers') {
+              setImmediate(() => onEvent('connectedUsersResponse', { requestId: msg.payload.requestId, users: [] }));
+            }
+          },
+          close() {}
+        };
+      }
+    });
+
+    await manager.connect(projectId);
+
+    // Seed a warm .latex_cache file + a stale file to ensure syncMirror preserves .latex_cache and prunes stale
+    const mirrorDir = manager.getMirrorDir();
+    fs.mkdirSync(path.join(mirrorDir, '.latex_cache'), { recursive: true });
+    fs.writeFileSync(path.join(mirrorDir, '.latex_cache', 'warm.fmt'), 'fmt-bytes');
+    fs.writeFileSync(path.join(mirrorDir, 'stale.tex'), 'should be pruned');
+
+    await manager.joinDoc(mainDocId);
+
+    // First local compile triggers initial mirror sync
+    const localRes = await manager.compileLocal();
+    assert.equal(localRes.ok, true);
+    assert.equal(localRes.source, 'local');
+    assert.equal(localRes.engine, 'xelatex');
+    assert.equal(localRes.rootFile, `overleaf://${projectId}/main.tex`);
+    assert.equal(localRes.problems[0].file, `overleaf://${projectId}/sections/intro.tex`);
+    assert.equal(manager.lastCompileSource, 'local');
+    assert.equal(fs.existsSync(path.join(mirrorDir, '.latex_cache', 'warm.fmt')), true, '.latex_cache must survive syncMirror');
+    assert.equal(fs.existsSync(path.join(mirrorDir, 'stale.tex')), false, 'stale files must be pruned');
+    assert.equal(fs.readFileSync(path.join(mirrorDir, 'fig.png')).length, 4);
+
+    // Incremental local OT edit flushes straight to mirror disk before second compile
+    const edited = '\\documentclass{article}\n\\begin{document}\nHello Local Mirror!\\end{document}';
+    manager.applyLocalChanges(mainDocId, [{ rangeOffset: 41, rangeLength: 0, text: ' Local Mirror!' }], edited);
+    const localRes2 = await manager.compileLocal({ live: true });
+    assert.equal(localRes2.ok, true);
+    assert.equal(fs.readFileSync(path.join(mirrorDir, 'main.tex'), 'utf8'), edited);
+    assert.equal(mockBuildCalls.length, 2);
+
+    // Local SyncTeX forward & inverse map virtual <-> mirror paths
+    const fwd = await manager.synctexForward(`overleaf://${projectId}/sections/intro.tex`, 5, 1);
+    assert.equal(fwd.ok, true);
+    assert.equal(fwd.page, 2);
+    assert.equal(mockSyncCalls[0].file, path.join(mirrorDir, 'sections', 'intro.tex'));
+
+    const inv = await manager.synctexInverse(2, 40, 120);
+    assert.equal(inv.ok, true);
+    assert.equal(inv.file, `overleaf://${projectId}/sections/intro.tex`);
+    assert.equal(inv.line, 7);
+
+    // Clean mirror cache
+    const cleanRes = await manager.cleanLocalMirrorCache(false);
+    assert.equal(cleanRes.ok, true);
+    assert.equal(cleanCalled, true);
+
+    await manager.disconnect();
+    fs.rmSync(mirrorBase, { recursive: true, force: true });
+  }
+
+  console.log('PASS Overleaf Live: Phase 1-6 (OT, tree, cloud/local-mirror compile, SyncTeX, presence/cursorData, CRUD, settings, history timeline/diff, global search).');
 })().catch((e) => {
   console.error(e);
   process.exitCode = 1;
