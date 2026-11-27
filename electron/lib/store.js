@@ -84,6 +84,7 @@ const DEFAULT_SETTINGS = {
     livePreview: true,
     liveDelay: 900,
     buildOnSave: true,
+    precompilePreamble: true,
     autoDetectRoot: true,
     cacheDir: '.latex_cache',
     cleanOnExit: false,

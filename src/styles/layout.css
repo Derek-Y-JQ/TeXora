@@ -788,7 +788,9 @@
   forced-color-adjust:none;
   transform-origin:0 0;
   caret-color:CanvasText;
-  z-index:0;
+  -webkit-user-select:text;
+          user-select:text;
+  z-index:2;
 }
 
 .textLayer.highlighting{
@@ -800,6 +802,8 @@
     position:absolute;
     white-space:pre;
     cursor:text;
+    -webkit-user-select:text;
+            user-select:text;
     transform-origin:0% 0%;
   }
 

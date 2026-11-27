@@ -73,6 +73,11 @@ export function createRibbon() {
           { label: 'LuaLaTeX · 现代引擎', icon: 'play', checked: cur === 'lualatex', onClick: () => setOlCompiler('lualatex') },
           { label: 'LaTeX', icon: 'play', checked: cur === 'latex', onClick: () => setOlCompiler('latex') },
           { separator: true },
+          { label: '极速草稿编译（Fast / Draft · 跳过高清插图）', icon: 'auto-build', checked: Boolean(ctx.state.overleafLive?.draft), onClick: () => {
+            ctx.state.overleafLive.draft = !ctx.state.overleafLive.draft;
+            ctx.ribbon?.refresh?.();
+            toast({ type: 'info', title: ctx.state.overleafLive.draft ? '已开启 Overleaf 极速草稿编译' : '已切回 Overleaf 完整编译' });
+          } },
           { label: '保存时触发云端编译', icon: 'download', checked: s.build.buildOnSave, onClick: () => ctx.api.settings.set('build.buildOnSave', !s.build.buildOnSave) },
           { label: '清除云端编译缓存并重编', icon: 'broom', onClick: () => ctx.cmd('build.clean', false) },
           { separator: true },

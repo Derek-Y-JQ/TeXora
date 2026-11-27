@@ -249,4 +249,17 @@ const { resolveOpenTarget } = require('../electron/lib/open-target');
   assert.equal(events[1].comment.content, 'Check eq. 2');
 }
 
-console.log('PASS asset-and-subfile: all 9 suites passed.');
+// 10. PDF textLayer selection CSS & preamble .fmt precompilation eligibility
+{
+  const layoutCss = await fs.readFile(path.resolve('src/styles/layout.css'), 'utf8');
+  assert.ok(/\.textLayer\{[^}]*user-select:text/s.test(layoutCss), 'textLayer must enable user-select:text');
+  assert.ok(/\.textLayer :is\(span,br\)\{[^}]*user-select:text/s.test(layoutCss), 'textLayer spans must enable user-select:text');
+
+  const { extractPrecompilablePreamble } = require('../electron/lib/compiler');
+  assert.ok(extractPrecompilablePreamble('\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\nhi\n\\end{document}'));
+  assert.equal(extractPrecompilablePreamble('\\documentclass{article}\n\\usepackage{minted}\n\\begin{document}\nhi\n\\end{document}'), null);
+  assert.equal(extractPrecompilablePreamble('\\RequirePackage{fix-cm}\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\nhi\n\\end{document}'), null);
+  assert.equal(extractPrecompilablePreamble('\\documentclass{article}\n\\begin{document}\nhi\n\\end{document}'), null);
+}
+
+console.log('PASS asset-and-subfile: all 10 suites passed.');

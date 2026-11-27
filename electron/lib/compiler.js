@@ -15,8 +15,24 @@ const { codeEnvironment, mintedEnabled } = require('./code-tools');
 const AUX_EXT = new Set([
   '.aux', '.log', '.out', '.toc', '.lof', '.lot', '.synctex.gz', '.synctex', '.bbl', '.blg',
   '.fls', '.fdb_latexmk', '.xdv', '.bcf', '.run.xml', '.nav', '.snm', '.vrb', '.idx', '.ind',
-  '.ilg', '.glo', '.gls', '.glg', '.loa', '.lol', '.thm', '.brf', '.spl', '.acn', '.acr', '.alg'
+  '.ilg', '.glo', '.gls', '.glg', '.loa', '.lol', '.thm', '.brf', '.spl', '.acn', '.acr', '.alg',
+  '.fmt'
 ]);
+
+/** Extract a safe preamble eligible for TeX -ini .fmt precompilation, or null if unsuitable. */
+function extractPrecompilablePreamble(sourceText) {
+  const text = String(sourceText || '');
+  if (!text) return null;
+  const docMatch = /^[^%\r\n]*\\begin\s*\{document\}/m.exec(text);
+  if (!docMatch) return null;
+  const preamble = text.slice(0, docMatch.index);
+  const stripped = preamble.replace(/(^|[^\\])%[^\r\n]*/g, '$1').trim();
+  if (!/^\\documentclass\b/.test(stripped)) return null;
+  if (/\\(?:usepackage(?:\[[^\]]*\])?\{[^}]*\bminted\b|write18\b|dump\b|endofdump\b)/.test(stripped)) return null;
+  // Require at least one package/command so tiny 3-line files don't pay -ini overhead needlessly
+  if (!/\\(?:usepackage|RequirePackage|newcommand|Declare|ctexset|setCJK|setmainfont)\b/.test(stripped)) return null;
+  return preamble;
+}
 
 const PDF_RENDER_DPI = 128;
 
@@ -401,12 +417,30 @@ class Compiler {
           docArg
         ].concat(extra);
         const sourceText = await fsp.readFile(rootFile, 'utf8').catch(() => '');
+        let fmtInfo = null;
+        if (this.store.get('build.precompilePreamble', true) && ['xelatex', 'pdflatex'].includes(engineName)) {
+          fmtInfo = await this.ensurePreambleFormat({ engineName, exe, sourceText, rootDir, cache, env, exec, send, checkCancelled });
+        }
         const needsRerun = /\\(ref|eqref|pageref|autoref|cref|Cref|cite[a-zA-Z]*|tableofcontents|listoffigures|listoftables|bibliography|addbibresource|printbibliography|footnote)\b/.test(sourceText);
         const runs = needsRerun ? Math.min(maxRuns, 3) : 2;
         for (let pass = 1; pass <= runs; pass++) {
           send('build:status', { state: 'running', engine: engineName, rootFile, jobname, pass, total: runs, runs });
-          send('build:log', { chunk: `\n— 第 ${pass}/${runs} 遍（${engineName}）—\n` });
-          const passResult = await exec(exe, baseArgs, runCwd, `pass${pass}`);
+          const useFmt = Boolean(fmtInfo?.fmtArg);
+          const passArgs = useFmt ? [fmtInfo.fmtArg, ...baseArgs] : baseArgs;
+          const passEnv = useFmt ? { ...env, TEXFORMATS: [cache, env.TEXFORMATS || '', ''].join(path.delimiter) } : env;
+          send('build:log', { chunk: `\n— 第 ${pass}/${runs} 遍（${engineName}${useFmt ? ' · 导言区加速' : ''}）—\n` });
+          let passResult = await exec(exe, passArgs, runCwd, `pass${pass}`, passEnv);
+          if (useFmt && (passResult.code !== 0 || passResult.timedOut) && !/putenv\(\s*TEXMF_OUTPUT_DIRECTORY\s*=/i.test(passResult.output || '')) {
+            // Automatic safe fallback: discard incompatible .fmt and retry cleanly
+            this._failedFmtHashes ||= new Set();
+            this._failedFmtHashes.add(fmtInfo.hash);
+            try { fs.rmSync(fmtInfo.fmtPath, { force: true }); } catch {}
+            const lastRec = results[results.length - 1];
+            if (lastRec) lastRec.recovered = true;
+            fmtInfo = null;
+            send('build:log', { chunk: `\n— 导言区加速不兼容，已自动回退常规 ${engineName} 编译 —\n` });
+            passResult = await exec(exe, baseArgs, runCwd, `pass${pass}`);
+          }
           if (/putenv\(\s*TEXMF_OUTPUT_DIRECTORY\s*=/i.test(passResult.output || '')) break;
           const auxPath = path.join(cache, jobname + '.aux');
           const bcfPath = path.join(cache, jobname + '.bcf');
@@ -1144,6 +1178,50 @@ class Compiler {
     if (!fs.existsSync(pdf)) return { ok: false, error: built.output.slice(-1500) };
     return { ok: true, pdf, tex: diffTex };
   }
+
+  async ensurePreambleFormat({ engineName, exe, sourceText, rootDir, cache, env, send, checkCancelled }) {
+    const preamble = extractPrecompilablePreamble(sourceText);
+    if (!preamble) return null;
+    this._failedFmtHashes ||= new Set();
+    const incStamps = [];
+    for (const m of preamble.matchAll(/\\(?:input|include)\s*\{([^}]+)\}/g)) {
+      const rel = m[1].trim();
+      if (!rel) continue;
+      const full = path.resolve(rootDir, /\.(tex|ltx|sty|def|cfg)$/i.test(rel) ? rel : rel + '.tex');
+      try { const st = fs.statSync(full); incStamps.push(`${full}:${st.size}:${st.mtimeMs}`); } catch {}
+    }
+    const hash = crypto.createHash('sha1').update([engineName, exe, preamble, ...incStamps].join('|')).digest('hex').slice(0, 14);
+    if (this._failedFmtHashes.has(hash)) return null;
+    const fmtName = `texora-fmt-${engineName}-${hash}`;
+    const fmtPath = path.join(cache, `${fmtName}.fmt`);
+    const fmtArg = `-fmt=${fmtName}`;
+    if (fs.existsSync(fmtPath)) {
+      return { hash, fmtName, fmtPath, fmtArg, reused: true };
+    }
+    const fmtTexPath = path.join(cache, `${fmtName}.tex`);
+    const fmtSource = `${preamble}\n\\makeatletter\n\\gdef\\texora@skippreamble#1\\begin#2{%\n  \\def\\texora@env{#2}%\n  \\def\\texora@doc{document}%\n  \\ifx\\texora@env\\texora@doc\n    \\expandafter\\document\n  \\else\n    \\expandafter\\texora@skippreamble\n  \\fi\n}\n\\let\\texora@orig@documentclass\\documentclass\n\\gdef\\documentclass{\\texora@skippreamble}\n\\makeatother\n\\dump\n`;
+    try {
+      await fsp.mkdir(cache, { recursive: true });
+      await fsp.writeFile(fmtTexPath, fmtSource, 'utf8');
+      send('build:log', { chunk: `\n— 预编译导言区格式缓存（${engineName} .fmt）—\n` });
+      const res = await this.execute(exe, [
+        '-ini',
+        '-interaction=nonstopmode',
+        '-halt-on-error',
+        `-output-directory=${cache}`,
+        `-jobname=${fmtName}`,
+        `&${engineName}`,
+        fmtTexPath
+      ], { cwd: rootDir, env, timeout: 60000 });
+      checkCancelled?.();
+      if (res.code === 0 && fs.existsSync(fmtPath)) {
+        return { hash, fmtName, fmtPath, fmtArg, reused: false };
+      }
+    } catch {}
+    this._failedFmtHashes.add(hash);
+    try { fs.rmSync(fmtPath, { force: true }); } catch {}
+    return null;
+  }
 }
 
-module.exports = { Compiler, parseLatexLog, splitArgs };
+module.exports = { Compiler, parseLatexLog, splitArgs, extractPrecompilablePreamble };

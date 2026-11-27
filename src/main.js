@@ -1758,7 +1758,8 @@ async function runBuild(opts = {}) {
       ctx.preview.setBusy(true);
       const res = await api.overleaf.liveCompile({
         stopOnFirstError: Boolean(ctx.state.overleafLive?.stopOnFirstError),
-        retryOnThrottle: Boolean(opts.retryOnThrottle)
+        retryOnThrottle: Boolean(opts.retryOnThrottle),
+        draft: Boolean(ctx.state.overleafLive?.draft)
       });
       if (generation !== previewGeneration) return;
       ctx.state.log = res?.log || '';

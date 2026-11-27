@@ -701,7 +701,7 @@ class OverleafLiveManager {
     return u.pathname + u.search;
   }
 
-  async compile({ stopOnFirstError = false, retryOnThrottle = false } = {}) {
+  async compile({ stopOnFirstError = false, retryOnThrottle = false, draft = false } = {}) {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
     if (!this.session || typeof this.session.request !== 'function') throw new Error('Overleaf 网络会话不可用');
     if (!this.csrf) throw new Error('缺少 Overleaf CSRF 令牌，请重新连接项目');
@@ -709,6 +709,7 @@ class OverleafLiveManager {
 
     this.compiling = true;
     const started = Date.now();
+    const prevBuildId = this.lastBuildId || '';
     try {
       const rootEntity = this.pathToEntity.get(this.rootFile) || (this.project?.rootDoc_id ? this.idToEntity.get(this.project.rootDoc_id) : null);
       const rootDocId = rootEntity?.id || this.project?.rootDoc_id || undefined;
@@ -716,7 +717,7 @@ class OverleafLiveManager {
       this.editorId ||= crypto.randomUUID();
       const body = {
         check: 'silent',
-        draft: false,
+        draft: Boolean(draft),
         incrementalCompilesEnabled: true,
         stopOnFirstError: Boolean(stopOnFirstError),
         editorId: this.editorId,
@@ -759,25 +760,23 @@ class OverleafLiveManager {
       if (resolvedBuildId) this.lastBuildId = resolvedBuildId;
       this.lastEditorId = String(pdfFile?.editorId || this.editorId || '');
 
-      let logText = '';
-      if (logFile?.url) {
+      const fetchLog = async () => {
+        if (!logFile?.url) return '';
         try {
           const logRoute = this._buildOutputRoute(logFile.url, { compileGroup, clsiServerId });
           const logRes = await this.session.request(logRoute);
-          logText = await logRes.text();
-        } catch {}
-      }
+          return await logRes.text();
+        } catch {
+          return '';
+        }
+      };
 
-      const parseLog = this._getLogParser();
-      const rawProblems = logText ? parseLog(logText, { rootFile: this.rootFile }) : [];
-      const problems = rawProblems.map((p) => ({
-        ...p,
-        file: p.file ? this.resolveVirtualPath(p.file) : this.rootFile
-      }));
-
-      let pdfPath = '';
-      let pdfDownloadError = '';
-      if (pdfFile?.url && status === 'success') {
+      const fetchPdf = async () => {
+        if (!pdfFile?.url || status !== 'success') return { pdfPath: '', pdfDownloadError: '' };
+        // Reuse cached PDF if Overleaf returned the exact same buildId
+        if (resolvedBuildId && resolvedBuildId === prevBuildId && this.lastPdfPath && fs.existsSync(this.lastPdfPath)) {
+          return { pdfPath: this.lastPdfPath, pdfDownloadError: '' };
+        }
         try {
           const pdfRoute = this._buildOutputRoute(pdfFile.url, { compileGroup, clsiServerId, enableCaching: true });
           const pdfRes = await this.session.request(pdfRoute);
@@ -789,14 +788,25 @@ class OverleafLiveManager {
             const tmp = `${target}.${crypto.randomUUID()}.tmp`;
             await fsp.writeFile(tmp, buf);
             await replaceFile(tmp, target);
-            pdfPath = target;
             this.lastPdfPath = target;
+            if (pdfFile.build) this.lastBuildId = String(pdfFile.build);
+            return { pdfPath: target, pdfDownloadError: '' };
           }
-          if (pdfFile.build) this.lastBuildId = String(pdfFile.build);
+          return { pdfPath: '', pdfDownloadError: '' };
         } catch (err) {
-          pdfDownloadError = err.message || String(err);
+          return { pdfPath: '', pdfDownloadError: err.message || String(err) };
         }
-      }
+      };
+
+      // Download PDF and log concurrently to cut post-compile network latency
+      const [logText, { pdfPath, pdfDownloadError }] = await Promise.all([fetchLog(), fetchPdf()]);
+
+      const parseLog = this._getLogParser();
+      const rawProblems = logText ? parseLog(logText, { rootFile: this.rootFile }) : [];
+      const problems = rawProblems.map((p) => ({
+        ...p,
+        file: p.file ? this.resolveVirtualPath(p.file) : this.rootFile
+      }));
 
       const statusMessages = {
         'too-recently-compiled': '编译过于频繁，请稍候几秒后重试',

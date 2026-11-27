@@ -165,6 +165,7 @@ export function createSettingsUI() {
         ${switchRow('build.livePreview', '自动编译（Auto Build）', '停止输入后自动增量编译并刷新 PDF')}
         ${inputRow('build.liveDelay', '实时触发延迟（ms）', '默认 900ms', { type: 'number', width: 110 })}
         ${switchRow('build.buildOnSave', '保存时自动编译', '')}
+        ${switchRow('build.precompilePreamble', '导言区预编译加速（.fmt）', '自动缓存导言区二进制格式，导言区不变时跳过宏包加载，异常时自动回退常规编译')}
         ${switchRow('build.autoDetectRoot', '自动识别主文档', '在子文件中编译时自动从含 \\documentclass 的主文档发起')}
       </div>
       ${group('过程文件与清理')}
