@@ -30,9 +30,10 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
   const audit = () => evalJs(`(() => {
     const visible = [...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().width && e.getBoundingClientRect().height && getComputedStyle(e).visibility!=='hidden');
     const label=e=>e.tagName+'.'+String(e.className).slice(0,80);
+    const floatingSel='.find-bar,.toast,.modal,.menu,.popover,.palette,.texora-hover,.hover-card,.tip,.suggest-widget,.parameter-hints-widget,.monaco-hover,.find-widget,.breadcrumb-widget,.rename-box';
     return {
       rounded:visible.filter(e=>{const s=getComputedStyle(e);return ['borderTopLeftRadius','borderTopRightRadius','borderBottomLeftRadius','borderBottomRightRadius'].some(k=>parseFloat(s[k])>0)}).map(label),
-      shadows:visible.filter(e=>getComputedStyle(e).boxShadow!=='none').map(label),
+      shadows:visible.filter(e=>getComputedStyle(e).boxShadow!=='none'&&!e.matches(floatingSel)).map(label),
       gradients:visible.filter(e=>/gradient/.test(getComputedStyle(e).backgroundImage)&&!e.matches('.compile-btn.busy')).map(label)
     };
   })()`);
@@ -41,7 +42,7 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
     assert.ok(Math.abs(headers.source-headers.pdf)<=1,'PDF toolbar rule aligns with the source tabstrip rule');
     const a = await audit();
     assert.deepEqual(a.rounded, [], 'Endfield visible UI has square corners');
-    assert.deepEqual(a.shadows, [], 'Endfield has no soft shadows');
+    assert.deepEqual(a.shadows, [], 'Endfield base panes have no soft shadows');
     assert.deepEqual(a.gradients, [], 'Endfield has no decorative gradients');
   };
   const fingerprint = () => evalJs(`(() => {
@@ -66,15 +67,19 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
       assert.deepEqual(await fingerprint(),reference,'Studio '+accent+' cannot bleed into Endfield');
     }
     await assertGeometry();
-    // Where you are: the current side-rail cell is filled with the accent and carries ink.
-    assert.deepEqual(await colorAt('.act-btn.active'),signal,color+' marks the current panel');
-    assert.deepEqual(await colorAt('.act-btn.active','color'),INK);
+    // Where you are: the current side-rail cell uses a quiet surface highlight + left indicator bar.
+    const actSurface = theme === 'light' ? [255, 255, 255] : [44, 44, 42];
+    const actInk = theme === 'light' ? [20, 20, 20] : [240, 240, 236];
+    const actBar = theme === 'light' ? [20, 20, 20] : signal;
+    assert.deepEqual(await colorAt('.act-btn.active'), actSurface, color + ' elevates the current panel');
+    assert.deepEqual(await colorAt('.act-btn.active', 'color'), actInk);
+    assert.deepEqual(await colorAt('.act-btn.active', 'backgroundColor', '::before'), actBar, color + ' marks the current panel edge');
     // Day title bar is paper, night is near-black; the strip draws in once; the PDF bar has no ink tab.
     const bar=await colorAt('.titlebar');
     assert.deepEqual(bar,theme==='light'?[255,255,255]:[22,22,22],'title bar follows the theme');
     assert.equal(await evalJs('getComputedStyle(document.querySelector(".titlebar"),"::before").animationName'),'ef-strip');
     assert.equal(await evalJs('getComputedStyle(document.querySelector(".preview"),"::before").content'),'none','no ink tab above the PDF toolbar');
-    assert.equal(await evalJs('getComputedStyle(document.querySelector(".split-btn")).columnGap'),'6px','compile and its options are set apart');
+    assert.equal(await evalJs('getComputedStyle(document.querySelector(".split-btn")).columnGap'),'2px','compile and its options stay tightly paired');
     // The wipe covers the border and is parked clear of the edge, so no frame or sliver shows.
     const wipeBox=await evalJs('(()=>{const s=getComputedStyle(document.querySelector("#btnBuild"),"::before");return [s.top,s.left,s.right,s.bottom]})()');
     assert.deepEqual(wipeBox,['-1px','-1px','-1px','-1px']);
@@ -86,10 +91,11 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
     await evalJs('document.querySelector("#btnBuild").classList.remove("busy")');
     // Compile rests in the theme's ink; pointing at it wipes the chosen accent across.
     await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:10,y:400});await sleep(350);
-    const restingInk=theme==='light'?INK:[237,237,237];
-    const restingText=theme==='light'?[255,255,255]:[34,34,34];
+    const restingInk=theme==='light'?[20,20,20]:[240,240,236];
+    const restingText=theme==='light'?[255,255,255]:[33,33,32];
+    const caretBg=theme==='light'?[232,232,227]:[44,44,42];
     assert.deepEqual(await colorAt('#btnBuild'),restingInk,'compile rests in neutral ink');
-    assert.deepEqual(await colorAt('.split-btn .btn-caret'),restingInk,'compile options use neutral ink');
+    assert.deepEqual(await colorAt('.split-btn .btn-caret'),caretBg,'compile options use quiet surface');
     assert.deepEqual(await colorAt('#btnBuild','color'),restingText);
     assert.notEqual(await evalJs('getComputedStyle(document.querySelector("#btnBuild"),"::before").transform'),'none','wipe is parked off the button at rest');
     const p=await evalJs('(()=>{const r=document.querySelector("#btnBuild").getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()');
