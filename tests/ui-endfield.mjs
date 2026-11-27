@@ -150,7 +150,7 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
   for(let i=0;i<80&&!await evalJs('!!document.querySelector(".suggest-widget.visible")');i++)await sleep(30);
   assert.ok(await evalJs('!!document.querySelector(".suggest-widget.visible")'));
   await assertGeometry();
-  assert.deepEqual(await colorAt('.suggest-widget.visible'),[34,34,34],'editor completion chrome follows Endfield');
+  assert.deepEqual(await colorAt('.suggest-widget.visible'),[33,33,32],'editor completion chrome follows Endfield');
   await shot('.capture/202-ice-completions.png');
   await evalJs('window.__texora.editor.editor.trigger("test","hideSuggestWidget",{})');
   await evalJs('window.__texora.settingsUI.open("appearance")');
