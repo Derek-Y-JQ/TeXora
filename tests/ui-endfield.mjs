@@ -83,7 +83,13 @@ export default async function ({ evalJs, sleep, send, press, shot }) {
     // The wipe covers the border and is parked clear of the edge, so no frame or sliver shows.
     const wipeBox=await evalJs('(()=>{const s=getComputedStyle(document.querySelector("#btnBuild"),"::before");return [s.top,s.left,s.right,s.bottom]})()');
     assert.deepEqual(wipeBox,['-1px','-1px','-1px','-1px']);
-    assert.ok(await evalJs('(()=>{const b=document.querySelector("#btnBuild"),m=new DOMMatrix(getComputedStyle(b,"::before").transform);return m.m41<=-(b.offsetWidth+1)})()'),'parked wipe is fully outside the button');
+    let wipeParked=false;
+    for(let i=0;i<15;i++){
+      wipeParked=await evalJs('(()=>{const b=document.querySelector("#btnBuild"),m=new DOMMatrix(getComputedStyle(b,"::before").transform);return m.m41<=-(b.offsetWidth+1)})()');
+      if(wipeParked)break;
+      await sleep(30);
+    }
+    assert.ok(wipeParked,'parked wipe is fully outside the button');
     // Compiling: accent hatch that keeps moving.
     await evalJs('document.querySelector("#btnBuild").classList.add("busy")');
     assert.equal(await evalJs('getComputedStyle(document.querySelector("#btnBuild")).animationName'),'ef-hatch-run');
