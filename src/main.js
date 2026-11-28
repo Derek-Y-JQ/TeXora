@@ -1853,6 +1853,11 @@ async function runBuild(opts = {}) {
           setBuildStatus('idle', '空闲');
           return;
         }
+        if (res?.needsProjectBuild) {
+          ctx.preview.setBusy(false);
+          setBuildStatus('idle', '点击编译以加载项目配置');
+          return;
+        }
         ctx.state.overleafLive.mirrorReady = true;
         handleBuildDone({
           ...res,

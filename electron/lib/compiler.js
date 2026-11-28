@@ -16,7 +16,7 @@ const AUX_EXT = new Set([
   '.aux', '.log', '.out', '.toc', '.lof', '.lot', '.synctex.gz', '.synctex', '.bbl', '.blg',
   '.fls', '.fdb_latexmk', '.xdv', '.bcf', '.run.xml', '.nav', '.snm', '.vrb', '.idx', '.ind',
   '.ilg', '.glo', '.gls', '.glg', '.loa', '.lol', '.thm', '.brf', '.spl', '.acn', '.acr', '.alg',
-  '.fmt'
+  '.fmt', '.sig'
 ]);
 
 /** Extract a safe preamble eligible for TeX -ini .fmt precompilation, or null if unsuitable. */
@@ -309,7 +309,7 @@ class Compiler {
     const parentRc = rootDir !== projectRoot && !localRc && findRc(projectRoot);
     const projectRc = localRc || parentRc;
     const latexmk = this.tex.get('latexmk');
-    const useProjectRc = recipe === 'auto' && engine !== 'latexmk' && projectRc && latexmk;
+    const useProjectRc = !options.ignoreProjectRc && recipe === 'auto' && engine !== 'latexmk' && projectRc && latexmk;
     const actualRecipe = recipe === 'auto' ? (useProjectRc ? 'latexmk' : engine) : recipe;
     const background = options.background || options.live;
     if (useProjectRc) {
@@ -418,13 +418,19 @@ class Compiler {
         ].concat(extra);
         const sourceText = await fsp.readFile(rootFile, 'utf8').catch(() => '');
         let fmtInfo = null;
-        if (this.store.get('build.precompilePreamble', true) && ['xelatex', 'pdflatex'].includes(engineName)) {
-          fmtInfo = await this.ensurePreambleFormat({ engineName, exe, sourceText, rootDir, cache, env, exec, send, checkCancelled });
+        let fmtPlan = null;
+        if (this.store.get('build.precompilePreamble', true) && engineName === 'pdflatex' && this.tex?.distro !== 'miktex') {
+          fmtPlan = this._computePreambleFormatPlan({ engineName, exe, sourceText, rootDir, cache });
+          if (fmtPlan && fs.existsSync(fmtPlan.fmtPath)) fmtInfo = fmtPlan;
         }
         const needsRerun = /\\(ref|eqref|pageref|autoref|cref|Cref|cite[a-zA-Z]*|tableofcontents|listoffigures|listoftables|bibliography|addbibresource|printbibliography|footnote)\b/.test(sourceText);
+        const smartIncremental = Boolean(options.fastIncremental || options.live);
         const runs = needsRerun ? Math.min(maxRuns, 3) : 2;
+        const bibSigPath = path.join(cache, jobname + '.texora-bib.sig');
+        const bblPath = path.join(cache, jobname + '.bbl');
         for (let pass = 1; pass <= runs; pass++) {
           send('build:status', { state: 'running', engine: engineName, rootFile, jobname, pass, total: runs, runs });
+          const beforeAuxSig = smartIncremental ? await this._readAuxSignature(cache, jobname) : '';
           const useFmt = Boolean(fmtInfo?.fmtArg);
           const passArgs = useFmt ? [fmtInfo.fmtArg, ...baseArgs] : baseArgs;
           const passEnv = useFmt ? { ...env, TEXFORMATS: [cache, env.TEXFORMATS || '', ''].join(path.delimiter) } : env;
@@ -438,31 +444,62 @@ class Compiler {
             const lastRec = results[results.length - 1];
             if (lastRec) lastRec.recovered = true;
             fmtInfo = null;
+            fmtPlan = null;
             send('build:log', { chunk: `\n— 导言区加速不兼容，已自动回退常规 ${engineName} 编译 —\n` });
             passResult = await exec(exe, baseArgs, runCwd, `pass${pass}`);
           }
           if (/putenv\(\s*TEXMF_OUTPUT_DIRECTORY\s*=/i.test(passResult.output || '')) break;
+          if (smartIncremental && (passResult.code !== 0 || passResult.timedOut)) break;
           const auxPath = path.join(cache, jobname + '.aux');
           const bcfPath = path.join(cache, jobname + '.bcf');
-          if (pass === 1) {
+          let bibRan = false;
+          if (pass === 1 && passResult.code === 0 && !passResult.timedOut) {
             const auxText = await fsp.readFile(auxPath, 'utf8').catch(() => '');
-            if (passResult.code === 0 && !passResult.timedOut && fs.existsSync(bcfPath)) {
-              const biber = this.tex.get('biber');
-              if (!biber) throw Error('未找到 Biber，无法生成参考文献');
-              send('build:log', { chunk: '\n— 参考文献（Biber）—\n' });
-              const bib = await exec(biber, ['--input-directory',rootDir,'--output-directory',cache,bcfPath], rootDir, 'Biber');
-              if (bib.code !== 0 || bib.timedOut) break;
-            } else if (passResult.code === 0 && !passResult.timedOut && /\\bibdata\b/.test(auxText)) {
-              const bibtex = this.tex.get('bibtex');
-              if (!bibtex) throw Error('未找到 BibTeX，无法生成参考文献');
-              send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
-              const search = [rootDir,projectRoot,cache,''].join(path.delimiter);
-              const bib = await exec(bibtex, [jobname], cache, 'BibTeX',
-                {...env, BIBINPUTS:search, BSTINPUTS:search});
-              if (bib.code !== 0 || bib.timedOut) break;
+            const bblExists = fs.existsSync(bblPath) && (fs.statSync(bblPath).size > 0);
+            const savedBibSig = bblExists ? await fsp.readFile(bibSigPath, 'utf8').catch(() => '') : '';
+            if (fs.existsSync(bcfPath)) {
+              const bibSig = await this._computeBibSignature('biber', { bcfPath, rootDir, projectRoot });
+              if (!bblExists || !savedBibSig || savedBibSig !== bibSig) {
+                const biber = this.tex.get('biber');
+                if (!biber) throw Error('未找到 Biber，无法生成参考文献');
+                send('build:log', { chunk: '\n— 参考文献（Biber）—\n' });
+                const bib = await exec(biber, ['--input-directory', rootDir, '--output-directory', cache, bcfPath], rootDir, 'Biber');
+                bibRan = true;
+                if (bib.code !== 0 || bib.timedOut) break;
+                await fsp.writeFile(bibSigPath, bibSig, 'utf8').catch(() => {});
+              } else {
+                send('build:log', { chunk: '\n— 参考文献未变化，跳过 Biber —\n' });
+              }
+            } else if (/\\bibdata\b/.test(auxText)) {
+              const bibSig = await this._computeBibSignature('bibtex', { auxText, rootDir, projectRoot });
+              if (!bblExists || !savedBibSig || savedBibSig !== bibSig) {
+                const bibtex = this.tex.get('bibtex');
+                if (!bibtex) throw Error('未找到 BibTeX，无法生成参考文献');
+                send('build:log', { chunk: '\n— 参考文献（BibTeX）—\n' });
+                const search = [rootDir, projectRoot, cache, ''].join(path.delimiter);
+                const bib = await exec(bibtex, [jobname], cache, 'BibTeX',
+                  { ...env, BIBINPUTS: search, BSTINPUTS: search });
+                bibRan = true;
+                if (bib.code !== 0 || bib.timedOut) break;
+                await fsp.writeFile(bibSigPath, bibSig, 'utf8').catch(() => {});
+              } else {
+                send('build:log', { chunk: '\n— 参考文献未变化，跳过 BibTeX —\n' });
+              }
             }
           }
           if (timedOut) break;
+          if (smartIncremental && pass < runs && !bibRan && passResult.code === 0) {
+            const afterAuxSig = await this._readAuxSignature(cache, jobname);
+            const passLog = await fsp.readFile(path.join(cache, jobname + '.log'), 'utf8').catch(() => passResult.output || '');
+            const wantsRerun = /Rerun to get|Please rerun LaTeX|Label\(s\) may have changed|Citation .* undefined|Reference .* undefined|There were undefined references|Table widths have changed|Longtable/i.test(passLog);
+            if (!wantsRerun && afterAuxSig === beforeAuxSig && (beforeAuxSig !== '' || !needsRerun)) {
+              send('build:log', { chunk: `\n— 引用与目录已收敛，提前结束（共 ${pass} 遍）—\n` });
+              break;
+            }
+          }
+        }
+        if (fmtPlan && !fs.existsSync(fmtPlan.fmtPath)) {
+          this._pendingFmtWarm = { plan: fmtPlan, exe, rootDir, cache, env };
         }
       }
 
@@ -503,7 +540,7 @@ class Compiler {
 
       // copy PDF next to sources
       let rootPdf = '';
-      if (ok && this.store.get('build.pdfInRoot', true) && pdfStat) {
+      if (ok && !options.skipRootPdfCopy && this.store.get('build.pdfInRoot', true) && pdfStat) {
         rootPdf = path.join(rootDir, jobname + '.pdf');
         try { await fsp.copyFile(pdfPath, rootPdf); } catch (err) { console.warn('copy pdf failed', err.message); }
       }
@@ -549,6 +586,13 @@ class Compiler {
       this.lastResult = result;
       if (ok && this.history) {
         this.history.snapshot(rootFile, await fsp.readFile(rootFile, 'utf8').catch(() => ''), 'build');
+      }
+      if (ok && this._pendingFmtWarm) {
+        const warm = this._pendingFmtWarm;
+        this._pendingFmtWarm = null;
+        void this._warmPreambleFormatBg(warm);
+      } else {
+        this._pendingFmtWarm = null;
       }
       checkCancelled();
       send('build:done', result);
@@ -1179,9 +1223,58 @@ class Compiler {
     return { ok: true, pdf, tex: diffTex };
   }
 
-  async ensurePreambleFormat({ engineName, exe, sourceText, rootDir, cache, env, send, checkCancelled }) {
+  async _readAuxSignature(cache, jobname) {
+    const exts = ['.aux', '.toc', '.lof', '.lot', '.out', '.nav'];
+    const parts = [];
+    for (const ext of exts) {
+      const p = path.join(cache, jobname + ext);
+      try {
+        const buf = await fsp.readFile(p);
+        parts.push(ext + ':' + crypto.createHash('sha1').update(buf).digest('hex'));
+      } catch {}
+    }
+    return parts.length ? parts.join('|') : '';
+  }
+
+  async _computeBibSignature(kind, { auxText = '', bcfPath = '', rootDir = '', projectRoot = '' } = {}) {
+    const parts = [kind];
+    const bibNames = new Set();
+    if (kind === 'biber' && bcfPath) {
+      const bcf = await fsp.readFile(bcfPath, 'utf8').catch(() => '');
+      parts.push(crypto.createHash('sha1').update(bcf).digest('hex'));
+      for (const m of bcf.matchAll(/<bcf:datasource[^>]*>([^<]+)<\/bcf:datasource>/gi)) {
+        const name = String(m[1] || '').trim();
+        if (name) bibNames.add(name);
+      }
+    } else {
+      const lines = String(auxText || '').split(/\r?\n/).filter((l) => /^\\(?:citation|bibdata|bibstyle)\{/.test(l.trim()));
+      parts.push(crypto.createHash('sha1').update(lines.join('\n')).digest('hex'));
+      for (const l of lines) {
+        const m = l.match(/\\bibdata\{([^}]+)\}/);
+        if (!m) continue;
+        for (const item of m[1].split(',')) {
+          const name = item.trim();
+          if (name) bibNames.add(name.endsWith('.bib') ? name : name + '.bib');
+        }
+      }
+    }
+    for (const name of [...bibNames].sort()) {
+      const candidates = [path.resolve(rootDir, name), projectRoot ? path.resolve(projectRoot, name) : ''].filter(Boolean);
+      for (const full of candidates) {
+        try {
+          const st = fs.statSync(full);
+          parts.push(`${name}:${st.size}:${Math.trunc(st.mtimeMs)}`);
+          break;
+        } catch {}
+      }
+    }
+    return crypto.createHash('sha1').update(parts.join('|')).digest('hex');
+  }
+
+  _computePreambleFormatPlan({ engineName, exe, sourceText, rootDir, cache }) {
     const preamble = extractPrecompilablePreamble(sourceText);
     if (!preamble) return null;
+    if (/\\(?:usepackage(?:\[[^\]]*\])?\{[^}]*\b(?:fontspec|xeCJK|ctex)\b|documentclass(?:\[[^\]]*\])?\{ctex)/.test(preamble)) return null;
     this._failedFmtHashes ||= new Set();
     const incStamps = [];
     for (const m of preamble.matchAll(/\\(?:input|include)\s*\{([^}]+)\}/g)) {
@@ -1194,33 +1287,40 @@ class Compiler {
     if (this._failedFmtHashes.has(hash)) return null;
     const fmtName = `texora-fmt-${engineName}-${hash}`;
     const fmtPath = path.join(cache, `${fmtName}.fmt`);
-    const fmtArg = `-fmt=${fmtName}`;
-    if (fs.existsSync(fmtPath)) {
-      return { hash, fmtName, fmtPath, fmtArg, reused: true };
-    }
-    const fmtTexPath = path.join(cache, `${fmtName}.tex`);
-    const fmtSource = `${preamble}\n\\makeatletter\n\\gdef\\texora@skippreamble#1\\begin#2{%\n  \\def\\texora@env{#2}%\n  \\def\\texora@doc{document}%\n  \\ifx\\texora@env\\texora@doc\n    \\expandafter\\document\n  \\else\n    \\expandafter\\texora@skippreamble\n  \\fi\n}\n\\let\\texora@orig@documentclass\\documentclass\n\\gdef\\documentclass{\\texora@skippreamble}\n\\makeatother\n\\dump\n`;
+    return { hash, engineName, preamble, fmtName, fmtPath, fmtArg: `-fmt=${fmtName}` };
+  }
+
+  async _warmPreambleFormatBg({ plan, exe, rootDir, cache, env }) {
+    if (!plan || fs.existsSync(plan.fmtPath)) return;
+    this._warmingFmtHashes ||= new Set();
+    if (this._warmingFmtHashes.has(plan.hash)) return;
+    this._warmingFmtHashes.add(plan.hash);
+    const fmtTexPath = path.join(cache, `${plan.fmtName}.tex`);
+    const fmtSource = `${plan.preamble}\n\\makeatletter\n\\gdef\\texora@skippreamble#1\\begin#2{%\n  \\def\\texora@env{#2}%\n  \\def\\texora@doc{document}%\n  \\ifx\\texora@env\\texora@doc\n    \\expandafter\\document\n  \\else\n    \\expandafter\\texora@skippreamble\n  \\fi\n}\n\\let\\texora@orig@documentclass\\documentclass\n\\gdef\\documentclass{\\texora@skippreamble}\n\\makeatother\n\\dump\n`;
     try {
       await fsp.mkdir(cache, { recursive: true });
       await fsp.writeFile(fmtTexPath, fmtSource, 'utf8');
-      send('build:log', { chunk: `\n— 预编译导言区格式缓存（${engineName} .fmt）—\n` });
       const res = await this.execute(exe, [
         '-ini',
         '-interaction=nonstopmode',
         '-halt-on-error',
         `-output-directory=${cache}`,
-        `-jobname=${fmtName}`,
-        `&${engineName}`,
+        `-jobname=${plan.fmtName}`,
+        `&${plan.engineName}`,
         fmtTexPath
-      ], { cwd: rootDir, env, timeout: 60000 });
-      checkCancelled?.();
-      if (res.code === 0 && fs.existsSync(fmtPath)) {
-        return { hash, fmtName, fmtPath, fmtArg, reused: false };
+      ], { cwd: rootDir, env, timeout: 45000 });
+      if (res.code !== 0 || !fs.existsSync(plan.fmtPath)) {
+        this._failedFmtHashes ||= new Set();
+        this._failedFmtHashes.add(plan.hash);
+        try { fs.rmSync(plan.fmtPath, { force: true }); } catch {}
       }
-    } catch {}
-    this._failedFmtHashes.add(hash);
-    try { fs.rmSync(fmtPath, { force: true }); } catch {}
-    return null;
+    } catch {
+      this._failedFmtHashes ||= new Set();
+      this._failedFmtHashes.add(plan.hash);
+      try { fs.rmSync(plan.fmtPath, { force: true }); } catch {}
+    } finally {
+      this._warmingFmtHashes.delete(plan.hash);
+    }
   }
 }
 

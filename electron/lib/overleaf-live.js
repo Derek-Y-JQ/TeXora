@@ -435,6 +435,7 @@ class OverleafLiveManager {
     this.mirrorReady = false;
     this._mirrorDirtyDocs = new Set();
     this._mirrorPendingFiles = new Set();
+    this._mirrorWrittenText = new Map();
     this._mirrorNeedsFullSync = false;
     this._mirrorSyncPromise = null;
     this.lastCompileSource = 'cloud';
@@ -686,6 +687,7 @@ class OverleafLiveManager {
     this.mirrorReady = false;
     this._mirrorDirtyDocs.clear();
     this._mirrorPendingFiles.clear();
+    this._mirrorWrittenText.clear();
     this._mirrorNeedsFullSync = false;
     this._mirrorSyncPromise = null;
     this.lastCompileSource = 'cloud';
@@ -1022,12 +1024,15 @@ class OverleafLiveManager {
       }
 
       // Overlay currently joined OT docs from memory so recent edits are never clobbered
+      this._mirrorWrittenText.clear();
       for (const [docId, client] of this.docs.entries()) {
         const ent = this.idToEntity.get(docId);
         const rel = safeMirrorRel(ent?.rel || '');
         if (!rel) continue;
-        if (await this._writeMirrorFile(rel, Buffer.from(String(client.text ?? ''), 'utf8'))) {
+        const text = String(client.text ?? '');
+        if (await this._writeMirrorFile(rel, Buffer.from(text, 'utf8'))) {
           validRels.add(rel.toLowerCase());
+          this._mirrorWrittenText.set(docId, text);
         }
       }
 
@@ -1065,7 +1070,11 @@ class OverleafLiveManager {
       const client = this.docs.get(docId);
       const text = client ? client.text : (this.docTextCache.has(docId) ? this.docTextCache.get(docId) : null);
       if (text === null) continue;
-      await this._writeMirrorFile(ent.rel, Buffer.from(String(text), 'utf8')).catch(() => {});
+      const str = String(text);
+      if (this._mirrorWrittenText.get(docId) === str) continue;
+      if (await this._writeMirrorFile(ent.rel, Buffer.from(str, 'utf8')).catch(() => false)) {
+        this._mirrorWrittenText.set(docId, str);
+      }
     }
 
     const pendingFiles = [...this._mirrorPendingFiles];
@@ -1157,10 +1166,13 @@ class OverleafLiveManager {
       file: mirrorRootFile,
       engine,
       live: Boolean(live),
-      background: Boolean(background)
+      background: Boolean(background),
+      ignoreProjectRc: true,
+      fastIncremental: true,
+      skipRootPdfCopy: true
     });
 
-    if (res?.cancelled || res?.queued) return res;
+    if (res?.cancelled || res?.queued || res?.needsProjectBuild) return res;
 
     const problems = Array.isArray(res?.problems)
       ? res.problems.map((p) => ({

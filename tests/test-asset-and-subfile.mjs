@@ -262,4 +262,67 @@ const { resolveOpenTarget } = require('../electron/lib/open-target');
   assert.equal(extractPrecompilablePreamble('\\documentclass{article}\n\\begin{document}\nhi\n\\end{document}'), null);
 }
 
-console.log('PASS asset-and-subfile: all 10 suites passed.');
+// 11. Smart 1-pass incremental convergence, smart BibTeX skip, and ignoreProjectRc
+{
+  const { Compiler } = require('../electron/lib/compiler');
+  await fs.mkdir(path.resolve('.tmp'), { recursive: true });
+  const root = await fs.mkdtemp(path.resolve('.tmp/test-fast-inc-'));
+  try {
+    const mainFile = path.join(root, 'main.tex');
+    const bibFile = path.join(root, 'refs.bib');
+    await fs.writeFile(mainFile, '\\documentclass{article}\n\\begin{document}\nSee \\cite{a}.\n\\bibliography{refs}\n\\end{document}\n');
+    await fs.writeFile(bibFile, '@article{a, title={A}}\n');
+    await fs.writeFile(path.join(root, 'latexmkrc'), '$pdflatex = "pdflatex %O %S";\n');
+    const store = { get: (_k, d) => d };
+    const project = { root, rootFile: mainFile, revision: 1 };
+    const execCalls = [];
+    const compiler = new Compiler({
+      store,
+      project,
+      tex: {
+        distro: 'texlive',
+        get: (n) => (['pdflatex', 'bibtex', 'latexmk'].includes(n) ? n : ''),
+        env: {}
+      },
+      fallbackCacheRoot: path.join(root, '.profile'),
+      send: () => {},
+      execute: async (exe, args) => {
+        execCalls.push(exe);
+        const cacheArg = args.find((a) => /^-output-directory=/.test(a));
+        const cache = cacheArg ? cacheArg.split('=').slice(1).join('=') : path.join(root, '.latex_cache');
+        await fs.mkdir(cache, { recursive: true });
+        if (exe === 'bibtex') {
+          await fs.writeFile(path.join(cache, 'main.bbl'), '\\begin{thebibliography}{1}\\end{thebibliography}\n');
+          return { code: 0, output: 'BibTeX ok' };
+        }
+        await fs.writeFile(path.join(cache, 'main.aux'), '\\citation{a}\n\\bibdata{refs}\n\\bibstyle{plain}\n');
+        await fs.writeFile(path.join(cache, 'main.log'), 'Output written on main.pdf (1 page).\n');
+        await fs.writeFile(path.join(cache, 'main.pdf'), '%PDF-1.7 fast');
+        return { code: 0, output: 'Output written on main.pdf (1 page).' };
+      }
+    });
+
+    // Cold build with ignoreProjectRc + fastIncremental: bypasses latexmkrc/needsProjectBuild, runs Pass 1 + BibTeX + Pass 2
+    const r1 = await compiler.build({ file: mainFile, engine: 'pdflatex', background: true, ignoreProjectRc: true, fastIncremental: true, skipRootPdfCopy: true });
+    assert.equal(r1.ok, true);
+    assert.equal(r1.needsProjectBuild, undefined);
+    assert.deepEqual(execCalls, ['pdflatex', 'bibtex', 'pdflatex']);
+
+    // Warm rebuild with unchanged aux/bib: skips BibTeX AND finishes in 1 single pass!
+    execCalls.length = 0;
+    const r2 = await compiler.build({ file: mainFile, engine: 'pdflatex', ignoreProjectRc: true, fastIncremental: true, skipRootPdfCopy: true });
+    assert.equal(r2.ok, true);
+    assert.deepEqual(execCalls, ['pdflatex']);
+
+    // Modify refs.bib -> triggers BibTeX + Pass 2 again automatically
+    execCalls.length = 0;
+    await fs.writeFile(bibFile, '@article{a, title={A updated}}\n@article{b, title={B}}\n');
+    const r3 = await compiler.build({ file: mainFile, engine: 'pdflatex', ignoreProjectRc: true, fastIncremental: true, skipRootPdfCopy: true });
+    assert.equal(r3.ok, true);
+    assert.deepEqual(execCalls, ['pdflatex', 'bibtex', 'pdflatex']);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
+
+console.log('PASS asset-and-subfile: all 11 suites passed.');
