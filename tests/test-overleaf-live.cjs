@@ -532,7 +532,11 @@ const {
       mirrorDir: mirrorBase,
       localCompilerFactory: ({ project }) => ({
         running: false,
-        tex: { engines: { xelatex: '/usr/bin/xelatex', pdflatex: '/usr/bin/pdflatex' }, get: (k) => (k === 'xelatex' || k === 'pdflatex' ? '/usr/bin/' + k : '') },
+        tex: {
+          tools: { xelatex: '/usr/bin/xelatex', pdflatex: '/usr/bin/pdflatex' },
+          get(k) { return this.tools[k] || ''; },
+          info() { return { engines: { xelatex: !!this.tools.xelatex, pdflatex: !!this.tools.pdflatex } }; }
+        },
         async build(opts) {
           mockBuildCalls.push({ ...opts, projectRoot: project.root, projectRootFile: project.rootFile });
           const pdfOut = path.join(project.root, '.latex_cache', 'main.pdf');

@@ -1101,10 +1101,25 @@ class OverleafLiveManager {
     if (!this.active) throw new Error('尚未连接 Overleaf 实时项目');
     const compiler = this._ensureMirrorCompiler();
     if (!compiler) throw new Error('本地编译器不可用');
-    if (compiler.tex && typeof compiler.tex.detect === 'function' && !Object.values(compiler.tex.engines || {}).some(Boolean)) {
+    const hasEngine = () => {
+      if (!compiler.tex) return true;
+      if (typeof compiler.tex.get === 'function') {
+        return Boolean(
+          compiler.tex.get('xelatex') ||
+          compiler.tex.get('pdflatex') ||
+          compiler.tex.get('lualatex') ||
+          compiler.tex.get('latexmk')
+        );
+      }
+      if (typeof compiler.tex.info === 'function') {
+        return Object.values(compiler.tex.info()?.engines || {}).some(Boolean);
+      }
+      return Object.values(compiler.tex.tools || compiler.tex.engines || {}).some(Boolean);
+    };
+    if (compiler.tex && typeof compiler.tex.detect === 'function' && !hasEngine()) {
       compiler.tex.detect();
     }
-    if (compiler.tex && !Object.values(compiler.tex.engines || {}).some(Boolean)) {
+    if (!hasEngine()) {
       throw new Error('未检测到本地 LaTeX 引擎（TeX Live / MiKTeX），请先安装或切换回 Overleaf 云端编译');
     }
 
